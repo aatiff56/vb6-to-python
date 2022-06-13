@@ -1,5 +1,5 @@
 import enum
-import MdlConnection
+# import MdlConnection
 from datetime import datetime
 
 class OPCDATASOURCE(enum.Enum):
