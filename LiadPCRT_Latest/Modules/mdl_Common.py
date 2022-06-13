@@ -227,7 +227,7 @@ import registry as registry_values
 
 def QueryValue(key_category, key_name):
     
-    if(key_category == 'emeraid'):
+    if(key_category == 'emerald'):
         return registry_values.Emerald[key_name]
     elif(key_category == 'one'):
         return registry_values.one[key_name]

@@ -1,10 +1,10 @@
 import sys
-
-# from pip import main
+from ClassModules import ServerConn as serverConn
 import MdlADOFunctions as adoFunctions
 import mdl_Common as mdl_Common 
 import registry as registry_values
-# gServerConn = ServerConn(
+
+gServerConn = None
 # LeaderSVR = Server()
 strCon = ""
 strMetaCon = ""
@@ -14,6 +14,7 @@ ReadCounter = 0
 InWrite = False
 WriteCounter = 0
 ArrAppParams = []
+
 print('started')
 
 
@@ -29,7 +30,7 @@ def MDIMain():
     ServerStarted = False
 
     boolRTCommandActivation = False
-    if adoFunctions.fGetRstValLong(mdl_Common.QueryValue('emeraid','RTCommandActivation')) > 0:
+    if adoFunctions.fGetRstValLong(mdl_Common.QueryValue('emerald','RTCommandActivation')) > 0:
         boolRTCommandActivation = True
     if boolRTCommandActivation:
         ArrAppParams = registry_values.ArrAppPararms
@@ -45,7 +46,7 @@ def MDIMain():
         ArrAppParams[5] = '0'
     AllowClose = False
     
-#     gServerConn = ServerConn()
+    gServerConn = serverConn.ServerConn()
     
 #     ServerStarted = gServerConn.StartServerConn(ArrAppParams)
 #     LeaderSVR = gServerConn.Server

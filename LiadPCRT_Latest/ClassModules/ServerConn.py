@@ -1,15 +1,18 @@
-from LiadPCUnite.Global import Logs
 from datetime import datetime
+import Server as server
 
 class ServerConn:
-    logger = Logs.Logger()
     mSCID = 0
+    gServer = None
 
     def __init__(self):
-        if gServer is None:
+        try:
+            if self.gServer is None:
+                pass
+            else:
+                self.gServer.ConCount = self.gServer.ConCount + 1
+        except:
             pass
-        else:
-            gServer.ConCount = gServer.ConCount + 1        
 
     def StartServerConn(self, pArr):
         try:
@@ -17,14 +20,12 @@ class ServerConn:
                 self.mSCID = pArr(5)
             else:
                 self.mSCID = 0
-            gServer = self.Server()
+            gServer = server.Server()
             gServer.StartTime = datetime.now()
             LeaderSVR = gServer
             fn_return_value = gServer.StartServer(pArr())
             return fn_return_value
         except BaseException as error:
-            self.sqlCntr.CloseConnection()
-            self.logger.Error(error)
             return fn_return_value
 
     def __del__(self):        
