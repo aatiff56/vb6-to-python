@@ -1,27 +1,22 @@
-import sys
-# import os
-# print(os.getcwd())
-# os.chdir(os.getcwd() + '\\Modules')
+# import sys
 
-import MdlADOFunctions as adoFunctions
-import mdl_Common as mdl_Common 
-import registry as registry_values
-from ClassModules import ServerConn as serverConn
+import MdlADOFunctions
+import mdl_Common
+import registry
+import ServerConn
 
+from colorama import Fore
 
 gServerConn = None
 # LeaderSVR = Server()
 strCon = ""
 strMetaCon = ""
-strSchCN = ""
+strSchCN = ['']
 InRead = False
 ReadCounter = 0
 InWrite = False
 WriteCounter = 0
 ArrAppParams = []
-
-print('started')
-
 
 def MDIMain():
     tRes = False 
@@ -35,10 +30,10 @@ def MDIMain():
     ServerStarted = False
 
     boolRTCommandActivation = False
-    if adoFunctions.fGetRstValLong(mdl_Common.QueryValue('emerald','RTCommandActivation')) > 0:
+    if MdlADOFunctions.fGetRstValLong(mdl_Common.QueryValue('emerald','RTCommandActivation')) > 0:
         boolRTCommandActivation = True
     if boolRTCommandActivation:
-        ArrAppParams = registry_values.ArrAppPararms
+        ArrAppParams = registry.ArrAppPararms
         
         # sys.argv
     else:
@@ -51,9 +46,9 @@ def MDIMain():
         ArrAppParams[5] = '0'
     AllowClose = False
     
-    gServerConn = serverConn.ServerConn()
-    
-#     ServerStarted = gServerConn.StartServerConn(ArrAppParams)
+    gServerConn = ServerConn.ServerConn()    
+    print(Fore.GREEN + 'Starting server.')
+    ServerStarted = gServerConn.StartServerConn(ArrAppParams, strSchCN)
 #     LeaderSVR = gServerConn.Server
 #     strInterval = QueryValue('SOFTWARE\\Emerald', 'UpdateRate')
 #     if strInterval.isnumeric():
