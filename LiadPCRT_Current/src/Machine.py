@@ -1,5 +1,8 @@
 import MdlADOFunctions
 import MdlConnection
+import MdlUtilsH
+import MdlGlobal
+import ControlParam
 
 class Machine:
     __mID = 0
@@ -10,8 +13,7 @@ class Machine:
     __mMachineType = 0
     __mStatus = ''
     __mActiveJobID = 0
-    # __mActiveJob = Job()
-    # __mActiveJosh = Josh()
+    
     __mActiveJoshID = 0
     __mLastJobID = 0
     __mActiveLocalID = ''
@@ -37,9 +39,7 @@ class Machine:
     __mActiveMoldLocalID = ''
     __mMoldCavities = 0
     __mMoldActiveCavities = 0
-    # __mResetTotals = Collection()
-    # __mUpdateAddress = ControlParam()
-    # __mUpdateResetAddress = ControlParam()
+    
     __mLastShrinkTime = None
     __mJobStartTime = ''
     __mShrinkDataInterval = 0
@@ -77,23 +77,23 @@ class Machine:
     __mIsOffline = False
     __mCalcChannel100MaterialByCavity = False
     __mMonitorSetupWorkingTime = False
-    # __mControllerChannels = Collection()
-    # __mBatchTrigerP = ControlParam()
-    # __mBatchUpdateP = ControlParam()
-    # __mOPCServer = OPCServer()
-    # __mCParams = Collection()
-    # __mOPCGroupGeneral = OPCGroup()
+    
     __mHasBatchParams = False
     __mBatchTrigerSet = False
     __mBatchTrigerField = ''
     __mBatchUpdateField = ''
     __mBatchReadTable = ''
+    __mOPCServer = None
+    __mCParams = []
+    __WithEvents = None
+    __mOPCGroupGeneral = None
+
     __mCParamsServerHandles = 0
     __mCParamsErrors = 0
     __mBTServerHandles = 0
     __mBTErrors = 0
     mIOCancelID = 0
-    # mIOGroup = OPCGroup()
+    
     mInGeneralRead = False
     mInBatchRead = False
     __mIOStatus = 0
@@ -113,8 +113,7 @@ class Machine:
     __mLastCalcTime = None
     __mLastIOTime = None
     __mMachineStop = False
-    # __mStatusParam = ControlParam()
-    # __mRejectsParam = ControlParam()
+    
     __mStatusParamSet = False
     __mReadFailCount = 0
     __mReadWaitCount = 0
@@ -153,11 +152,8 @@ class Machine:
     __mMachineTimeEffFactor = 0
     __mRejectsEffFactor = 0
     __mCavitiesEffFactor = 0
-    # __mServer = Server()
-    # __mMainList = Collection()
-    # __mControllerList = Collection()
-    # __mChannelList = Collection()
-    # mTaskTriggers = Collection()
+    __mServer = None
+    
     __mMainListXML = ''
     __mControllerXML = ''
     __mChannelXML = ''
@@ -176,7 +172,7 @@ class Machine:
     __mCalcDelayPassed = False
     __mStartCalcAfterDelayInSeconds = 0
     __mUnitsInCycleType = 0
-    # __mValidations = Collection()
+    
     __mLocationBatchChangeSetupModeID = 0
     __mLocationBatchChangeSetupValue = 0
     __mActivePalletInventoryID = 0
@@ -1628,6 +1624,74 @@ class Machine:
     TimeLeftHr = property(fset=setTimeLeftHr, fget=getTimeLeftHr)
 
 
+    def GetParam(self, FieldName, vParam):
+        returnVal = None
+        tParam = ControlParam.ControlParam()
+        bParam = ControlParam.ControlParam()
+        Counter = 0
+        BCounter = 0
+        BatchCount = 0
+        returnVal = False
+
+        for Counter in vbForRange(1, self.__mCParams.Count):
+            tParam = self.__mCParams.Item(Counter)
+            if tParam.FName == FieldName:
+                vParam = tParam
+                returnVal = True
+                return returnVal
+            
+            if not ( tParam.BatchParams is None ) :
+                BatchCount = tParam.BatchParams.Count
+                if BatchCount > 0:
+                    for BCounter in vbForRange(1, BatchCount):
+                        bParam = tParam.BatchParams.Item(BCounter)
+                        if bParam.FName == FieldName:
+                            vParam = bParam
+                            returnVal = True
+                            return returnVal
+        tParam = None
+        bParam = None
+        return returnVal
+
+
+    def setTotalWeight(self, the_mTotalWeight):
+        strSQL = ''
+        mTotalWeight = the_mTotalWeight
+        tParam = ControlParam.ControlParam()
+        try:
+            
+            if mTotalWeight > self.__mTotalWeightLast:
+                mTotalWeightDiff = mTotalWeight - self.__mTotalWeightLast
+            else:
+                if self.IsOffline:
+                    mTotalWeightDiff = mTotalWeight - self.__mTotalWeightLast
+                else:
+                    mTotalWeightDiff = 0
+            strSQL = 'Update TblControllers Set TotalWeight = ' + str(mTotalWeight) + ' Where ID = ' + str(self.__mControllerID)
+            MdlConnection.CN.execute(strSQL)
+
+            if GetParam('TotalWeight', tParam) == True:
+                if not ( tParam.OPCItemHandle > 0 ) :
+                    tParam.LastValue = the_mTotalWeight
+
+        except BaseException as error:
+            if 'nnection' in error.args[0]:
+                if MdlConnection.CN:
+                    MdlConnection.Close(MdlConnection.CN)
+                MdlConnection.CN = MdlConnection.Open(MdlConnection.strCon)
+
+                if MdlConnection.MetaCn:
+                    MdlConnection.Close(MdlConnection.MetaCn)
+                MdlConnection.MetaCn = MdlConnection.Open(MdlConnection.strMetaCon)
+
+
+    def getTotalWeight(self):
+        returnVal = None
+        returnVal = self.__mTotalWeight
+        return returnVal
+    TotalWeight = property(fset=setTotalWeight, fget=getTotalWeight)
+
+
     def INITMachine(self, MachineID, vOpcServer):
         returnVal = None
         strSQL = ''
@@ -1638,257 +1702,760 @@ class Machine:
         strGroupName = ''
         ChannelSplits = 0
         temp = ''
-        # tControllerChannel = Channel()
+        
         returnVal = False
         mUPDController = False
         mOPCServer = vOpcServer
 
-        if MachineID == 2:
-            returnVal = self.INITMachine()
-        strSQL = 'Select * From TblMachines Where ID = ' + str(MachineID)
+        try:
+            if MachineID == 2:
+                returnVal = self.INITMachine()
+            strSQL = 'Select * From TblMachines Where ID = ' + str(MachineID)
 
-        RstCursor = MdlConnection.CN.cursor()
-        RstCursor.execute(strSQL)
-        RstData = RstCursor.fetchone()
-        
-        if RstData:
-            mID = MachineID
-            mTypeID = MdlADOFunctions.fGetRstValLong(RstData.TypeID)
-            mLName = '' + RstData.MachineLName
-            mEName = '' + RstData.MachineName
-            mDepartment = MdlADOFunctions.fGetRstValLong(RstData.Department)
-            mControllerDefID = MdlADOFunctions.fGetRstValLong(RstData.ControllerDefID)
-            mControllerID = MdlADOFunctions.fGetRstValLong(RstData.ControllerID)
-            mMachineSize = MdlADOFunctions.fGetRstValDouble(RstData.MachineSize)
-            mMachineLoad = MdlADOFunctions.fGetRstValDouble(RstData.MachineLoad)
-            mDownHourCost = MdlADOFunctions.fGetRstValDouble(RstData.DownHourCost)
-            mWorkHourCost = MdlADOFunctions.fGetRstValDouble(RstData.WorkHourCost)
-            mRunJobDetailsCalc = MdlADOFunctions.fGetRstValBool(RstData.RunJobDetailsCalc, True)
-            mAlertOnStopSuction = MdlADOFunctions.fGetRstValBool(RstData.AlertOnStopSuction, False)
-            mStopSignalExist = MdlADOFunctions.fGetRstValBool(RstData.StopSignalExist, False)
-            mCycleFilterHValue = MdlADOFunctions.fGetRstValDouble(RstData.CycleFilterHValue)
-            mCycleFilterLValue = MdlADOFunctions.fGetRstValDouble(RstData.CycleFilterLValue)
-            mMaxCycleTime = MdlADOFunctions.fGetRstValDouble(RstData.MaxCycleTime)
-            mCalcCycleTime = MdlADOFunctions.fGetRstValBool(RstData.CalcCycleTime, False)
-            mMaterialCalc = MdlADOFunctions.fGetRstValBool(RstData.MaterialCalc, True)
-            mReseTotalCycles = MdlADOFunctions.fGetRstValBool(RstData.ReseTotalCycles, False)
-            mAlarmFile = '' + RstData.AlarmFile
-            mAutoAlarmClerance = MdlADOFunctions.fGetRstValBool(RstData.AutoAlarmClearance, True)
-            mStopSignal = MdlADOFunctions.fGetRstValLong(RstData.StopSignal)
-            mStopCyclesCount = MdlADOFunctions.fGetRstValDouble(RstData.StopCyclesCount)
-            mCycleTimeFilter = MdlADOFunctions.fGetRstValBool(RstData.CycleTimeFilter, True)
-            mIPCProductWeightCountRatio = MdlADOFunctions.fGetRstValDouble(RstData.IPCProductWeightCountRatio)
-            SetUpEndGeneralCycles = MdlADOFunctions.fGetRstValDouble(RstData.SetUpEndGeneralCycles)
-            mSetUpEndProductWeightCycles = MdlADOFunctions.fGetRstValDouble(RstData.SetUpEndProductWeightCycles)
-            mSetUpEndCycleTimeCycles = MdlADOFunctions.fGetRstValDouble(RstData.SetUpEndCycleTimeCycles)
-            mSetUpEndPWCTRelation = MdlADOFunctions.fGetRstValLong(RstData.SetUpEndPWCTRelation)
-            mAutoJobStartTimeCyclesWork = MdlADOFunctions.fGetRstValDouble(RstData.AutoJobStartTimeCyclesWork)
-            mAutoJobStartOnUnitsOverTarget = MdlADOFunctions.fGetRstValDouble(RstData.AutoJobStartOnUnitsOverTarget)
-            mTotalCyclesAutoAdvance = MdlADOFunctions.fGetRstValBool(RstData.TotalCyclesAutoAdvance, False)
-            mWeightDistanceRatioReset = MdlADOFunctions.fGetRstValBool(RstData.WeightDistanceRatioReset, False)
-            mMachineType = MdlADOFunctions.fGetRstValLong(RstData.TypeId)
-            mManualRead = MdlADOFunctions.fGetRstValBool(RstData.ManualRead, False)
-            mEnableAlarmsDuringSetup = MdlADOFunctions.fGetRstValBool(RstData.EnableAlarmsDuringSetup, False)
-            mEnableAlarmsDuringMachineStop = MdlADOFunctions.fGetRstValBool(RstData.EnableAlarmsDuringMachineStop, False)
+            RstCursor = MdlConnection.CN.cursor()
+            RstCursor.execute(strSQL)
+            RstData = RstCursor.fetchone()
             
-            mSetupEventIDOnSetupEnd = MdlADOFunctions.fGetRstValLong(RstData.SetupEventIDOnSetupEnd)
-            mSetupEventIDOnShiftEnd = MdlADOFunctions.fGetRstValLong(RstData.SetupEventIDOnShiftEnd)
-            mReportRejectsUnReported = MdlADOFunctions.fGetRstValBool(RstData.ReportRejectsUnReported, False)
-            mMoldEndTimeStatusOption = MdlADOFunctions.fGetRstValLong(RstData.MoldEndTimeStatusOption)
-            mMoldEndTimeCalcOption = MdlADOFunctions.fGetRstValLong(RstData.MoldEndTimeCalcOption)
-            mIsOffline = MdlADOFunctions.fGetRstValBool(RstData.IsOffline, False)
-            mAddRejectsOnSetupEnd = MdlADOFunctions.fGetRstValBool(RstData.AddRejectsOnSetupEnd, True)
-            mCalcChannel100MaterialByCavity = MdlADOFunctions.fGetRstValBool(RstData.CalcChannel100MaterialByCavity, True)
-            mDynamicWareHouseLocation = MdlADOFunctions.fGetRstValBool(RstData.DynamicWareHouseLocation, False)
-            mAllowAutoRejectsOnSetup = MdlADOFunctions.fGetRstValBool(RstData.AllowAutoRejectsOnSetup, True)
-            mConnectedByOPC = MdlADOFunctions.fGetRstValBool(RstData.ConnectedByOPC, True)
-            mMonitorSetupWorkingTime = MdlADOFunctions.fGetRstValBool(RstData.MonitorSetupWorkingTime, False)
-            temp = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('CycleTimeEffFactor', 'STblDepartments', 'ID = ' + str(mDepartment), 'CN'))
-            if temp == '':
-                temp = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('CValue', 'STblSystemVariableFields', 'FieldName = \'CycleTimeEffFactor\'', 'CN'))
-                if temp == '':
-                    temp = 1
-            mCycleTimeEffFactor = MdlADOFunctions.fGetRstValDouble(temp)
-            temp = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('MachineTimeEffFactor', 'STblDepartments', 'ID = ' + str(mDepartment), 'CN'))
-            if temp == '':
-                temp = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('CValue', 'STblSystemVariableFields', 'FieldName = \'MachineTimeEffFactor\'', 'CN'))
-                if temp == '':
-                    temp = 1
-            mMachineTimeEffFactor = MdlADOFunctions.fGetRstValDouble(temp)
-            temp = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('RejectsEffFactor', 'STblDepartments', 'ID = ' + str(mDepartment), 'CN'))
-            if temp == '':
-                temp = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('CValue', 'STblSystemVariableFields', 'FieldName = \'RejectsEffFactor\'', 'CN'))
-                if temp == '':
-                    temp = 1
-            mRejectsEffFactor = MdlADOFunctions.fGetRstValDouble(temp)
-            temp = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('CavitiesEffFactor', 'STblDepartments', 'ID = ' + str(mDepartment), 'CN'))
-            if temp == '':
-                temp = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('CValue', 'STblSystemVariableFields', 'FieldName = \'CavitiesEffFactor\'', 'CN'))
-                if temp == '':
-                    temp = 1
-            mCavitiesEffFactor = MdlADOFunctions.fGetRstValDouble(temp)
-            mDSIsActive = MdlADOFunctions.fGetRstValBool(RstData.DSIsActive, False)
-            mStartCalcAfterDelayInSeconds = MdlADOFunctions.fGetRstValLong(RstData.StartCalcAfterDelayInSeconds)
-            mUnitsInCycleType = MdlADOFunctions.fGetRstValLong(RstData.UnitsInCycleType)
-            if mUnitsInCycleType == 0:
-                mUnitsInCycleType = 1
-            mLocationBatchChangeSetupModeID = MdlADOFunctions.fGetRstValLong(RstData.LocationBatchChangeSetupModeID)
-            mLocationBatchChangeSetupValue = MdlADOFunctions.fGetRstValDouble(RstData.LocationBatchChangeSetupValue)
-            mActivePalletInventoryID = MdlADOFunctions.fGetRstValLong(RstData.ActivePalletInventoryID)
-            mAutoPrintLabel = MdlADOFunctions.fGetRstValBool(RstData.AutoPrintLabel, False)
-            mUpdateAddressOnJobActive = MdlADOFunctions.fGetRstValBool(RstData.UpdateAddressOnJobActive, False)
-            mActivePalletCreationModeID = MdlADOFunctions.fGetRstValLong(RstData.ActivePalletCreationModeID)
-            mProductionModeID = MdlADOFunctions.fGetRstValLong(RstData.ProductionModeID)
-            if mProductionModeID == 0:
-                mProductionModeID = 1
-            
-            strSQL = 'SELECT * FROM STblProductionModes WHERE ID = ' + mProductionModeID
-
-            PRstCursor = MdlConnection.CN.cursor()
-            PRstCursor.execute(strSQL)
-            PRstData = PRstCursor.fetchone()
-
-            if PRstData:
-                mProductionModeReasonID = MdlADOFunctions.fGetRstValLong(PRstData.EventReasonID)
-                mProductionModeGroupReasonID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('EventGroupID', 'STblEventDesr', 'ID = ' + mProductionModeReasonID))
-                mProductionModeDisableProductionTime = MdlADOFunctions.fGetRstValBool(PRstData.DisableProductionTime, False)
-                mProductionModeCalcEfficiencies = MdlADOFunctions.fGetRstValBool(PRstData.CalcEfficiencies, False)
-                mProductionModeOverCalendarEvent = MdlADOFunctions.fGetRstValBool(PRstData.OverCalendarEvent, True)
-            PRstCursor.close()
-            
-            mMachineStopSetting = MdlADOFunctions.fGetRstValLong(RstData.MachineStopSetting)
-            if mMachineStopSetting == 0:
-                mMachineStopSetting = 1
-            mMachineStopSettingSetPoint = MdlADOFunctions.fGetRstValDouble(RstData.MachineStopSettingSetPoint)
-            mDefaultCycleTime = MdlADOFunctions.fGetRstValDouble(RstData.DefaultCycleTime)
-            if mDefaultCycleTime == 0:
-                mDefaultCycleTime = 30
-            
-            if MdlADOFunctions.fGetRstValString(RstData.StatusLastChangeTime) != '':
-                mStatusLastChangeTime = RstData.StatusLastChangeTime
-            mDisconnectWorkerOnShiftChange = MdlADOFunctions.fGetRstValBool(RstData.DisconnectWorkerOnShiftChange, False)
-            mContinueEventReasonOnShiftChange = MdlADOFunctions.fGetRstValBool(RstData.ContinueEventReasonOnShiftChange, True)
-            mActiveCalendarEvent = MdlADOFunctions.fGetRstValBool(RstData.ActiveCalendarEvent, False)
-            mActiveCalendarEventProductionModeID = MdlADOFunctions.fGetRstValLong(RstData.ActiveCalendarEventProductionModeID)
-            mEngineSignal = MdlADOFunctions.fGetRstValLong(RstData.EngineSignal)
-            mEngineSignalExist = MdlADOFunctions.fGetRstValBool(RstData.EngineSignalExist, False)
-            mReportStopReasonByOpenCall = MdlADOFunctions.fGetRstValBool(RstData.ReportStopReasonByOpenCall, False)
-        else:
-            raise Exception('No records in TblMachines.')
-        RstCursor.close()
-        
-        strSQL = 'SELECT TOP 1 * FROM ViewRTLinesMachines WHERE MachineID = ' + str(self.ID)
-
-        RstCursor = MdlConnection.CN.cursor()
-        RstCursor.execute(strSQL)
-        RstData = RstCursor.fetchone()
-
-        if RstData:
-            self.LineID = MdlADOFunctions.fGetRstValLong(RstData.LineID)
-            self.RootEventAttachDurationMin = MdlADOFunctions.fGetRstValLong(RstData.RootEventAttachDurationMin)
-            self.LineFirstMachineID = MdlADOFunctions.fGetRstValLong(RstData.FirstMachineID)
-            self.LineLastMachineID = MdlADOFunctions.fGetRstValLong(RstData.LastMachineID)
-            if self.RootEventAttachDurationMin == 0:
+            if RstData:
+                mID = MachineID
+                mTypeID = MdlADOFunctions.fGetRstValLong(RstData.TypeID)
+                mLName = RstData.MachineLName
+                mEName = RstData.MachineName
+                mDepartment = MdlADOFunctions.fGetRstValLong(RstData.Department)
+                mControllerDefID = MdlADOFunctions.fGetRstValLong(RstData.ControllerDefID)
+                mControllerID = MdlADOFunctions.fGetRstValLong(RstData.ControllerID)
+                mMachineSize = MdlADOFunctions.fGetRstValDouble(RstData.MachineSize)
+                mMachineLoad = MdlADOFunctions.fGetRstValDouble(RstData.MachineLoad)
+                mDownHourCost = MdlADOFunctions.fGetRstValDouble(RstData.DownHourCost)
+                mWorkHourCost = MdlADOFunctions.fGetRstValDouble(RstData.WorkHourCost)
+                mRunJobDetailsCalc = MdlADOFunctions.fGetRstValBool(RstData.RunJobDetailsCalc, True)
+                mAlertOnStopSuction = MdlADOFunctions.fGetRstValBool(RstData.AlertOnStopSuction, False)
+                mStopSignalExist = MdlADOFunctions.fGetRstValBool(RstData.StopSignalExist, False)
+                mCycleFilterHValue = MdlADOFunctions.fGetRstValDouble(RstData.CycleFilterHValue)
+                mCycleFilterLValue = MdlADOFunctions.fGetRstValDouble(RstData.CycleFilterLValue)
+                mMaxCycleTime = MdlADOFunctions.fGetRstValDouble(RstData.MaxCycleTime)
+                mCalcCycleTime = MdlADOFunctions.fGetRstValBool(RstData.CalcCycleTime, False)
+                mMaterialCalc = MdlADOFunctions.fGetRstValBool(RstData.MaterialCalc, True)
+                mReseTotalCycles = MdlADOFunctions.fGetRstValBool(RstData.ReseTotalCycles, False)
+                mAlarmFile = str(RstData.AlarmFile)
+                mAutoAlarmClerance = MdlADOFunctions.fGetRstValBool(RstData.AutoAlarmClearance, True)
+                mStopSignal = MdlADOFunctions.fGetRstValLong(RstData.StopSignal)
+                mStopCyclesCount = MdlADOFunctions.fGetRstValDouble(RstData.StopCyclesCount)
+                mCycleTimeFilter = MdlADOFunctions.fGetRstValBool(RstData.CycleTimeFilter, True)
+                mIPCProductWeightCountRatio = MdlADOFunctions.fGetRstValDouble(RstData.IPCProductWeightCountRatio)
+                SetUpEndGeneralCycles = MdlADOFunctions.fGetRstValDouble(RstData.SetUpEndGeneralCycles)
+                mSetUpEndProductWeightCycles = MdlADOFunctions.fGetRstValDouble(RstData.SetUpEndProductWeightCycles)
+                mSetUpEndCycleTimeCycles = MdlADOFunctions.fGetRstValDouble(RstData.SetUpEndCycleTimeCycles)
+                mSetUpEndPWCTRelation = MdlADOFunctions.fGetRstValLong(RstData.SetUpEndPWCTRelation)
+                mAutoJobStartTimeCyclesWork = MdlADOFunctions.fGetRstValDouble(RstData.AutoJobStartTimeCyclesWork)
+                mAutoJobStartOnUnitsOverTarget = MdlADOFunctions.fGetRstValDouble(RstData.AutoJobStartOnUnitsOverTarget)
+                mTotalCyclesAutoAdvance = MdlADOFunctions.fGetRstValBool(RstData.TotalCyclesAutoAdvance, False)
+                mWeightDistanceRatioReset = MdlADOFunctions.fGetRstValBool(RstData.WeightDistanceRatioReset, False)
+                mMachineType = MdlADOFunctions.fGetRstValLong(RstData.TypeID)
+                mManualRead = MdlADOFunctions.fGetRstValBool(RstData.ManualRead, False)
+                mEnableAlarmsDuringSetup = MdlADOFunctions.fGetRstValBool(RstData.EnableAlarmsDuringSetup, False)
+                mEnableAlarmsDuringMachineStop = MdlADOFunctions.fGetRstValBool(RstData.EnableAlarmsDuringMachineStop, False)
                 
-                self.RootEventAttachDurationMin = MdlADOFunctions.fGetRstValLong(RstData.LineRootEventAttachDurationMin)
-        RstCursor.close()
-        
-        strSQL = 'Select RejectsRead, UnitsReportedOK From StblUnitsConfigurationTable Where MachineID = ' + str(MachineID)
-
-        RstCursor = MdlConnection.CN.cursor()
-        RstCursor.execute(strSQL)
-        RstData = RstCursor.fetchone()
-
-        if RstData:
-            mRejectsReadOption = '' + MdlADOFunctions.fGetRstValString(RstData.RejectsRead)
-            mUnitsReportedOKOption = '' + MdlADOFunctions.fGetRstValString(RstData.UnitsReportedOK)
-        RstCursor.close()
-        
-        strSQL = 'Select * From TblControllers Where ID = ' + mControllerID
-
-        RstCursor = MdlConnection.CN.cursor()
-        RstCursor.execute(strSQL)
-        RstData = RstCursor.fetchone()
-
-        if str(RstData.BatchIDTag)  != '' and  str(RstData.BatchReadTable)  != '':
-            mHasBatchParams = True
-            mBatchReadTable = '' + RstData.BatchReadTable
-            mBatchTrigerField = '' + RstData.BatchIDTag
-            mBatchUpdateField = '' + RstData.BatchIDTagW
-        else:
-            mHasBatchParams = False
-        if str(RstData.Job).isnumeric():
-            
-            strSQL = 'Select ID From TblJobCurrent Where ID = ' + MdlADOFunctions.fGetRstValLong(RstData.Job) + ' AND MachineID = ' + str(self.ID)
-
-            validateRstCursor = MdlConnection.CN.cursor()
-            validateRstCursor.execute(strSQL)
-            validateRstData = validateRstCursor.fetchone()
-
-            if validateRstData:
-                self.ActiveJobID = RstData.Job
-            else:
-                self.ActiveJobID = 0
-            validateRst.close()
-
-        if str(RstData.Job).isnumeric() and Server.CurrentShiftID > 0:
-            strSQL = 'Select ID From TblJoshCurrent Where JobID = ' + MdlADOFunctions.fGetRstValLong(RstData.Job) + ' AND MachineID = ' + str(self.ID) + ' AND ShiftID = ' + Server.CurrentShiftID
-            validateRst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-            validateRst.ActiveConnection = None
-            if not validateRst.EOF:
-                self.ActiveJoshID = validateRst.Fields("ID").Value
-            else:
-                self.ActiveJoshID = 0
-            validateRst.close()
-        mTotalWeight = MdlADOFunctions.fGetRstValDouble(RstData.TotalWeight)
-        mTotalWeightLast = self.TotalWeight
-        mTotalWeightDiff = 0
-        if MdlADOFunctions.fGetRstValString(RstData.LastCalcTime) != '':
-            self.LastCalcTime = ShortDate(RstData.LastCalcTime, True, True)
-        RstCursor.close()
-        strGroupName = 'M_' + mID + '_General'
-        mOPCGroupGeneral = mOPCServer.OPCGroups.Add()
-        mOPCGroupGeneral.IsActive = True
-        mOPCGroupGeneral.IsSubscribed = True
-        
-        mOPCGroupGeneral.UpdateRate = GeneralGroupRefreshRate
-        
-        rVal = ControllerFieldsLoad(mControllerID)
-        if self.ActiveJobID > 0:
-            JobLoad(self.ActiveJobID, False, False, True)
-            strSQL = 'Delete TblJobCurrent Where MachineID = ' + mID + ' AND ID <> ' + mActiveJobID + ' AND PConfigParentID <> ' + mActiveJobID
-            CN.Execute(strSQL)
-            
-        if mActiveJobID > 0:
-            fInitMachineTriggers(Me, mActiveJobID, True)
-        else:
-            fInitMachineTriggers(Me, VBGetMissingArgument(fInitMachineTriggers, 1), True)
-        
-        LoadMachineValidations(Me)
-        
-        CheckIfDosingSystem
-        mUPDController = True
-        mIgnoreCycleTimeFilter = False
-        returnVal = True
-        if Err.Number != 0:
-            if InStr(Err.Description, 'nnection') > 0:
-                if CN.State == 1:
-                    CN.close()
-                CN.Open()
-                if MetaCn.State == 1:
-                    MetaCn.close()
-                MetaCn.Open()
-                Err.Clear()
+                mSetupEventIDOnSetupEnd = MdlADOFunctions.fGetRstValLong(RstData.SetupEventIDOnSetupEnd)
+                mSetupEventIDOnShiftEnd = MdlADOFunctions.fGetRstValLong(RstData.SetupEventIDOnShiftEnd)
+                mReportRejectsUnReported = MdlADOFunctions.fGetRstValBool(RstData.ReportRejectsUnReported, False)
+                mMoldEndTimeStatusOption = MdlADOFunctions.fGetRstValLong(RstData.MoldEndTimeStatusOption)
+                mMoldEndTimeCalcOption = MdlADOFunctions.fGetRstValLong(RstData.MoldEndTimeCalcOption)
+                mIsOffline = MdlADOFunctions.fGetRstValBool(RstData.IsOffline, False)
+                mAddRejectsOnSetupEnd = MdlADOFunctions.fGetRstValBool(RstData.AddRejectsOnSetupEnd, True)
+                mCalcChannel100MaterialByCavity = MdlADOFunctions.fGetRstValBool(RstData.CalcChannel100MaterialByCavity, True)
+                mDynamicWareHouseLocation = MdlADOFunctions.fGetRstValBool(RstData.DynamicWareHouseLocation, False)
+                mAllowAutoRejectsOnSetup = MdlADOFunctions.fGetRstValBool(RstData.AllowAutoRejectsOnSetup, True)
+                mConnectedByOPC = MdlADOFunctions.fGetRstValBool(RstData.ConnectedByOPC, True)
+                mMonitorSetupWorkingTime = MdlADOFunctions.fGetRstValBool(RstData.MonitorSetupWorkingTime, False)
+                temp = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('CycleTimeEffFactor', 'STblDepartments', 'ID = ' + str(mDepartment), 'CN'))
+                if temp == '':
+                    temp = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('CValue', 'STblSystemVariableFields', 'FieldName = \'CycleTimeEffFactor\'', 'CN'))
+                    if temp == '':
+                        temp = 1
+                mCycleTimeEffFactor = MdlADOFunctions.fGetRstValDouble(temp)
+                temp = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('MachineTimeEffFactor', 'STblDepartments', 'ID = ' + str(mDepartment), 'CN'))
+                if temp == '':
+                    temp = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('CValue', 'STblSystemVariableFields', 'FieldName = \'MachineTimeEffFactor\'', 'CN'))
+                    if temp == '':
+                        temp = 1
+                mMachineTimeEffFactor = MdlADOFunctions.fGetRstValDouble(temp)
+                temp = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('RejectsEffFactor', 'STblDepartments', 'ID = ' + str(mDepartment), 'CN'))
+                if temp == '':
+                    temp = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('CValue', 'STblSystemVariableFields', 'FieldName = \'RejectsEffFactor\'', 'CN'))
+                    if temp == '':
+                        temp = 1
+                mRejectsEffFactor = MdlADOFunctions.fGetRstValDouble(temp)
+                temp = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('CavitiesEffFactor', 'STblDepartments', 'ID = ' + str(mDepartment), 'CN'))
+                if temp == '':
+                    temp = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('CValue', 'STblSystemVariableFields', 'FieldName = \'CavitiesEffFactor\'', 'CN'))
+                    if temp == '':
+                        temp = 1
+                mCavitiesEffFactor = MdlADOFunctions.fGetRstValDouble(temp)
+                mDSIsActive = MdlADOFunctions.fGetRstValBool(RstData.DSIsActive, False)
+                mStartCalcAfterDelayInSeconds = MdlADOFunctions.fGetRstValLong(RstData.StartCalcAfterDelayInSeconds)
+                mUnitsInCycleType = MdlADOFunctions.fGetRstValLong(RstData.UnitsInCycleType)
+                if mUnitsInCycleType == 0:
+                    mUnitsInCycleType = 1
+                mLocationBatchChangeSetupModeID = MdlADOFunctions.fGetRstValLong(RstData.LocationBatchChangeSetupModeID)
+                mLocationBatchChangeSetupValue = MdlADOFunctions.fGetRstValDouble(RstData.LocationBatchChangeSetupValue)
+                mActivePalletInventoryID = MdlADOFunctions.fGetRstValLong(RstData.ActivePalletInventoryID)
+                mAutoPrintLabel = MdlADOFunctions.fGetRstValBool(RstData.AutoPrintLabel, False)
+                mUpdateAddressOnJobActive = MdlADOFunctions.fGetRstValBool(RstData.UpdateAddressOnJobActive, False)
+                mActivePalletCreationModeID = MdlADOFunctions.fGetRstValLong(RstData.ActivePalletCreationModeID)
+                mProductionModeID = MdlADOFunctions.fGetRstValLong(RstData.ProductionModeID)
+                if mProductionModeID == 0:
+                    mProductionModeID = 1
                 
-            Err.Clear()
-            
-        if Rst.State != 0:
+                strSQL = 'SELECT * FROM STblProductionModes WHERE ID = ' + str(mProductionModeID)
+
+                PRstCursor = MdlConnection.CN.cursor()
+                PRstCursor.execute(strSQL)
+                PRstData = PRstCursor.fetchone()
+
+                if PRstData:
+                    mProductionModeReasonID = MdlADOFunctions.fGetRstValLong(PRstData.EventReasonID)
+                    mProductionModeGroupReasonID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('EventGroupID', 'STblEventDesr', 'ID = ' + str(mProductionModeReasonID)))
+                    mProductionModeDisableProductionTime = MdlADOFunctions.fGetRstValBool(PRstData.DisableProductionTime, False)
+                    mProductionModeCalcEfficiencies = MdlADOFunctions.fGetRstValBool(PRstData.CalcEfficiencies, False)
+                    mProductionModeOverCalendarEvent = MdlADOFunctions.fGetRstValBool(PRstData.OverCalendarEvent, True)
+                PRstCursor.close()
+                
+                mMachineStopSetting = MdlADOFunctions.fGetRstValLong(RstData.MachineStopSetting)
+                if mMachineStopSetting == 0:
+                    mMachineStopSetting = 1
+                mMachineStopSettingSetPoint = MdlADOFunctions.fGetRstValDouble(RstData.MachineStopSettingSetPoint)
+                mDefaultCycleTime = MdlADOFunctions.fGetRstValDouble(RstData.DefaultCycleTime)
+                if mDefaultCycleTime == 0:
+                    mDefaultCycleTime = 30
+                
+                if MdlADOFunctions.fGetRstValString(RstData.StatusLastChangeTime) != '':
+                    mStatusLastChangeTime = RstData.StatusLastChangeTime
+                mDisconnectWorkerOnShiftChange = MdlADOFunctions.fGetRstValBool(RstData.DisconnectWorkerOnShiftChange, False)
+                mContinueEventReasonOnShiftChange = MdlADOFunctions.fGetRstValBool(RstData.ContinueEventReasonOnShiftChange, True)
+                mActiveCalendarEvent = MdlADOFunctions.fGetRstValBool(RstData.ActiveCalendarEvent, False)
+                mActiveCalendarEventProductionModeID = MdlADOFunctions.fGetRstValLong(RstData.ActiveCalendarEventProductionModeID)
+                mEngineSignal = MdlADOFunctions.fGetRstValLong(RstData.EngineSignal)
+                mEngineSignalExist = MdlADOFunctions.fGetRstValBool(RstData.EngineSignalExist, False)
+                mReportStopReasonByOpenCall = MdlADOFunctions.fGetRstValBool(RstData.ReportStopReasonByOpenCall, False)
+            else:
+                raise Exception('No records in TblMachines.')
             RstCursor.close()
-        Rst = None
-        if validateRst.State != 0:
-            validateRst.close()
-        validateRst = None
+            
+            strSQL = 'SELECT TOP 1 * FROM ViewRTLinesMachines WHERE MachineID = ' + str(self.ID)
+
+            RstCursor = MdlConnection.CN.cursor()
+            RstCursor.execute(strSQL)
+            RstData = RstCursor.fetchone()
+
+            if RstData:
+                self.LineID = MdlADOFunctions.fGetRstValLong(RstData.LineID)
+                self.RootEventAttachDurationMin = MdlADOFunctions.fGetRstValLong(RstData.RootEventAttachDurationMin)
+                self.LineFirstMachineID = MdlADOFunctions.fGetRstValLong(RstData.FirstMachineID)
+                self.LineLastMachineID = MdlADOFunctions.fGetRstValLong(RstData.LastMachineID)
+                if self.RootEventAttachDurationMin == 0:
+                    
+                    self.RootEventAttachDurationMin = MdlADOFunctions.fGetRstValLong(RstData.LineRootEventAttachDurationMin)
+            RstCursor.close()
+            
+            strSQL = 'Select RejectsRead, UnitsReportedOK From StblUnitsConfigurationTable Where MachineID = ' + str(MachineID)
+
+            RstCursor = MdlConnection.CN.cursor()
+            RstCursor.execute(strSQL)
+            RstData = RstCursor.fetchone()
+
+            if RstData:
+                mRejectsReadOption = MdlADOFunctions.fGetRstValString(RstData.RejectsRead)
+                mUnitsReportedOKOption = MdlADOFunctions.fGetRstValString(RstData.UnitsReportedOK)
+            RstCursor.close()
+            
+            strSQL = 'Select * From TblControllers Where ID = ' + str(mControllerID)
+
+            RstCursor = MdlConnection.CN.cursor()
+            RstCursor.execute(strSQL)
+            RstData = RstCursor.fetchone()
+
+            if str(RstData.BatchIDTag)  != '' and  str(RstData.BatchReadTable)  != '':
+                mHasBatchParams = True
+                mBatchReadTable = RstData.BatchReadTable
+                mBatchTrigerField = RstData.BatchIDTag
+                mBatchUpdateField = RstData.BatchIDTagW
+            else:
+                mHasBatchParams = False
+            if str(RstData.Job).isnumeric():
+                strSQL = 'Select ID From TblJobCurrent Where ID = ' + str(MdlADOFunctions.fGetRstValLong(RstData.Job)) + ' AND MachineID = ' + str(self.ID)
+                validateRstCursor = MdlConnection.CN.cursor()
+                validateRstCursor.execute(strSQL)
+                validateRstData = validateRstCursor.fetchone()
+
+                if validateRstData:
+                    self.ActiveJobID = RstData.Job
+                else:
+                    self.ActiveJobID = 0
+                validateRstCursor.close()
+
+            if str(RstData.Job).isnumeric() and self.Server.CurrentShiftID > 0:
+                strSQL = 'Select ID From TblJoshCurrent Where JobID = ' + str(MdlADOFunctions.fGetRstValLong(RstData.Job)) + ' AND MachineID = ' + str(self.ID) + ' AND ShiftID = ' + str(self.Server.CurrentShiftID)
+                validateRstCursor = MdlConnection.CN.cursor()
+                validateRstCursor.execute(strSQL)
+                validateRstData = validateRstCursor.fetchone()
+
+                if validateRstData:
+                    self.ActiveJoshID = validateRstCursor.ID
+                else:
+                    self.ActiveJoshID = 0
+                validateRstCursor.close()
+
+            mTotalWeight = MdlADOFunctions.fGetRstValDouble(RstData.TotalWeight)
+            mTotalWeightLast = self.TotalWeight
+            mTotalWeightDiff = 0
+            if MdlADOFunctions.fGetRstValString(RstData.LastCalcTime) != '':
+                self.LastCalcTime = MdlUtilsH.ShortDate(RstData.LastCalcTime, True, True)
+            RstCursor.close()
+
+            strGroupName = 'M_' + str(mID) + '_General'
+            # mOPCGroupGeneral = mOPCServer.OPCGroups.Add()
+            # mOPCGroupGeneral.IsActive = True
+            # mOPCGroupGeneral.IsSubscribed = True
+            # mOPCGroupGeneral.UpdateRate = MdlGlobal.GeneralGroupRefreshRate
+            
+            rVal = self.__ControllerFieldsLoad(mControllerID)
+            if self.ActiveJobID > 0:
+                JobLoad(self.ActiveJobID, False, False, True)
+                strSQL = 'Delete TblJobCurrent Where MachineID = ' + str(mID) + ' AND ID <> ' + str(mActiveJobID) + ' AND PConfigParentID <> ' + str(mActiveJobID)
+                MdlConnection.CN.execute(strSQL)
+                
+            if mActiveJobID > 0:
+                fInitMachineTriggers(self, mActiveJobID, True)
+            else:
+                fInitMachineTriggers(self, VBGetMissingArgument(fInitMachineTriggers, 1), True)
+            
+            LoadMachineValidations(self)
+            
+            CheckIfDosingSystem()
+            mUPDController = True
+            mIgnoreCycleTimeFilter = False
+            returnVal = True
+
+        except BaseException as error:
+            if 'nnection' in error.args[0]:
+                if MdlConnection.CN:
+                    MdlConnection.Close(MdlConnection.CN)
+                MdlConnection.Open(MdlConnection.CN, MdlConnection.strCon)
+
+                if MdlConnection.MetaCn:
+                    MdlConnection.Close(MdlConnection.MetaCn)
+                MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
+
+        if RstCursor:
+            RstCursor.close()
+        RstCursor = None
+
+        if validateRstCursor:
+            validateRstCursor.close()
+        validateRstCursor = None
         tControllerChannel = None
         
+        return returnVal
+
+
+    def __ControllerFieldsLoad(self, CsID):
+        returnVal = None
+        strSQL = ''
+        temp = ''
+        strItemID = ''
+        strGroupName = ''
+        Rst = None
+        tControlParam = ControlParam.ControlParam()
+        vParam = ControlParam.ControlParam()
+        rParam = ControlParam.ControlParam()
+        ParamFound = False
+        rVal = 0
+        Counter = 0
+        returnVal = False
+
+        try:
+            strSQL = 'Select * From TblControllerFields Where ControllerID = ' + str(CsID) + ' AND BatchRead = 0 ORDER BY ChannelID, ID'
+            RstCursor = MdlConnection.CN.cursor()
+            RstCursor.execute(strSQL)
+            RstData = RstCursor.fetchall()
+
+            for RstValue in RstData:
+                tControlParam = ControlParam.ControlParam()
+                tControlParam.ID = RstValue.ID
+                tControlParam.ChannelID = MdlADOFunctions.fGetRstValLong(RstValue.ChannelID)
+                tControlParam.ChannelNum = MdlADOFunctions.fGetRstValLong(RstValue.ChannelNum)
+                tControlParam.CVarAddress = RstValue.TagAddress
+                tControlParam.FieldID = RstValue.ID
+                tControlParam.FName = RstValue.FieldName
+                tControlParam.LName = RstValue.LName
+                tControlParam.EName = RstValue.EName
+                tControlParam.SyncWrite = MdlADOFunctions.fGetRstValBool(RstValue.SyncWrite, False)
+                tControlParam.TagName = RstValue.CiTagName
+                tControlParam.CalcFunction = RstValue.CalcFunction
+                tControlParam.ChannelNum = RstValue.ChannelNum
+                tControlParam.RawZero = MdlADOFunctions.fGetRstValDouble(RstValue.RawZero)
+                tControlParam.RawFull = MdlADOFunctions.fGetRstValDouble(RstValue.RawFull)
+                tControlParam.ScaledZero = MdlADOFunctions.fGetRstValDouble(RstValue.ScaleZero)
+                tControlParam.ScaledFull = MdlADOFunctions.fGetRstValDouble(RstValue.ScaleFull)
+                tControlParam.DirectRead = MdlADOFunctions.fGetRstValBool(RstValue.DirectRead, False)
+                tControlParam.FieldDataType = MdlADOFunctions.fGetRstValLong(RstValue.FieldDataType)
+                tControlParam.CitectDeviceType = MdlADOFunctions.fGetRstValLong(RstValue.CitectDeviceType)
+                tControlParam.AlarmCycleAcknowledge = MdlADOFunctions.fGetRstValBool(RstValue.AlarmCylceAcknowledge, False)
+                tControlParam.AlarmPerminentAcknowledge = MdlADOFunctions.fGetRstValBool(RstValue.AlarmPerminentAcknowledge, False)
+                #tControlParam.AutoAlarmClearance = MdlADOFunctions.fGetRstValBool(rst!AutoAlarmClearance, False) 'Alex 11/03/2008
+                tControlParam.SourceTableName = RstValue.SourceTableName
+                tControlParam.SourceFieldName = RstValue.SourceFieldName
+                tControlParam.SourceStrWhere = RstValue.SourceStrWhere
+                #Rejects
+                tControlParam.RejectReasonID = MdlADOFunctions.fGetRstValLong(RstValue.RejectReasonID)
+                tControlParam.RejectReasonOption = MdlADOFunctions.fGetRstValLong(RstValue.RejectReasonOption)
+                #Eran, 10/01/2017
+                tControlParam.RejectReasonDirectRead = MdlADOFunctions.fGetRstValBool(RstValue.RejectReasonDirectRead, False)
+                #Yakir, 26/8/2012
+                if tControlParam.RejectReasonID != 0:
+                    tControlParam.RejectsIncludeInRejectsTotal = MdlADOFunctions.fGetRstValBool(MdlADOFunctions.GetSingleValue('IncludeInRejectsTotal', 'STbDefectReasons', 'ID = ' + str(tControlParam.RejectReasonID), 'CN'), True)
+                tControlParam.ChangeJobOnValueChanged = MdlADOFunctions.fGetRstValBool(RstValue.ChangeJobOnValueChanged, False)
+                tControlParam.PrintLabelID = MdlADOFunctions.fGetRstValLong(RstValue.PrintLabelID)
+                tControlParam.PrintLabelMachineID = MdlADOFunctions.fGetRstValLong(RstValue.PrintLabelMachineID)
+                tControlParam.CalcStringExpression = MdlADOFunctions.fGetRstValString(RstValue.CalcStringExpression)
+                #Validations parameters.
+                tControlParam.ValidateValue = MdlADOFunctions.fGetRstValBool(RstValue.ValidateValue, False)
+                tControlParam.MinValueUnitsPerMin = MdlADOFunctions.fGetRstValDouble(RstValue.MinValueUnitsPerMin)
+                tControlParam.MaxValueUnitsPerMin = MdlADOFunctions.fGetRstValDouble(RstValue.MaxValueUnitsPerMin)
+                tControlParam.ForceValueTimeout = MdlADOFunctions.fGetRstValDouble(RstValue.ForceValueTimeout)
+                if tControlParam.ForceValueTimeout == 0:
+                    tControlParam.ForceValueTimeout = 5
+                tControlParam.PrevValidValue = MdlADOFunctions.fGetRstValString(RstValue.CurrentValidValue)
+                tControlParam.LastValidValue = MdlADOFunctions.fGetRstValString(RstValue.CurrentValidValue)
+                if MdlADOFunctions.fGetRstValString(RstValue.ValidValueSampleTime) != '':
+                    tControlParam.LastValidSampleTime = RstValue.ValidValueSampleTime
+                tControlParam.StartCalcAfterDelayInSeconds = MdlADOFunctions.fGetRstValLong(RstValue.StartCalcAfterDelayInSeconds)
+                if tControlParam.RawZero != tControlParam.RawFull:
+                    tControlParam.CalcScalingRatio()
+                if str(RstValue.FPrecision).isnumeric():
+                    tControlParam.Precision = RstValue.FPrecision
+                else:
+                    tControlParam.Precision = 0
+                tControlParam.RoundType = MdlADOFunctions.fGetRstValLong(RstValue.RoundType)
+                if RstValue.AlarmFile:
+                    tControlParam.AlarmFile = RstValue.AlarmFile
+                else:
+                    tControlParam.AlarmFile = ''
+                tControlParam.InMainTable = RstValue.InMainTable
+                if RstValue.CreateNC == True:
+                    tControlParam.IgnoreAlarmAcknowledge = MdlADOFunctions.fGetRstValBool(RstValue.IgnoreAlarmAcknowledge, False)
+                    tControlParam.ErrorAlarmActive = True
+                    if RstValue.AlarmType > 0:
+                        tControlParam.AlarmActiveVoice = True
+                    if RstValue.AlarmArea > 0:
+                        tControlParam.AlarmArea = RstValue.AlarmArea
+                    else:
+                        tControlParam.AlarmArea = 0
+                    if MdlADOFunctions.fGetRstValBool(RstValue.SendSMSOnAlarm, False):
+                        tControlParam.SendSMSOnAlarm = True
+                    else:
+                        tControlParam.SendSMSOnAlarm = False
+                    tControlParam.SendEmailOnAlarm = MdlADOFunctions.fGetRstValBool(RstValue.SendEmailOnAlarm, False)
+                    if RstValue.AlarmPriv:
+                        tControlParam.ErrorCountAlarm = RstValue.AlarmPriv
+                    else:
+                        tControlParam.ErrorCountAlarm = MdlGlobal.cntErrorCountAlarm
+                    #Yakir, 5/6/2012
+                    tControlParam.AlarmFileReplayInterval = MdlADOFunctions.fGetRstValLong(RstValue.AlarmFileReplayInterval)
+                    tControlParam.AlarmMinimumDuration = MdlADOFunctions.fGetRstValLong(RstValue.AlarmMinimumDuration)
+                    tControlParam.EnableAlarmsDuringSetup = MdlADOFunctions.fGetRstValBool(RstValue.EnableAlarmsDuringSetup, True)
+                    tControlParam.SendPushOnAlarm = MdlADOFunctions.fGetRstValBool(RstValue.SendPushOnAlarm, False)
+                else:
+                    tControlParam.ErrorAlarmActive = False
+                #MachinePropertyID
+                tControlParam.PropertyID = MdlADOFunctions.fGetRstValLong(RstValue.MachinePropertyID)
+                #Add To List
+                if RstValue.CitectDeviceType == 1:
+                    strItemID = RstValue.OPCTagName
+                    # tControlParam.OPCItem = mOPCGroupGeneral.OPCItems.AddItem(strItemID, tControlParam.ID * 10)
+                    # tControlParam.OPCItemHandle = tControlParam.ID * 10
+                    # mCParamsServerHandles = vbObjectInitialize((mOPCGroupGeneral.OPCItems.Count,), Variant, mCParamsServerHandles)
+                    # mCParamsServerHandles[mOPCGroupGeneral.OPCItems.Count] = tControlParam.OPCItem.ServerHandle
+                    # mCParamsErrors = vbObjectInitialize((mOPCGroupGeneral.OPCItems.Count,), Variant, mCParamsErrors)
+
+                self.__mCParams.Add(tControlParam, str(tControlParam.FName))
+                tControlParam.pMachine = Me
+                #''FIX for RT INIT After connection to the controller was bad.
+                if tControlParam.FName == 'TotalCycles':
+                    tControlParam.LastValue = tControlParam.LastValidValue
+                #Write Tag
+                if MdlADOFunctions.fGetRstValLong(RstValue.CitectDeviceType) == 1 and not  ( RstValue.TagWriteAddress == '0' or RstValue.TagWriteAddress == '' ) :
+                    tControlParam.WriteTag = True
+                    strItemID = RstValue.OPCTagNameW
+                    # tControlParam.OPCItemW = mOPCGroupGeneral.OPCItems.AddItem(strItemID, tControlParam.ID * 10 + 1)
+                    # tControlParam.OPCItemWHandle = tControlParam.ID * 10 + 1
+                    # mCParamsServerHandles = vbObjectInitialize((mOPCGroupGeneral.OPCItems.Count,), Variant, mCParamsServerHandles)
+                    # mCParamsServerHandles[mOPCGroupGeneral.OPCItems.Count] = tControlParam.OPCItem.ServerHandle
+                    # mCParamsErrors = vbObjectInitialize((mOPCGroupGeneral.OPCItems.Count,), Variant, mCParamsErrors)
+
+                if MdlADOFunctions.fGetRstValLong(RstValue.CitectDeviceType) == 1 and not  ( RstValue.SPOPCTagName == '0' or RstValue.SPOPCTagName == '' ) :
+                    #tControlParam.WriteTag = True
+                    strItemID = RstValue.SPOPCTagName
+                    # tControlParam.SPOPCItem = mOPCGroupGeneral.OPCItems.AddItem(strItemID, tControlParam.ID * 10 + 2)
+                    # tControlParam.SPOPCItemHandle = tControlParam.ID * 10 + 2
+                    # mCParamsServerHandles = vbObjectInitialize((mOPCGroupGeneral.OPCItems.Count,), Variant, mCParamsServerHandles)
+                    # mCParamsServerHandles[mOPCGroupGeneral.OPCItems.Count] = tControlParam.OPCItem.ServerHandle
+                    # mCParamsErrors = vbObjectInitialize((mOPCGroupGeneral.OPCItems.Count,), Variant, mCParamsErrors)
+
+                if MdlADOFunctions.fGetRstValLong(RstValue.CitectDeviceType) == 1 and not  ( RstValue.SPLOPCTagName == '0' or RstValue.SPLOPCTagName == '' ) :
+                    #tControlParam.WriteTag = True
+                    strItemID = RstValue.SPLOPCTagName
+                    # tControlParam.SPLOPCItem = mOPCGroupGeneral.OPCItems.AddItem(strItemID, tControlParam.ID * 10 + 2)
+                    # tControlParam.SPOPCItemHandle = tControlParam.ID * 10 + 3
+                    # mCParamsServerHandles = vbObjectInitialize((mOPCGroupGeneral.OPCItems.Count,), Variant, mCParamsServerHandles)
+                    # mCParamsServerHandles[mOPCGroupGeneral.OPCItems.Count] = tControlParam.OPCItem.ServerHandle
+                    # mCParamsErrors = vbObjectInitialize((mOPCGroupGeneral.OPCItems.Count,), Variant, mCParamsErrors)
+
+                if MdlADOFunctions.fGetRstValLong(RstValue.CitectDeviceType) == 1 and not  ( RstValue.SPHOPCTagName == '0' or RstValue.SPHOPCTagName == '' ) :
+                    #tControlParam.WriteTag = True
+                    strItemID = RstValue.SPHOPCTagName
+                    # tControlParam.SPHOPCItem = mOPCGroupGeneral.OPCItems.AddItem(strItemID, tControlParam.ID * 10 + 2)
+                    # tControlParam.SPHOPCItemHandle = tControlParam.ID * 10 + 4
+                    # mCParamsServerHandles = vbObjectInitialize((mOPCGroupGeneral.OPCItems.Count,), Variant, mCParamsServerHandles)
+                    # mCParamsServerHandles[mOPCGroupGeneral.OPCItems.Count] = tControlParam.OPCItem.ServerHandle
+                    # mCParamsErrors = vbObjectInitialize((mOPCGroupGeneral.OPCItems.Count,), Variant, mCParamsErrors)
+
+                if mHasBatchParams == True:
+                    #Has batch fields
+                    if RstValue.FieldName == mBatchTrigerField:
+                        mBatchTrigerP = tControlParam
+                        mBatchTrigerSet = True
+                        strGroupName = 'M_' + str(mID) + '_BatchTrigger'
+                        # Set mOPCGroupBatchTrigger = mOPCServer.OPCGroups.Add()
+                        # mOPCGroupBatchTrigger.IsActive = False
+                        # mOPCGroupBatchTrigger.IsSubscribed = False
+                        # mOPCGroupBatchTrigger.UpdateRate = 0
+                        # mOPCGroupBatchTrigger.OPCItems.AddItem strItemID, tControlParam.id * 10
+                        # ReDim mBTServerHandles(1)
+                        # ReDim mBTErrors(1)
+                        # mBTServerHandles(1) = tControlParam.OPCItem.ServerHandle
+                        
+                        tControlParam.BatchGroupCreate
+                        tControlParam.BatchTable = mBatchReadTable
+                    if mBatchUpdateField != '' and RstValue.FieldName == mBatchUpdateField:
+                        mBatchUpdateP = tControlParam
+                #If tControlParam.OPCItemHandle = 0 And (tControlParam.CalcFunction = "0" Or tControlParam.CalcFunction = "") Then
+                #    tControlParam.LastValue = "" & Rst!CurrentValue
+                #End If
+
+                if RstValue.IsSPCValue == True:
+                    tControlParam.IsSPCValue = True
+                    if RstValue.SPCSamplesMaxCount > 0:
+                        tControlParam.SPCSamplesMaxCount = RstValue.SPCSamplesMaxCount
+                    else:
+                        tControlParam.SPCSamplesMaxCount = cntSPCmaxCount
+                    if RstValue.SPCGroupSize > 0:
+                        tControlParam.SPCGroupSize = RstValue.SPCGroupSize
+                    else:
+                        tControlParam.SPCGroupSize = cntSPCGroupSize
+                    if ( RstValue.SPCTable )  != '':
+                        tControlParam.SPCTable = RstValue.SPCTable
+
+                #check special fields
+                if (RstValue.FieldName == 'ResetTotalsAddress'):
+                    mResetTotals.Add(tControlParam)
+                    #Set mResetTotals = tControlParam
+                elif (RstValue.FieldName == 'UpdateAddress'):
+                    mUpdateAddress = tControlParam
+                elif (RstValue.FieldName == 'UpdateResetAddress'):
+                    mUpdateResetAddress = tControlParam
+                elif (RstValue.FieldName == 'Status'):
+                    mStatusParam = tControlParam
+                    mStatusParamSet = True
+                    mStatusParam.LastValue = 1
+                elif (RstValue.FieldName == 'MachineID'):
+                    tControlParam.LastValue = mID
+                elif (RstValue.FieldName == 'Rejects'):
+                    mRejectsParam = tControlParam
+                    mRejectsParamSet = True
+                if tControlParam.CitectDeviceType == 3:
+                    tControlParam.LastValue = MdlADOFunctions.fGetRstValString(RstValue.CurrentValue)
+                tControlParam.ReportInventoryItemOnChange = MdlADOFunctions.fGetRstValLong(RstValue.ReportInventoryItemOnChange)
+                tControlParam.EffectiveAmountFieldName = MdlADOFunctions.fGetRstValString(RstValue.EffectiveAmountFieldName)
+                tControlParam.ControllerFieldTypeID = MdlADOFunctions.fGetRstValLong(RstValue.ControllerFieldTypeID)
+                tControlParam.ReportInventoryItemOnChangeInterval = MdlADOFunctions.fGetRstValLong(RstValue.ReportInventoryItemOnChangeInterval)
+                tControlParam.UpdateActivePallet = MdlADOFunctions.fGetRstValBool(RstValue.UpdateActivePallet, False)
+                tControlParam.ConversionID = MdlADOFunctions.fGetRstValLong(RstValue.ConversionID)
+                tControlParam.CheckValidateValue.Init(tControlParam)
+                #Eran, 12/05/2015
+                #Calculation by diff - Init
+                tControlParam.CalcByDiff = MdlADOFunctions.fGetRstValBool(RstValue.CalcByDiff, False)
+                tControlParam.dReadValue = MdlADOFunctions.fGetRstValString(RstValue.dReadValue)
+                tControlParam.dLastValidValue = MdlADOFunctions.fGetRstValString(RstValue.dLastValidValue)
+                tControlParam.dPrevValue = MdlADOFunctions.fGetRstValString(RstValue.dPrevValue)
+                tControlParam.dDiffValue = MdlADOFunctions.fGetRstValString(RstValue.dDiffValue)
+                tControlParam.dResetSuspect = MdlADOFunctions.fGetRstValBool(RstValue.dResetSuspect, False)
+                #Eran, 17/08/2015
+                tControlParam.ExternalUpdate = MdlADOFunctions.fGetRstValBool(RstValue.ExternalUpdate, False)
+                #Eran, 25/10/2015
+                if MdlADOFunctions.fGetRstValString(RstValue.dLastReadTime) != '':
+                    tControlParam.dLastReadTime = RstValue.dLastReadTime
+                #Eran, 06/06/2017
+                tControlParam.CalcByDiffValidate = MdlADOFunctions.fGetRstValBool(RstValue.CalcByDiffValidate, False)
+                #Eran, 02/09/2018
+                tControlParam.BufferEnabled = MdlADOFunctions.fGetRstValBool(RstValue.BufferEnabled, False)
+                tControlParam.CalcMainDataOnBuffer = MdlADOFunctions.fGetRstValBool(RstValue.CalcMainDataOnBuffer, False)
+                tControlParam.CalcByDiffWithScaling = MdlADOFunctions.fGetRstValBool(RstValue.CalcByDiffWithScaling, False)
+                tControlParam.CalcByDiffScalingRound = MdlADOFunctions.fGetRstValBool(RstValue.CalcByDiffScalingRound, False)
+                tControlParam.dLowLimit = MdlADOFunctions.fGetRstValDouble(RstValue.dLowLimit)
+                tControlParam.dHighLimit = MdlADOFunctions.fGetRstValDouble(RstValue.dHighLimit)
+                tControlParam.ChangeJobOnValueChangedSourceTable = MdlADOFunctions.fGetRstValString(RstValue.ChangeJobOnValueChangedSourceTable)
+                tControlParam.ChangeJobOnValueChangedSourceField = MdlADOFunctions.fGetRstValString(RstValue.ChangeJobOnValueChangedSourceField)
+                if MdlADOFunctions.fGetRstValBool(RstValue.ResetTotalsValue, False) == True:
+                    mResetTotals.Add(tControlParam)
+                #    Rst!MachineID = mID
+                #    Rst.Update
+                Rst.MoveNext()
+            Rst.Close()
+            if mHasBatchParams == True and mBatchTrigerSet == True:
+                mBatchTrigerP.BatchParams = Collection()
+                #Get batch fields
+                strSQL = 'Select * From TblControllerFields Where ControllerID = ' + str(CsID) + ' AND FieldDataType IN(1,3,4,5) AND BatchRead <> 0'
+                #Rst.Open strSQL, CN, adOpenForwardOnly, adLockOptimistic
+                Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
+                Rst.ActiveConnection = None
+                while not Rst.EOF:
+                    tControlParam = ControlParam.ControlParam()
+                    tControlParam.ChannelID = MdlADOFunctions.fGetRstValLong(RstValue.ChannelNum)
+                    tControlParam.CVarAddress = RstValue.TagAddress
+                    tControlParam.FieldID = RstValue.ID
+                    tControlParam.FName = RstValue.FieldName
+                    tControlParam.LName = RstValue.LName
+                    tControlParam.EName = RstValue.EName
+                    tControlParam.SyncWrite = MdlADOFunctions.fGetRstValBool(RstValue.SyncWrite, False)
+                    tControlParam.TagName = RstValue.CiTagName
+                    tControlParam.CalcFunction = RstValue.CalcFunction
+                    tControlParam.ChannelNum = RstValue.ChannelNum
+                    tControlParam.RawZero = MdlADOFunctions.fGetRstValDouble(RstValue.RawZero)
+                    tControlParam.RawFull = MdlADOFunctions.fGetRstValDouble(RstValue.RawFull)
+                    tControlParam.ScaledZero = MdlADOFunctions.fGetRstValDouble(RstValue.ScaleZero)
+                    tControlParam.ScaledFull = MdlADOFunctions.fGetRstValDouble(RstValue.ScaleFull)
+                    tControlParam.DirectRead = MdlADOFunctions.fGetRstValBool(RstValue.DirectRead, False)
+                    tControlParam.FieldDataType = MdlADOFunctions.fGetRstValLong(RstValue.FieldDataType)
+                    tControlParam.CitectDeviceType = MdlADOFunctions.fGetRstValLong(RstValue.CitectDeviceType)
+                    tControlParam.AlarmCycleAcknowledge = MdlADOFunctions.fGetRstValBool(RstValue.AlarmCylceAcknowledge, False)
+                    tControlParam.AlarmPerminentAcknowledge = MdlADOFunctions.fGetRstValBool(RstValue.AlarmPerminentAcknowledge, False)
+                    #tControlParam.AutoAlarmClearance = MdlADOFunctions.fGetRstValBool(rst!AutoAlarmClearance, False) 'Alex 11/03/2008
+                    tControlParam.SourceTableName = RstValue.SourceTableName
+                    tControlParam.SourceFieldName = RstValue.SourceFieldName
+                    tControlParam.SourceStrWhere = RstValue.SourceStrWhere
+                    #Rejects
+                    tControlParam.RejectReasonID = MdlADOFunctions.fGetRstValLong(RstValue.RejectReasonID)
+                    tControlParam.RejectReasonOption = MdlADOFunctions.fGetRstValLong(RstValue.RejectReasonOption)
+                    #Eran, 10/01/2017
+                    tControlParam.RejectReasonDirectRead = MdlADOFunctions.fGetRstValBool(RstValue.RejectReasonDirectRead, False)
+                    #Yakir, 26/8/2012
+                    if tControlParam.RejectReasonID != 0:
+                        tControlParam.RejectsIncludeInRejectsTotal = MdlADOFunctions.fGetRstValBool(MdlADOFunctions.GetSingleValue('IncludeInRejectsTotal', 'STbDefectReasons', 'ID = ' + str(tControlParam.RejectReasonID), 'CN'), True)
+                    #Validations parameters.
+                    tControlParam.ValidateValue = MdlADOFunctions.fGetRstValBool(RstValue.ValidateValue, False)
+                    tControlParam.MinValueUnitsPerMin = MdlADOFunctions.fGetRstValDouble(RstValue.MinValueUnitsPerMin)
+                    tControlParam.MaxValueUnitsPerMin = MdlADOFunctions.fGetRstValDouble(RstValue.MaxValueUnitsPerMin)
+                    tControlParam.ForceValueTimeout = MdlADOFunctions.fGetRstValDouble(RstValue.ForceValueTimeout)
+                    if tControlParam.ForceValueTimeout == 0:
+                        tControlParam.ForceValueTimeout = 5
+                    tControlParam.PrevValidValue = MdlADOFunctions.fGetRstValString(RstValue.CurrentValidValue)
+                    tControlParam.LastValidValue = MdlADOFunctions.fGetRstValString(RstValue.CurrentValidValue)
+                    if MdlADOFunctions.fGetRstValString(RstValue.ValidValueSampleTime) != '':
+                        tControlParam.LastValidSampleTime = RstValue.ValidValueSampleTime
+                    tControlParam.StartCalcAfterDelayInSeconds = MdlADOFunctions.fGetRstValLong(RstValue.StartCalcAfterDelayInSeconds)
+                    if tControlParam.RawZero != tControlParam.RawFull:
+                        tControlParam.CalcScalingRatio()
+                    if str(RstValue.FPrecision).isnumeric():
+                        tControlParam.Precision = RstValue.FPrecision
+                    else:
+                        tControlParam.Precision = 0
+                    tControlParam.RoundType = MdlADOFunctions.fGetRstValLong(RstValue.RoundType)
+                    if RstValue.AlarmFile:
+                        tControlParam.AlarmFile = RstValue.AlarmFile
+                    else:
+                        tControlParam.AlarmFile = ''
+                    tControlParam.InMainTable = RstValue.InMainTable
+                    if RstValue.CreateNC == True:
+                        tControlParam.IgnoreAlarmAcknowledge = MdlADOFunctions.fGetRstValBool(RstValue.IgnoreAlarmAcknowledge, False)
+                        tControlParam.ErrorAlarmActive = True
+                        if RstValue.AlarmType > 0:
+                            tControlParam.AlarmActiveVoice = True
+                        if MdlADOFunctions.fGetRstValBool(RstValue.SendSMSOnAlarm, False):
+                            tControlParam.SendSMSOnAlarm = True
+                        else:
+                            tControlParam.SendSMSOnAlarm = False
+                        tControlParam.SendEmailOnAlarm = MdlADOFunctions.fGetRstValBool(RstValue.SendEmailOnAlarm, False)
+                        if MdlADOFunctions.fGetRstValLong(RstValue.AlarmArea) > 0:
+                            tControlParam.AlarmArea = MdlADOFunctions.fGetRstValLong(RstValue.AlarmArea)
+                        else:
+                            tControlParam.AlarmArea = 0
+                        if RstValue.AlarmPriv:
+                            tControlParam.ErrorCountAlarm = RstValue.AlarmPriv
+                        else:
+                            tControlParam.ErrorCountAlarm = MdlGlobal.cntErrorCountAlarm
+                        #Yakir, 5/6/2012
+                        tControlParam.AlarmFileReplayInterval = MdlADOFunctions.fGetRstValLong(RstValue.AlarmFileReplayInterval)
+                        tControlParam.AlarmMinimumDuration = MdlADOFunctions.fGetRstValLong(RstValue.AlarmMinimumDuration)
+                        tControlParam.EnableAlarmsDuringSetup = MdlADOFunctions.fGetRstValBool(RstValue.EnableAlarmsDuringSetup, True)
+                        tControlParam.SendPushOnAlarm = MdlADOFunctions.fGetRstValBool(RstValue.SendPushOnAlarm, False)
+                    else:
+                        tControlParam.ErrorAlarmActive = False
+                    #MachinePropertyID
+                    tControlParam.PropertyID = MdlADOFunctions.fGetRstValLong(RstValue.MachinePropertyID)
+                    tControlParam.ID = RstValue.ID
+                    #Add To Batch List
+                    if ( RstValue.CitectDeviceType == 1 )  and  ( RstValue.FieldDataType != 4 )  and  ( RstValue.FieldDataType != 5 ) :
+                        strItemID = RstValue.OPCTagName
+                        tControlParam.OPCItem = mBatchTrigerP.BatchGroup.OPCItems.AddItem(strItemID, tControlParam.ID * 10)
+                        tControlParam.OPCItemHandle = tControlParam.ID * 10
+                        #Set tControlParam.ParentOPCGroup = mOPCGroupBatchTrigger
+                        mBatchTrigerP.BatchAddParamToList(tControlParam)
+                        self.__mCParams.Add(tControlParam, str(tControlParam.FName))
+                        #Set Point Value OPCTag
+                        if not ( RstValue.SPOPCTagName == '0' or RstValue.SPOPCTagName == '' ) :
+                            #tControlParam.WriteTag = True
+                            strItemID = RstValue.SPOPCTagName
+                            tControlParam.SPOPCItem = mOPCGroupGeneral.OPCItems.AddItem(strItemID, tControlParam.ID * 10 + 2)
+                            tControlParam.SPOPCItemHandle = tControlParam.ID * 10 + 2
+                            mCParamsServerHandles = vbObjectInitialize((mOPCGroupGeneral.OPCItems.Count,), Variant, mCParamsServerHandles)
+                            mCParamsServerHandles[mOPCGroupGeneral.OPCItems.Count] = tControlParam.OPCItem.ServerHandle
+                            mCParamsErrors = vbObjectInitialize((mOPCGroupGeneral.OPCItems.Count,), Variant, mCParamsErrors)
+                        #Set Point LValue OPCTag
+                        if not ( RstValue.SPLOPCTagName == '0' or RstValue.SPLOPCTagName == '' ) :
+                            #tControlParam.WriteTag = True
+                            strItemID = RstValue.SPLOPCTagName
+                            tControlParam.SPLOPCItem = mOPCGroupGeneral.OPCItems.AddItem(strItemID, tControlParam.ID * 10 + 2)
+                            tControlParam.SPLOPCItemHandle = tControlParam.ID * 10 + 3
+                            mCParamsServerHandles = vbObjectInitialize((mOPCGroupGeneral.OPCItems.Count,), Variant, mCParamsServerHandles)
+                            mCParamsServerHandles[mOPCGroupGeneral.OPCItems.Count] = tControlParam.OPCItem.ServerHandle
+                            mCParamsErrors = vbObjectInitialize((mOPCGroupGeneral.OPCItems.Count,), Variant, mCParamsErrors)
+                        #Set Point HValue OPCTag
+                        if not ( RstValue.SPHOPCTagName == '0' or RstValue.SPHOPCTagName == '' ) :
+                            #tControlParam.WriteTag = True
+                            strItemID = RstValue.SPHOPCTagName
+                            tControlParam.SPHOPCItem = mOPCGroupGeneral.OPCItems.AddItem(strItemID, tControlParam.ID * 10 + 2)
+                            tControlParam.SPHOPCItemHandle = tControlParam.ID * 10 + 4
+                            mCParamsServerHandles = vbObjectInitialize((mOPCGroupGeneral.OPCItems.Count,), Variant, mCParamsServerHandles)
+                            mCParamsServerHandles[mOPCGroupGeneral.OPCItems.Count] = tControlParam.OPCItem.ServerHandle
+                            mCParamsErrors = vbObjectInitialize((mOPCGroupGeneral.OPCItems.Count,), Variant, mCParamsErrors)
+                    else:
+                        if RstValue.BatchRead == 1:
+                            mBatchTrigerP.BatchAddParamToList(tControlParam)
+                            self.__mCParams.Add(tControlParam, str(tControlParam.FName))
+                        else:
+                            self.__mCParams.Add(tControlParam, str(tControlParam.FName))
+                    tControlParam.pMachine = Me
+                    if RstValue.IsSPCValue == True:
+                        tControlParam.IsSPCValue = True
+                        if RstValue.SPCSamplesMaxCount > 0:
+                            tControlParam.SPCSamplesMaxCount = RstValue.SPCSamplesMaxCount
+                        else:
+                            tControlParam.SPCSamplesMaxCount = cntSPCmaxCount
+                        if RstValue.SPCGroupSize > 0:
+                            tControlParam.SPCGroupSize = RstValue.SPCGroupSize
+                        else:
+                            tControlParam.SPCGroupSize = cntSPCGroupSize
+                        if ( RstValue.SPCTable )  != '':
+                            tControlParam.SPCTable = RstValue.SPCTable
+                    tControlParam.ControllerFieldTypeID = MdlADOFunctions.fGetRstValLong(RstValue.ControllerFieldTypeID)
+                    tControlParam.CheckValidateValue.Init(tControlParam)
+                    #Eran, 12/05/2015
+                    #Calculation by diff - Init
+                    tControlParam.CalcByDiff = MdlADOFunctions.fGetRstValBool(RstValue.CalcByDiff, False)
+                    tControlParam.dReadValue = MdlADOFunctions.fGetRstValString(RstValue.dReadValue)
+                    tControlParam.dLastValidValue = MdlADOFunctions.fGetRstValString(RstValue.dLastValidValue)
+                    tControlParam.dPrevValue = MdlADOFunctions.fGetRstValString(RstValue.dPrevValue)
+                    tControlParam.dDiffValue = MdlADOFunctions.fGetRstValString(RstValue.dDiffValue)
+                    tControlParam.dResetSuspect = MdlADOFunctions.fGetRstValBool(RstValue.dResetSuspect, False)
+                    #Eran, 17/08/2015
+                    tControlParam.ExternalUpdate = MdlADOFunctions.fGetRstValBool(RstValue.ExternalUpdate, False)
+                    #Eran, 25/10/2015
+                    if MdlADOFunctions.fGetRstValString(RstValue.dLastReadTime) != '':
+                        tControlParam.dLastReadTime = RstValue.dLastReadTime
+                    #Eran, 06/06/2017
+                    tControlParam.CalcByDiffValidate = MdlADOFunctions.fGetRstValBool(RstValue.CalcByDiffValidate, False)
+                    #Eran, 02/09/2018
+                    tControlParam.BufferEnabled = MdlADOFunctions.fGetRstValBool(RstValue.BufferEnabled, False)
+                    tControlParam.CalcMainDataOnBuffer = MdlADOFunctions.fGetRstValBool(RstValue.CalcMainDataOnBuffer, False)
+                    tControlParam.CalcByDiffWithScaling = MdlADOFunctions.fGetRstValBool(RstValue.CalcByDiffWithScaling, False)
+                    tControlParam.CalcByDiffScalingRound = MdlADOFunctions.fGetRstValBool(RstValue.CalcByDiffScalingRound, False)
+                    tControlParam.dLowLimit = MdlADOFunctions.fGetRstValDouble(RstValue.dLowLimit)
+                    tControlParam.dHighLimit = MdlADOFunctions.fGetRstValDouble(RstValue.dHighLimit)
+                    #Batch Table
+                    tControlParam.BatchTable = RstValue.BatchTableName
+                    tControlParam.BatchTableHistory = MdlADOFunctions.fGetRstValBool(RstValue.BatchTableHistory, False)
+                    tControlParam.BatchTableHistoryOnMachineStop = MdlADOFunctions.fGetRstValBool(RstValue.BatchTableHistoryOnMachineStop, True)
+                    mBatchTrigerP.AddBatchTable(tControlParam.BatchTable)
+                    #        Rst!MachineID = mID
+                    #        Rst.Update
+                    #If tControlParam.OPCItemHandle = 0 And (tControlParam.CalcFunction = "0" Or tControlParam.CalcFunction = "") Then
+                    #    tControlParam.LastValue = "" & Rst!CurrentValue
+                    #End If
+                    Rst.MoveNext()
+                Rst.Close()
+            if self.__mCParams.Count == 0:
+                GoTo(ErrControllerFieldsLoad)
+            #Get Main List
+            strSQL = 'Select * From TblControllerFields Where ControllerID = ' + mControllerID + ' AND AssertOnMainPage > 0 Order BY AssertOnMainPage'
+            Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
+            Rst.ActiveConnection = None
+            while not Rst.EOF:
+                temp = RstValue.FieldName
+                ParamFound = False
+                if GetParam(temp, vParam) == True:
+                    mMainList.Add(vParam, str(vParam.FName))
+                Rst.MoveNext()
+            Rst.Close()
+            #Controller List
+            strSQL = 'Select * From TblControllerFields Where ControllerID = ' + mControllerID + ' AND  AssertOnControllerPage > ' + 0 + ' Order BY AssertOnControllerPage'
+            Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
+            Rst.ActiveConnection = None
+            while not Rst.EOF:
+                temp = RstValue.FieldName
+                ParamFound = False
+                if GetParam(temp, vParam) == True:
+                    mControllerList.Add(vParam, str(vParam.FName))
+                Rst.MoveNext()
+            Rst.Close()
+            #Channel List
+            strSQL = 'Select * From TblControllerFields Where ControllerID = ' + mControllerID + ' AND  AssertOnChannelPage > ' + 0 + ' Order BY AssertOnChannelPage'
+            Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
+            Rst.ActiveConnection = None
+            while not Rst.EOF:
+                temp = RstValue.FieldName
+                ParamFound = False
+                if GetParam(temp, vParam) == True:
+                    mChannelList.Add(vParam, str(vParam.FName))
+                Rst.MoveNext()
+            Rst.Close()
+            #Get Write Conditional Controller
+            LoadConditionalControllerFields
+            #Get DataSamples
+            fInitMachineDataSamples(Me)
+            #Get ControllerFields Actions
+            fLoadMachineControllerFieldActions(Me)
+            returnVal = True
+        
+        except BaseException as error:
+            if 'nnection' in error.args[0]:
+                if MdlConnection.CN:
+                    MdlConnection.Close(MdlConnection.CN)
+                MdlConnection.CN = MdlConnection.Open(MdlConnection.strCon)
+
+                if MdlConnection.MetaCn:
+                    MdlConnection.Close(MdlConnection.MetaCn)
+                MdlConnection.MetaCn = MdlConnection.Open(MdlConnection.strMetaCon)
+            MdlGlobal.RecordError('LeaderRT:ControllerFieldsLoad', 0, error.agrs[0], 'ControllerID = ' + str(CsID))
+
+            if RstCursor:
+                RstCursor.close() 
+            RstCursor = None
+    
+        tControlParam = None
+        rParam = None
+        vParam = None
+
         return returnVal
 
