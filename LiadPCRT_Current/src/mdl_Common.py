@@ -37,7 +37,7 @@ cntObjectType = '1'
 # __TIME_ZONE_ID_UNKNOWN = 0
 # __TIME_ZONE_ID_DAYLIGHT = 2
 # __mServerGMT = 0
-# GMTAdd = 0
+GMTAdd = 0
 # HKEY_LOCAL_MACHINE = 0x80000002
 # HKEY_CURRENT_USER = 0x80000001
 # REG_OPTION_NON_VOLATILE = 0
@@ -681,19 +681,19 @@ def GetConnectionStrings(strCn, strMetaCn, strSChCon, ArrParams, strERPCon=[''],
 #     return returnVal
 
 
-# def NowGMT():
-#     returnVal = None
+def NowGMT():
+    returnVal = None
     
-#     try:
-#         if GMTAdd == 0:
-#             returnVal = datetime.now()
-#         else:
-#             returnVal = DateAdd('n', ( GMTAdd ), datetime.now())
+    try:
+        if GMTAdd == 0:
+            returnVal = datetime.now()
+        # else:
+        #     returnVal = DateAdd('n', ( GMTAdd ), datetime.now())
 
-#     except BaseException as error:
-#         returnVal = datetime.now()
+    except BaseException as error:
+        returnVal = datetime.now()
 
-#     return returnVal
+    return returnVal
 
 
 # def TimeGMT():
@@ -903,19 +903,19 @@ def GetConnectionStrings(strCn, strMetaCn, strSChCon, ArrParams, strERPCon=[''],
 #     return returnVal
 
 
-# def strFixBadChars(strSource):
-#     returnVal = None
-#     temp = ""
+def strFixBadChars(strSource):
+    returnVal = None
+    temp = ''
     
-#     try:
-#         temp = strSource.replace(chr(34), chr(34) + chr(34))
-#         temp = temp.replace('\'', '\'\'')
-#         temp = temp.replace(chr(13), '')
-#         temp = temp.replace(chr(10), '')
-#         temp = temp.replace(chr(0), '')
-#         returnVal = temp
+    try:
+        temp = strSource.replace(chr(34), chr(34) + chr(34))
+        temp = temp.replace('\'', '\'\'')
+        temp = temp.replace(chr(13), '')
+        temp = temp.replace(chr(10), '')
+        temp = temp.replace(chr(0), '')
+        returnVal = temp
 
-#     except BaseException as error:
-#         returnVal = ''
+    except BaseException as error:
+        returnVal = ''
 
-#     return returnVal
+    return returnVal

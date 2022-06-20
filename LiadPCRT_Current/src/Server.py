@@ -2594,13 +2594,13 @@ class Server:
 
 
     
-#     def setConCount(self, the_mConCount):
-#         self.mConCount = the_mConCount
+    def setConCount(self, the_mConCount):
+        self.mConCount = the_mConCount
 
-#     def getConCount(self):
-#         fn_return_value = self.mConCount
-#         return fn_return_value
-#     ConCount = property(fset=setConCount, fget=getConCount)
+    def getConCount(self):
+        fn_return_value = self.mConCount
+        return fn_return_value
+    ConCount = property(fset=setConCount, fget=getConCount)
 
 
     

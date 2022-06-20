@@ -1,30 +1,29 @@
 import MdlConnection
+import DataSample
 
 def fInitMachineDataSamples(pMachine):
-    strSQL = ""
-    mDataSample = DataSample()
-    mControlParam = ControlParam()
-    dbCursor = None
+    strSQL = ''
+    mDataSample = None
+    mControlParam = None
+    RstCursor = None
     returnVal = False
 
     try:
-        dbCursor = MdlConnection.CN.cursor()
- 
-        if dbCursor:
-            strSQL = 'Select * From TblDataSamples Where MachineID = ' + pMachine.ID
-            dbCursor.execute(strSQL)
+        strSQL = 'Select * From TblDataSamples Where MachineID = ' + str(pMachine.ID)
+        RstCursor = MdlConnection.CN.cursor()
+        RstCursor.execute(strSQL)
+        RstValues = RstCursor.fetchall()
 
-            while dbCursor.next():
-                val = dbCursor.fetchone()
-                mDataSample = DataSample()
-                mDataSample.Init(pMachine, val["ID"])
-                
-                if not pMachine.GetParam(val["ControllerFieldName"], mControlParam):                    
-                    pass
-                else:
-                    mControlParam.DataSamples.Add(mDataSample, str(mDataSample.ID))
-            dbCursor.close()
-            returnVal = True
+        for RstData in RstValues:
+            mDataSample = DataSample.DataSample()
+            mDataSample.Init(pMachine, RstData.ID)
+            
+            if not pMachine.GetParam(RstData.ControllerFieldName, mControlParam):                    
+                pass
+            else:
+                mControlParam.DataSamples.Add(mDataSample, str(mDataSample.ID))
+        RstCursor.close()
+        returnVal = True
 
     except BaseException as error:
         if 'nnection' in error.args[0]:

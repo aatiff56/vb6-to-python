@@ -20,23 +20,23 @@ class ServerConn:
                 self.mSCID = pArr[5]
             else:
                 self.mSCID = 0
-            gServer = server.Server()
-            gServer.StartTime = datetime.now()
-            LeaderSVR = gServer
-            fn_return_value = gServer.StartServer(pArr, strSchCN)
+            self.gServer = server.Server()
+            self.gServer.StartTime = datetime.now()
+            LeaderSVR = self.gServer
+            fn_return_value = self.gServer.StartServer(pArr, strSchCN)
             return fn_return_value
         
         except BaseException as error:
             return fn_return_value
 
     def __del__(self):        
-        if not ( gServer is None ) :
-            gServer.ConCount = gServer.ConCount - 1
-            if gServer.ConCount < 1:                
-                gServer = None
+        if self.gServer :
+            self.gServer.ConCount = self.gServer.ConCount - 1
+            if self.gServer.ConCount < 1:                
+                self.gServer = None
 
     def getServer(self):
-        fn_return_value = gServer
+        fn_return_value = self.gServer
         return fn_return_value
     Server = property(fget=getServer)
     

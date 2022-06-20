@@ -18,7 +18,7 @@ InWrite = False
 WriteCounter = 0
 ArrAppParams = []
 
-def MDIMain():
+def Main():
     tRes = False 
     strInterval = ''
     tmpInterval = 0
@@ -117,4 +117,4 @@ def MDIMain():
 #     return fn_return_value
 
 
-MDIMain()
+Main()

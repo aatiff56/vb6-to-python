@@ -37,7 +37,7 @@ def fGetRstValBool(rstVal, DefaultVal):
     rstVal = str(rstVal)
 
     if rstVal == '':
-        raise Exception("Incorrect function.")
+        raise Exception("Cannot convert empty string to boolean.")
     if rstVal == True:
         returnVal = True
     if rstVal == False:

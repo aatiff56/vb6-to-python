@@ -1,6 +1,6 @@
-import enum
-# import MdlConnection
 from datetime import datetime
+import enum
+import MdlConnection
 
 class OPCDATASOURCE(enum.Enum):
     OPC_DS_CACHE = 1
@@ -50,7 +50,7 @@ def RecordError(FName, ErrNum, ErrDescr, Descr, AppName='LeaderRT'):
             strSQL = 'Delete STblErrors Where ID < ' +  ( RID - 10000 )
             dbCursor.Execute(strSQL)
 
-    except BaseException as error:
+    except:
         pass
 
     if dbCursor:
