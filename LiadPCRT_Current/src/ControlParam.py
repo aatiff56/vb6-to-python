@@ -143,7 +143,7 @@ class ControlParam:
     __mChangeJobOnValueChanged = False
     __mPrintLabelID = 0
     __mPrintLabelMachineID = 0
-    __mCalcStringExpression = ''
+    __mCalstringExpression = ''
     __mLastInventoryLabelBatch = ''
     __mChangeJobOnValueChangedSourceTable = ''
     __mChangeJobOnValueChangedSourceField = ''
@@ -350,7 +350,7 @@ class ControlParam:
                         tVal = ( tVal * self.ScaledA )  + self.ScaledB
                     if IsNumeric(tVal):
                         
-                        tVal = CStr(MdlStatistics.fRoundNum(float(tVal), self.__mPrecision, self.__mRoundType))
+                        tVal = str(MdlStatistics.fRoundNum(float(tVal), self.__mPrecision, self.__mRoundType))
                     self.__mLastValue = tVal
                     strSQL = 'Update TblControllerFields Set CurrentValue = \'' + self.__mLastValue + '\' Where ID = ' + self.__mID
                     MdlConnection.CN.execute(strSQL)
@@ -365,7 +365,7 @@ class ControlParam:
                                 tVal = ( tVal * self.ScaledA )  + self.ScaledB
                             if IsNumeric(tVal):
                                 
-                                tVal = CStr(MdlStatistics.fRoundNum(float(tVal), self.__mPrecision, self.__mRoundType))
+                                tVal = str(MdlStatistics.fRoundNum(float(tVal), self.__mPrecision, self.__mRoundType))
                             self.__mLastValue = tVal
                             if self.ConversionID != 0:
                                 self.__mLastValue = GetValueFromConversion(self.ConversionID, self.__mLastValue)
@@ -398,7 +398,7 @@ class ControlParam:
                         tVal = ( tVal * self.ScaledA )  + self.ScaledB
                     if IsNumeric(tVal):
                         
-                        tVal = CStr(MdlStatistics.fRoundNum(float(tVal), self.__mPrecision, self.__mRoundType))
+                        tVal = str(MdlStatistics.fRoundNum(float(tVal), self.__mPrecision, self.__mRoundType))
                 if self.__mLastValue != tVal and self.__mQuality != 0:
                     self.__mPrevSampleTime = self.__mLastSampleTime
                     self.__mLastSampleTime = Now()
@@ -410,7 +410,7 @@ class ControlParam:
 
                     if IsNumeric(tVal):
                         
-                        self.__mLastValue = CStr(MdlStatistics.fRoundNum(float(tVal), self.__mPrecision, self.__mRoundType))
+                        self.__mLastValue = str(MdlStatistics.fRoundNum(float(tVal), self.__mPrecision, self.__mRoundType))
                     else:
                         self.__mLastValue = tVal
                     if self.ConversionID != 0:
@@ -425,7 +425,7 @@ class ControlParam:
                             
                             tVal = ( tVal * self.ScaledA )  + self.ScaledB
                         
-                        self.__mSPLastValue = CStr(MdlStatistics.fRoundNum(float(tVal), self.__mPrecision, self.__mRoundType))
+                        self.__mSPLastValue = str(MdlStatistics.fRoundNum(float(tVal), self.__mPrecision, self.__mRoundType))
                         strSQL = 'Update TblControllerFields Set SPCurrentValue = ' + self.__mSPLastValue + ' Where ID = ' + self.__mID
                         MdlConnection.CN.execute(strSQL)
                     
@@ -436,7 +436,7 @@ class ControlParam:
                             
                             tVal = ( tVal * self.ScaledA )  + self.ScaledB
                         
-                        self.__mSPLValue = CStr(MdlStatistics.fRoundNum(float(tVal), self.__mPrecision, self.__mRoundType))
+                        self.__mSPLValue = str(MdlStatistics.fRoundNum(float(tVal), self.__mPrecision, self.__mRoundType))
                         strSQL = 'Update TblControllerFields Set SPLValue = ' + self.__mSPLValue + ' Where ID = ' + self.__mID
                         MdlConnection.CN.execute(strSQL)
                     
@@ -447,7 +447,7 @@ class ControlParam:
                             
                             tVal = ( tVal * self.ScaledA )  + self.ScaledB
                         
-                        self.__mSPHValue = CStr(MdlStatistics.fRoundNum(float(tVal), self.__mPrecision, self.__mRoundType))
+                        self.__mSPHValue = str(MdlStatistics.fRoundNum(float(tVal), self.__mPrecision, self.__mRoundType))
                         strSQL = 'Update TblControllerFields Set SPHValue = ' + self.__mSPHValue + ' Where ID = ' + self.__mID
                         MdlConnection.CN.execute(strSQL)
         
@@ -513,23 +513,23 @@ class ControlParam:
                         if self.__mPrintLabelMachineID != 0:
                             
                             tActiveJobID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ID', 'TblJobCurrent', 'MachineID = ' + self.__mPrintLabelMachineID))
-                            ShellExecute(frmMain.hwnd, 'open', PrintLabelPath, self.__mPrintLabelID + ',' + tActiveJobID, vbNullString, vbNormalFocus)
+                            ShellExecute(frmMain.hwnd, 'open', PrintLabelPath, self.__mPrintLabelID + ',' + tActiveJobID, '', vbNormalFocus)
                         else:
-                            ShellExecute(frmMain.hwnd, 'open', PrintLabelPath, self.__mPrintLabelID + ',' + self.str(pMachine.ActiveJobID), vbNullString, vbNormalFocus)
+                            ShellExecute(frmMain.hwnd, 'open', PrintLabelPath, self.__mPrintLabelID + ',' + self.str(pMachine.ActiveJobID), '', vbNormalFocus)
                 elif (LabelGroupID == 4):
                     VBFiles.writeText(None, LabelPath == MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('CValue', 'STblSystemVariableFields', 'FieldName = \'PrintInventoryLabelBatchFile\'', 'CN')), '\n')
                     if PrintLabelPath != '':
                         if self.pMachine.GetParam('Label' + self.PrintLabelID + 'Data', LabelDataParam):
                             LabelDataParam.GetListData
                             strLabelData = LabelDataParam.LastValue
-                            strLabelData = CalcStringExpressions(strLabelData, LabelDataParam.CalcStringExpression)
+                            strLabelData = CalstringExpressions(strLabelData, LabelDataParam.CalstringExpression)
                             if strLabelData != self.__mLastInventoryLabelBatch:
                                 self.__mLastInventoryLabelBatch = strLabelData
                                 InventoryID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ID', 'TblInventory', 'Batch = \'' + strLabelData + '\''))
                                 if InventoryID != 0:
                                     JobID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('JobID', 'TblInventory', 'ID = ' + InventoryID))
                                     ProductID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ProductID', 'TblInventory', 'ID = ' + InventoryID))
-                                    ShellExecute(frmMain.hwnd, 'open', PrintLabelPath, self.__mPrintLabelID + ',' + InventoryID + ',' + ProductID + ',' + JobID, vbNullString, vbNormalFocus)
+                                    ShellExecute(frmMain.hwnd, 'open', PrintLabelPath, self.__mPrintLabelID + ',' + InventoryID + ',' + ProductID + ',' + JobID, '', vbNormalFocus)
                                     
                                     
         if self.__mErrorAlarmActive == True and NewRead == True:
@@ -826,9 +826,9 @@ class ControlParam:
             return returnVal
         if not IsEmpty(self.__mPMachine.BatchUpdateP) and IsBatchUpdateP:
             self.__mPMachine.IsBatchUpdatePP = True
-            self.__mPMachine.BatchUpdateP.LastValue = CStr(float(self.__mLastValue))
+            self.__mPMachine.BatchUpdateP.LastValue = str(float(self.__mLastValue))
             if not self.__mPMachine.BatchUpdateP.mBoolSyncWriteErr:
-                self.__mPMachine.BatchUpdateP.WriteValue = CStr(float(self.__mLastValue))
+                self.__mPMachine.BatchUpdateP.WriteValue = str(float(self.__mLastValue))
         if self.BatchReadLastRecord != 0:
             if self.pMachine.Server.SystemVariables.HistoryIntervalSec > 0:
                 if DateDiff('s', self.BatchReadLastRecord, mdl_Common.NowGMT()) < self.pMachine.Server.SystemVariables.HistoryIntervalSec:
@@ -904,24 +904,22 @@ class ControlParam:
                 MetaCn.Open()
                 Err.Clear()
                 
-            RecordError('LeaderRT:BatchReadValues', CStr(Err.Number), Err.Description, '')
+            RecordError('LeaderRT:BatchReadValues', str(Err.Number), Err.Description, '')
             Err.Clear()
         tParam = None
         tVariant = None
         tControlParam = None
-        strINSERT = vbNullString
+        strINSERT = ''
         return returnVal
 
-    def BatchAddParamToList(self, tParam):
-        returnVal = None
-        
+    def BatchAddParamToList(self, tParam):        
         returnVal = False
-        self.__mBatchParams.Add(tParam, CStr(tParam.FName))
-        self.__mBatchCounter = self.__mBatchGroup.OPCItems.Count
-        self.__mBatchServerHandles = vbObjectInitialize((self.__mBatchCounter,), Variant, self.__mBatchServerHandles)
-        self.__mBatchServerHandles[self.__mBatchCounter] = tParam.OPCItem.ServerHandle
-        self.__mBatchValues = vbObjectInitialize((self.__mBatchCounter,), Variant, self.__mBatchValues)
-        self.__mErrors = vbObjectInitialize((self.__mBatchCounter,), Variant, self.__mErrors)
+        self.__mBatchParams[tParam.FName] = tParam
+        # self.__mBatchCounter = self.__mBatchGroup.OPCItems.Count
+        self.__mBatchServerHandles = [None] * self.__mBatchCounter
+        # self.__mBatchServerHandles[self.__mBatchCounter] = tParam.OPCItem.ServerHandle
+        self.__mBatchValues = [None] * self.__mBatchCounter
+        self.__mErrors = [None] * self.__mBatchCounter
         returnVal = True
         return returnVal
 
@@ -1005,7 +1003,7 @@ class ControlParam:
                 MetaCn.Open()
                 Err.Clear()
                 
-            RecordError('LeaderRT:ErrSPCValAdd', CStr(Err.Number), Err.Description, '')
+            RecordError('LeaderRT:ErrSPCValAdd', str(Err.Number), Err.Description, '')
             Err.Clear()
         return returnVal
 
@@ -1074,7 +1072,7 @@ class ControlParam:
             
             self.__mSPCVals[self.__mSPCSamplesCount].PLCL = self.__mLCL
             self.__mSPCVals[self.__mSPCSamplesCount].QLCL = self.__mQLCL
-            self.UpdateLimits(CStr(self.__mMean), round(self.__mUCL, self.__mPrecision), round(self.__mLCL, self.__mPrecision), round(self.__mQUCL, self.__mPrecision), round(self.__mQLCL, self.__mPrecision), True)
+            self.UpdateLimits(str(self.__mMean), round(self.__mUCL, self.__mPrecision), round(self.__mLCL, self.__mPrecision), round(self.__mQUCL, self.__mPrecision), round(self.__mQLCL, self.__mPrecision), True)
         return returnVal
 
     def UpdateLimits(self, dMean, dPUCL, dPLCL, dQUCL, dQLCL, UpdateRecipe=False, pFromJobLoad=False):
@@ -1119,7 +1117,7 @@ class ControlParam:
                 MetaCn.Open()
                 Err.Clear()
                 
-            RecordError('ControlParam:UpdateLimits', CStr(Err.Number), Err.Description, '')
+            RecordError('ControlParam:UpdateLimits', str(Err.Number), Err.Description, '')
             Err.Clear()
             
         return returnVal
@@ -1301,7 +1299,7 @@ class ControlParam:
                 MetaCn.Open()
                 Err.Clear()
                 
-            RecordError('LeaderRT:fShrinkBatchData', CStr(Err.Number), Err.Description, '')
+            RecordError('LeaderRT:fShrinkBatchData', str(Err.Number), Err.Description, '')
             Err.Clear()
         if Rst.State != 0:
             Rst.Close()
@@ -1349,7 +1347,7 @@ class ControlParam:
                 MetaCn.Open()
                 Err.Clear()
                 
-            RecordError('LeaderRT:fShrinkSPCData', CStr(Err.Number), Err.Description, '')
+            RecordError('LeaderRT:fShrinkSPCData', str(Err.Number), Err.Description, '')
             Err.Clear()
         if Rst.State != 0:
             Rst.Close()
@@ -1385,7 +1383,7 @@ class ControlParam:
             fMoveTableToHistory(self.__mSPCTable, 'SampleTime', 'JobID', 60, 15, MachineID, self.ID, 'TSPC')
         returnVal = True
         if Err.Number != 0:
-            RecordError('LeaderRT:ShrinkData', CStr(Err.Number), Err.Description, '')
+            RecordError('LeaderRT:ShrinkData', str(Err.Number), Err.Description, '')
             Err.Clear()
         return returnVal
 
@@ -1411,7 +1409,7 @@ class ControlParam:
         
         self.__mAlarmXML = strXML
         if Err.Number != 0:
-            RecordError('ControlParam:AlarmXMLCalc', CStr(Err.Number), Err.Description, '')
+            RecordError('ControlParam:AlarmXMLCalc', str(Err.Number), Err.Description, '')
             Err.Clear()
             
         return returnVal
@@ -1451,26 +1449,32 @@ class ControlParam:
             self.ScaledB = self.ScaledZero - self.ScaledA * self.RawZero
 
     def AddBatchTable(self, sTableName):
-        returnVal = None
         Counter = 0
-        
         returnVal = False
-        if sTableName == '':
-            return returnVal
-        if self.__mBatchTablesCount == 0:
-            self.__mBatchTablesCount = 1
-            self.__mBatchTables = vbObjectInitialize((1,), Variant)
-            self.__mBatchTables[1] = sTableName
+        
+        try:
+            if sTableName == '':
+                return returnVal
+            
+            if self.__mBatchTablesCount == 0:
+                self.__mBatchTablesCount = 1
+                self.__mBatchTables = [None]
+                self.__mBatchTables[0] = sTableName
+                returnVal = True
+                return returnVal
+            else:
+                for Counter in range(1, self.__mBatchTablesCount):
+                    if self.__mBatchTables(Counter) == sTableName:
+                        return returnVal
+            
+            self.__mBatchTablesCount = self.__mBatchTablesCount + 1
+            self.__mBatchTables = [None] * self.__mBatchTablesCount
+            self.__mBatchTables[self.__mBatchTablesCount] = sTableName
             returnVal = True
-            return returnVal
-        else:
-            for Counter in range(1, self.__mBatchTablesCount):
-                if self.__mBatchTables(Counter) == sTableName:
-                    return returnVal
-        self.__mBatchTablesCount = self.__mBatchTablesCount + 1
-        self.__mBatchTables = vbObjectInitialize((self.__mBatchTablesCount,), Variant, self.__mBatchTables)
-        self.__mBatchTables[self.__mBatchTablesCount] = sTableName
-        returnVal = True
+
+        except:
+            pass
+
         return returnVal
 
     def CalcRejectsRead(self):
@@ -1550,14 +1554,14 @@ class ControlParam:
         else:
             returnVal = False
         if Err.Number != 0:
-            RecordError('LeaderRT:CalcRejectsRead', CStr(Err.Number), Err.Description, 'JobID:' + self.__mPMachine.ActiveJobID + ';Machine:' + self.__mPMachine.ID)
+            RecordError('LeaderRT:CalcRejectsRead', str(Err.Number), Err.Description, 'JobID:' + self.__mPMachine.ActiveJobID + ';Machine:' + self.__mPMachine.ID)
             Err.Clear()
         return returnVal
 
     
     def AddAlarm(self, pAlarm):
         
-        self.Alarms.Add(pAlarm, CStr(pAlarm.ID))
+        self.Alarms.Add(pAlarm, str(pAlarm.ID))
         if Err.Number != 0:
             Err.Clear()
 
@@ -1699,7 +1703,7 @@ class ControlParam:
                 tReadValue = ( tReadValue * self.ScaledA )  + self.ScaledB
             if IsNumeric(tReadValue):
                 
-                tReadValue = CStr(MdlStatistics.fRoundNum(float(tReadValue), self.__mCalcByDiffScalingRound, self.__mRoundType))
+                tReadValue = str(MdlStatistics.fRoundNum(float(tReadValue), self.__mCalcByDiffScalingRound, self.__mRoundType))
             
             oldPrevValue = tPrevValue
             if self.ScaledA != 0:
@@ -1707,7 +1711,7 @@ class ControlParam:
                 tPrevValue = ( tPrevValue * self.ScaledA )  + self.ScaledB
             if IsNumeric(tPrevValue):
                 
-                tPrevValue = CStr(MdlStatistics.fRoundNum(float(tPrevValue), self.__mCalcByDiffScalingRound, self.__mRoundType))
+                tPrevValue = str(MdlStatistics.fRoundNum(float(tPrevValue), self.__mCalcByDiffScalingRound, self.__mRoundType))
             
             oldLastValidValue = tLastValidValue
             if self.ScaledA != 0:
@@ -1715,7 +1719,7 @@ class ControlParam:
                 tLastValidValue = ( tLastValidValue * self.ScaledA )  + self.ScaledB
             if IsNumeric(tLastValidValue):
                 
-                tLastValidValue = CStr(MdlStatistics.fRoundNum(float(tLastValidValue), self.__mCalcByDiffScalingRound, self.__mRoundType))
+                tLastValidValue = str(MdlStatistics.fRoundNum(float(tLastValidValue), self.__mCalcByDiffScalingRound, self.__mRoundType))
             
             oldDiffValue = tDiffValue
             if self.ScaledA != 0:
@@ -1723,7 +1727,7 @@ class ControlParam:
                 tDiffValue = ( tDiffValue * self.ScaledA )  + self.ScaledB
             if IsNumeric(tDiffValue):
                 
-                tDiffValue = CStr(MdlStatistics.fRoundNum(float(tDiffValue), self.__mCalcByDiffScalingRound, self.__mRoundType))
+                tDiffValue = str(MdlStatistics.fRoundNum(float(tDiffValue), self.__mCalcByDiffScalingRound, self.__mRoundType))
         
         
         
@@ -3429,14 +3433,14 @@ class ControlParam:
 
 
     
-    def setCalcStringExpression(self, the_mCalcStringExpression):
-        self.__mCalcStringExpression = the_mCalcStringExpression
+    def setCalstringExpression(self, the_mCalstringExpression):
+        self.__mCalstringExpression = the_mCalstringExpression
 
-    def getCalcStringExpression(self):
+    def getCalstringExpression(self):
         returnVal = None
-        returnVal = self.__mCalcStringExpression
+        returnVal = self.__mCalstringExpression
         return returnVal
-    CalcStringExpression = property(fset=setCalcStringExpression, fget=getCalcStringExpression)
+    CalstringExpression = property(fset=setCalstringExpression, fget=getCalstringExpression)
 
 
     

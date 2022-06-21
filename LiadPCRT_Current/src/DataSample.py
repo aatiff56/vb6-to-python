@@ -4,6 +4,7 @@ from datetime import datetime
 import MdlADOFunctions
 import mdl_Common
 import MdlConnection
+import MdlGlobal
 import ControlParam
 
 
@@ -185,81 +186,86 @@ class DataSample:
     def Init(self, pMachine, DataSampleID):
         returnVal = None
         strSQL = ''
-        Rst = ADODB.Recordset()
-        vParam = self.ControlParam
+        RstCursor = None
+        vParam = [None]
         ControllerFieldName = ''
         DestinationControllerFieldName = ''
 
-        strSQL = 'SELECT * FROM TblDataSamples WHERE ID = ' + DataSampleID
-        Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-        Rst.ActiveConnection = None
-        if Rst.RecordCount == 1:
-            self.__mID = MdlADOFunctions.fGetRstValLong(Rst.Fields("ID").Value)
-            ControllerFieldName = MdlADOFunctions.fGetRstValString(Rst.Fields("ControllerFieldName").Value)
-            DestinationControllerFieldName = MdlADOFunctions.fGetRstValString(Rst.Fields("DestinationControllerFieldName").Value)
-            self.__mIntervalAmount = MdlADOFunctions.fGetRstValLong(Rst.Fields("IntervalAmount").Value)
-            self.__mInterval = MdlADOFunctions.fGetRstValString(Rst.Fields("IntervalAmount").Value)
-            if MdlADOFunctions.fGetRstValString(Rst.Fields("MinLimitFactor").Value) != '' and MdlADOFunctions.fGetRstValString(Rst.Fields("MaxLimitFactor").Value) != '':
-                self.CheckLimits = True
-                self.__mMinLimitFactor = MdlADOFunctions.fGetRstValDouble(Rst.Fields("MinLimitFactor").Value)
-                self.__mMaxLimitFactor = MdlADOFunctions.fGetRstValDouble(Rst.Fields("MaxLimitFactor").Value)
+        try:
+            strSQL = 'SELECT * FROM TblDataSamples WHERE ID = ' + str(DataSampleID)
+            RstCursor = MdlConnection.CN.cursor()
+            RstCursor.execute(strSQL)
+            RstData = RstCursor.fetchone()
+
+            if RstData:
+                self.__mID = MdlADOFunctions.fGetRstValLong(RstData.ID)
+                ControllerFieldName = MdlADOFunctions.fGetRstValString(RstData.ControllerFieldName)
+                DestinationControllerFieldName = MdlADOFunctions.fGetRstValString(RstData.DestinationControllerFieldName)
+                self.__mIntervalAmount = MdlADOFunctions.fGetRstValLong(RstData.IntervalAmount)
+                self.__mInterval = MdlADOFunctions.fGetRstValString(RstData.IntervalAmount)
+                if MdlADOFunctions.fGetRstValString(RstData.MinLimitFactor) != '' and MdlADOFunctions.fGetRstValString(RstData.MaxLimitFactor) != '':
+                    self.CheckLimits = True
+                    self.__mMinLimitFactor = MdlADOFunctions.fGetRstValDouble(RstData.MinLimitFactor)
+                    self.__mMaxLimitFactor = MdlADOFunctions.fGetRstValDouble(RstData.MaxLimitFactor)
+                else:
+                    self.CheckLimits = False
+                self.__mAddValueOnMachineStop = MdlADOFunctions.fGetRstValBool(RstData.AddValueOnMachineStop, True)
+                if (RstData.IntervalUnit == 1):
+                    self.__mIntervalUnit = DataSampleIntervalUnit.DS_Year
+                    self.__mInterval = self.__mInterval + 'y'
+                elif (RstData.IntervalUnit == 2):
+                    self.__mIntervalUnit = DataSampleIntervalUnit.DS_Quarter
+                    self.__mInterval = self.__mInterval + 'q'
+                elif (RstData.IntervalUnit == 3):
+                    self.__mIntervalUnit = DataSampleIntervalUnit.DS_Month
+                    self.__mInterval = self.__mInterval + 'm'
+                elif (RstData.IntervalUnit == 4):
+                    self.__mIntervalUnit = DataSampleIntervalUnit.DS_Week
+                    self.__mInterval = self.__mInterval + 'w'
+                elif (RstData.IntervalUnit == 5):
+                    self.__mIntervalUnit = DataSampleIntervalUnit.DS_Day
+                    self.__mInterval = self.__mInterval + 'd'
+                elif (RstData.IntervalUnit == 6):
+                    self.__mIntervalUnit = DataSampleIntervalUnit.DS_Hour
+                    self.__mInterval = self.__mInterval + 'h'
+                elif (RstData.IntervalUnit == 7):
+                    self.__mIntervalUnit = DataSampleIntervalUnit.DS_Minute
+                    self.__mInterval = self.__mInterval + 'n'
+                if (RstData.AggFunction == 'Sum'):
+                    self.__mAggFunction = DataSampleAggFunction.DS_Sum
+                elif (RstData.AggFunction == 'Avg'):
+                    self.__mAggFunction = DataSampleAggFunction.DS_Avg
+                elif (RstData.AggFunction == 'Min'):
+                    self.__mAggFunction = DataSampleAggFunction.DS_Min
+                elif (RstData.AggFunction == 'Max'):
+                    self.__mAggFunction = DataSampleAggFunction.DS_Max
+                elif (RstData.AggFunction == 'Count'):
+                    self.__mAggFunction = DataSampleAggFunction.DS_Count
+                elif (RstData.AggFunction == 'Diff'):
+                    self.__mAggFunction = DataSampleAggFunction.DS_Diff
             else:
-                self.CheckLimits = False
-            self.__mAddValueOnMachineStop = MdlADOFunctions.fGetRstValBool(Rst.Fields("AddValueOnMachineStop").Value, True)
-            if (Rst.Fields("IntervalUnit").Value == 1):
-                self.__mIntervalUnit = DS_Year
-                self.__mInterval = self.__mInterval + 'y'
-            elif (Rst.Fields("IntervalUnit").Value == 2):
-                self.__mIntervalUnit = DS_Quarter
-                self.__mInterval = self.__mInterval + 'q'
-            elif (Rst.Fields("IntervalUnit").Value == 3):
-                self.__mIntervalUnit = DS_Month
-                self.__mInterval = self.__mInterval + 'm'
-            elif (Rst.Fields("IntervalUnit").Value == 4):
-                self.__mIntervalUnit = DS_Week
-                self.__mInterval = self.__mInterval + 'w'
-            elif (Rst.Fields("IntervalUnit").Value == 5):
-                self.__mIntervalUnit = DS_Day
-                self.__mInterval = self.__mInterval + 'd'
-            elif (Rst.Fields("IntervalUnit").Value == 6):
-                self.__mIntervalUnit = DS_Hour
-                self.__mInterval = self.__mInterval + 'h'
-            elif (Rst.Fields("IntervalUnit").Value == 7):
-                self.__mIntervalUnit = DS_Minute
-                self.__mInterval = self.__mInterval + 'n'
-            if (Rst.Fields("AggFunction").Value == 'Sum'):
-                self.__mAggFunction = DS_Sum
-            elif (Rst.Fields("AggFunction").Value == 'Avg'):
-                self.__mAggFunction = DS_Avg
-            elif (Rst.Fields("AggFunction").Value == 'Min'):
-                self.__mAggFunction = DS_Min
-            elif (Rst.Fields("AggFunction").Value == 'Max'):
-                self.__mAggFunction = DS_Max
-            elif (Rst.Fields("AggFunction").Value == 'Count'):
-                self.__mAggFunction = DS_Count
-            elif (Rst.Fields("AggFunction").Value == 'Diff'):
-                self.__mAggFunction = DS_Diff
-        else:
-            Err.Raise(1)
-        Rst.Close()
-        if pMachine.GetParam(ControllerFieldName, vParam) == True:
-            self.__mControlParam = vParam
-        if DestinationControllerFieldName != '':
-            if pMachine.GetParam(DestinationControllerFieldName, vParam) == True:
-                self.__mDestinationControlParam = vParam
-        if Err.Number != 0:
-            if InStr(Err.Description, 'nnection') > 0:
-                if CN.State == 1:
-                    CN.Close()
-                CN.Open()
-                if MetaCn.State == 1:
-                    MetaCn.Close()
-                MetaCn.Open()
-                Err.Clear()
+                raise Exception("No data found.")
+            RstCursor.close()
+    
+            if pMachine.GetParam(ControllerFieldName, vParam) == True:
+                self.__mControlParam = vParam
+            if DestinationControllerFieldName != '':
+                if pMachine.GetParam(DestinationControllerFieldName, vParam) == True:
+                    self.__mDestinationControlParam = vParam
+
+        except BaseException as error:        
+            if 'nnection' in error.args[0]:
+                if MdlConnection.CN:
+                    MdlConnection.Close(MdlConnection.CN)
+                MdlConnection.Open(MdlConnection.CN, MdlConnection.strCon)
+
+                if MdlConnection.MetaCn:
+                    MdlConnection.Close(MdlConnection.MetaCn)
+                MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
                 
-            RecordError('LeaderRT:DataSample:Init()', Err.Number, Err.Description, 'MachineID: ' + pMachine.ID + ', ControllerFieldName: ' + ControllerFieldName)
-            Err.Clear()
-        Rst = None
+            MdlGlobal.RecordError('LeaderRT:DataSample:Init()', str(0), error.args[0], 'MachineID: ' + str(pMachine.ID) + ', ControllerFieldName: ' + str(ControllerFieldName))
+
+        RstCursor = None
         return returnVal
 
     def Reset(self):

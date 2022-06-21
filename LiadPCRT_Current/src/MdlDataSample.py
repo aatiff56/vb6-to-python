@@ -1,10 +1,12 @@
+from colorama import Fore
+from DataSample import DataSample
+
 import MdlConnection
-import DataSample
 
 def fInitMachineDataSamples(pMachine):
     strSQL = ''
     mDataSample = None
-    mControlParam = None
+    mControlParam = [None]
     RstCursor = None
     returnVal = False
 
@@ -15,14 +17,15 @@ def fInitMachineDataSamples(pMachine):
         RstValues = RstCursor.fetchall()
 
         for RstData in RstValues:
-            mDataSample = DataSample.DataSample()
+            mDataSample = DataSample()
+            
+            print(Fore.GREEN + "Loading Machine Controller Field Actions.")
             mDataSample.Init(pMachine, RstData.ID)
             
-            if not pMachine.GetParam(RstData.ControllerFieldName, mControlParam):                    
-                pass
-            else:
-                mControlParam.DataSamples.Add(mDataSample, str(mDataSample.ID))
+            if pMachine.GetParam(RstData.ControllerFieldName, mControlParam):                    
+                mControlParam[0].DataSamples[str(mDataSample.ID)] = mDataSample
         RstCursor.close()
+
         returnVal = True
 
     except BaseException as error:
@@ -34,6 +37,8 @@ def fInitMachineDataSamples(pMachine):
             if MdlConnection.MetaCn:
                 MdlConnection.Close(MdlConnection.MetaCn)
             MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
+
+    RstCursor = None
     return returnVal
 
 
