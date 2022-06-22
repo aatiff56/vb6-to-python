@@ -1,6 +1,8 @@
 from datetime import datetime
 from colorama import Fore
 
+from ControlParam import ControlParam
+from Job import Job
 import mdl_Common
 import MdlADOFunctions
 import MdlConnection
@@ -10,7 +12,6 @@ import MdlDataSample
 import MdlRTControllerFieldActions
 import MdlOnlineTasks
 
-from ControlParam import ControlParam
 
 class Machine:
     __mID = 0
@@ -1208,7 +1209,7 @@ class Machine:
         fCheckMachineTriggers(self)
         returnVal = True
         if Err.Number != 0:
-            RecordError('Machine:fReadMainData', '' + Err.Number, '' + Err.Description, 'MID = ' + self.__mID)
+            RecordError('Machine:fReadMainData', '' + Err.Number, '' + Err.Description, 'MID = ' + self.str(__mID))
             Err.Clear()
             
         
@@ -1329,7 +1330,7 @@ class Machine:
                 MetaCn.Open()
                 Err.Clear()
                 
-            RecordError('Machine:fWriteMainData', '' + Err.Number, '' + Err.Description, 'MID = ' + self.__mID)
+            RecordError('Machine:fWriteMainData', '' + Err.Number, '' + Err.Description, 'MID = ' + self.str(__mID))
             Err.Clear()
             
         tParam = None
@@ -1746,7 +1747,7 @@ class Machine:
                 MetaCn.Open()
                 Err.Clear()
                 
-            RecordError('Machine:CalculateStatus', '' + Err.Number, '' + Err.Description, 'MachineID = ' + self.__mID)
+            RecordError('Machine:CalculateStatus', '' + Err.Number, '' + Err.Description, 'MachineID = ' + self.str(__mID))
             Err.Clear()
             
             
@@ -3446,7 +3447,7 @@ class Machine:
                 ErrCounter = ErrCounter
 
             print('Enter Function JobLoad: JobID=' + str(JobID) + ' | ' + str(mdl_Common.NowGMT()))
-            strSQL = 'Select MainDSID, DSIsActive, DSActiveDemand, DirectBatchBlender, DownloadRecipeDirectly From TblMachines Where ID = ' + self.__mID
+            strSQL = 'Select MainDSID, DSIsActive, DSActiveDemand, DirectBatchBlender, DownloadRecipeDirectly From TblMachines Where ID = ' + str(self.__mID)
 
             RstCursor = MdlConnection.CN.cursor()
             RstCursor.execute(strSQL)
@@ -3459,7 +3460,7 @@ class Machine:
             DownloadRecipeDirectly = MdlADOFunctions.fGetRstValBool(RstData.DownloadRecipeDirectly, False)
             RstCursor.close()
 
-            if ResetTotals() == True:
+            if ResetTotals == True:
                 self.fClearControllerFields()
                 if self.__mCParams.Item('TotalCycles').FieldDataType == 5:
                     strSQL = 'Update TblControllerFields Set CurrentValue = \'0\' Where MachineID = ' + str(self.__mID) + ' AND FieldName = \'TotalCycles\''
@@ -3568,8 +3569,8 @@ class Machine:
             returnVal = False
             
             if pFromActivateJob or FromINITMachine:
-                tJob = None
-                tJob.Init(self, JobID, True, VBGetMissingArgument(tJob.Init, 3), FromINITMachine)                
+                tJob = Job()
+                tJob.Init(self, JobID, True, FromINITMachine)                
             else:
                 tJob = self.ActiveJob                
                 tJob.Refresh
@@ -3605,7 +3606,7 @@ class Machine:
             UnitsTarget = self.ActiveJob.UnitsTarget
             self.SetFieldValue('UnitsTarget', UnitsTarget)
             
-            temp = '' + MdlADOFunctions.GetSingleValue('MoldEndTime', 'TblMachines', 'ID=' + self.__mID)
+            temp = '' + MdlADOFunctions.GetSingleValue('MoldEndTime', 'TblMachines', 'ID=' + self.str(__mID))
             if temp != '':
                 self.__mMoldEndTime = CLng(temp)
             strSQL = 'Select * From TblControllerFields Where ControllerID = ' + self.__mControllerID
@@ -3927,7 +3928,7 @@ class Machine:
                     self.__mBatchTrigerP.BatchParams.Item(Counter).ShrinkData(self.ActiveJob.ID, str(self.__mActiveLocalID), self.__mID, CLng(self.ActiveJob.Mold.ID), self.ActiveJob.Product.ID, StartTime, EndTime, self.__mStatus)
         self.__mLastShrinkTime = mdl_Common.NowGMT()
         if Err.Number != 0:
-            RecordError('Machine:ShrinkData', '' + Err.Number, '' + Err.Description, 'MID = ' + self.__mID)
+            RecordError('Machine:ShrinkData', '' + Err.Number, '' + Err.Description, 'MID = ' + self.str(__mID))
             Err.Clear()
             
         return returnVal

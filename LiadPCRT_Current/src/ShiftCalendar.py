@@ -1,6 +1,8 @@
 from datetime import datetime
+
 import MdlADOFunctions
 import MdlConnection
+import MdlGlobal
 
 class ShiftCalendar:
 
@@ -9,13 +11,13 @@ class ShiftCalendar:
     mID = 0
     mLName = ''
     mEName = ''
-    # mSMRotationOrder = SMRotationOrderOption()
+    mSMRotationOrder = None
+    mCurrentShift = None
     mIsDefault = False
-    # mCurrentShift = Shift()
     mCurrentShiftDefID = 0
     mIsActive = False
     mSendSMSAlarmsFromMyRT = False
-    # mDepartments = Collection()
+    mDepartments = {}
     mWindowsProcessID = 0
     mSQLReconnectInterval = 0
     mLastSQLReconnect = None
@@ -67,11 +69,10 @@ class ShiftCalendar:
 
     def AddDepartment(self, pDepartment):
         try:
-            self.Departments.Add(pDepartment, str(pDepartment.ID))
+            self.Departments[str(pDepartment.ID)] = pDepartment
+        
         except BaseException as error:
-            self.sqlCntr.CloseConnection()
-            self.logger.Error(type(self) + '.AddDepartment:', error,
-                              'ShiftCalendarID: ' + self.ID + '. DepartmentID: ' + pDepartment.ID)
+            MdlGlobal.RecordError(type(self) + '.AddDepartment:', error, 'ShiftCalendarID: ' + str(self.ID) + '. DepartmentID: ' + str(pDepartment.ID))
 
 
     def UpdateWindowsProcessID(self):

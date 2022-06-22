@@ -1,5 +1,6 @@
 from datetime import datetime
 from colorama import Fore
+from Machine import Machine
 
 import os
 import MdlADOFunctions
@@ -9,7 +10,6 @@ import MdlConnection
 import MdlServer
 import MdlGlobal
 import SystemVariables
-import Machine
 
 class Server:
     
@@ -21,18 +21,18 @@ class Server:
     mMetaCNstr = ['']
     mMetaCNStatus = 0
     mConCount = 0
-    # mMachines = Collection()
-    # mMediaPlayer = MediaPlayer.MediaPlayer()
+    mMachines = {}
+    mMediaPlayer = None
     mInIO = False
     mReadWaitCount = 0
     mMainXML = ''
     mCurrentShiftID = 0
-    # mCurrentShift = Shift()
-    # mShiftCalendar = ShiftCalendar()
-    # mProducts = Collection()
-    # mMolds = Collection()
-    # mDepartments = Collection()
-    # mMachineTypes = Collection()
+    mCurrentShift = None
+    mShiftCalendar = None
+    mProducts = {}
+    mMolds = {}
+    mDepartments = {}
+    mMachineTypes = {}
     mSystemVariables = None
     mStartTime = datetime.now()
     cntShiftTimerInterval = 180000
@@ -47,7 +47,7 @@ class Server:
     WriteMachine = 0
     ReadMachine = 0
     mSCID = 0
-    # mActiveInventoryItems = Collection()
+    mActiveInventoryItems = {}
 
 #     def UpdateMachineParamLimits(self, MachineID, FName, dMean, dPUCL, dPLCL, dQUCL, dQLCL, UpdateRecipe):
 #         Counter = 0
@@ -68,8 +68,7 @@ class Server:
             ServerName = ''
             RstCursor = None
             DepRstCursor = None
-            # self.sqlCntr.OpenConnection()
-            # tMachine = Machine()
+            tMachine = None
             CurShift = 0
             MultiTimeZoneLeaderServer = False
             TargetDaylightSavingOn = False
@@ -77,8 +76,8 @@ class Server:
             DepForSC = ''
             # tOPCServer = OPCServer()
             tSystemVariables = None
-            # tShiftCalendar = self.ShiftCalendar()
-            # tDepartment = Department()
+            tShiftCalendar = None
+            tDepartment = None
             tDuplicateRTFound = False
         
             if len(Arr) >= 0:
@@ -138,7 +137,7 @@ class Server:
             GeneralGroupRefreshRate = 2000
             
             if self.mSCID > 0:
-                CurShift = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('CurrentShiftID', 'STblShiftCalendar', 'ID = ' + self.SCID, 'CN'))
+                CurShift = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('CurrentShiftID', 'STblShiftCalendar', 'ID = ' + str(self.SCID), 'CN'))
             else:
                 CurShift = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('CurrentShiftID', 'STblSystemVariables', 'ID > 0', 'CN'))
             self.CurrentShiftID = CurShift
@@ -171,14 +170,14 @@ class Server:
             self.fClearAlarmsOnServerINIT(self.SCID)
             
             if self.mSCID > 0:
-                strSQL = 'SELECT ID From STblDepartments Where ShiftCalendarID = ' + self.mSCID
+                strSQL = 'SELECT ID From STblDepartments Where ShiftCalendarID = ' + str(self.mSCID)
                 DepRstCursor = MdlConnection.CN.cursor()
                 DepRstCursor.execute(strSQL)
                 DepRstData = DepRstCursor.fetchall()
 
                 for DepRstValue in DepRstData:                    
-                    self.ShiftCalendar.AddDepartment(GetOrCreateDepartment(self, MdlADOFunctions.fGetRstValLong(DepRstValue.ID)))
-                    strSQL = 'Select ID, OPCServerName, OPCServerIP From TblMachines Where IsActive <> 0 AND Department = ' + DepRstValue.ID + ' ORDER BY ID'
+                    self.ShiftCalendar.AddDepartment(MdlServer.GetOrCreateDepartment(self, MdlADOFunctions.fGetRstValLong(DepRstValue.ID)))
+                    strSQL = 'Select ID, OPCServerName, OPCServerIP From TblMachines Where IsActive <> 0 AND Department = ' + str(DepRstValue.ID) + ' ORDER BY ID'
 
                     RstCursor = MdlConnection.CN.cursor()
                     RstCursor.execute(strSQL)
@@ -188,22 +187,22 @@ class Server:
                         tMachine = Machine()
                         
                         tMachine.Server = self
-                        ServerName = '' + RstValue.OPCServerName
+                        ServerName = RstValue.OPCServerName
                         if ServerName != '':
-                            tOPCServer = OPCServer()
-                            self.mOPCServers.Add(tOPCServer, str(RstValue.ID))
-                            tOPCServer.Connect(ServerName, '' + RstValue.OPCServerIP)
-                            self.mOPCServerGroups = self.mOPCServer.OPCGroups
+                            tOPCServer = None
+                            # tOPCServer = OPCServer()
+                            # self.mOPCServers.Add(tOPCServer, str(RstValue.ID))
+                            # tOPCServer.Connect(ServerName, '' + RstValue.OPCServerIP)
+                            # self.mOPCServerGroups = self.mOPCServer.OPCGroups
                         else:
                             tOPCServer = self.mOPCServer
                         if tMachine.INITMachine(RstValue.ID, tOPCServer) == False:
-                            
                             pass
                         self.mMachines.Add(tMachine, str(RstValue.ID))
-                        GetOrCreateDepartment(self, MdlADOFunctions.fGetRstValLong(DepRstValue.ID)).AddMachine(tMachine)
+                        MdlServer.GetOrCreateDepartment(self, MdlADOFunctions.fGetRstValLong(DepRstValue.ID)).AddMachine(tMachine)
 
-                    RstData.close()
-                DepRstData.close()
+                    RstCursor.close()
+                DepRstCursor.close()
             else:
                 strSQL = 'Select ID From TblMachines Where IsActive <> 0 ORDER BY ID'
 
@@ -212,7 +211,7 @@ class Server:
                 RstData = RstCursor.fetchall()
 
                 for RstValue in RstData:
-                    tMachine = Machine.Machine()
+                    tMachine = Machine()
                     
                     tMachine.Server = self
                     if tMachine.INITMachine(RstValue.ID, self.mOPCServer) == False:
@@ -2541,57 +2540,56 @@ class Server:
 #         return fn_return_value
 
 
-#     def setStartTime(self, value):
-#         self.mStartTime = value
+    def setStartTime(self, value):
+        self.mStartTime = value
 
-#     def getStartTime(self):
-#         fn_return_value = self.mStartTime
-#         return fn_return_value
-#     StartTime = property(fset=setStartTime, fget=getStartTime)
-
-
-    
-#     def setServerID(self, the_mServerID):
-#         self.mServerID = the_mServerID
-
-#     def getServerID(self):
-#         fn_return_value = self.mServerID
-#         return fn_return_value
-#     ServerID = property(fset=setServerID, fget=getServerID)
+    def getStartTime(self):
+        fn_return_value = self.mStartTime
+        return fn_return_value
+    StartTime = property(fset=setStartTime, fget=getStartTime)
 
 
     
-#     def setCurrentShiftID(self, the_mCurrentShiftID):
-#         self.mCurrentShiftID = the_mCurrentShiftID
+    def setServerID(self, the_mServerID):
+        self.mServerID = the_mServerID
 
-#     def getCurrentShiftID(self):
-#         fn_return_value = self.mCurrentShiftID
-#         return fn_return_value
-#     CurrentShiftID = property(fset=setCurrentShiftID, fget=getCurrentShiftID)
-
-
-    
-#     def setCurrentShift(self, value):
-#         self.mCurrentShift = value
-
-#     def getCurrentShift(self):
-#         if IsObject(self.mCurrentShift):
-#             fn_return_value = self.mCurrentShift
-#         else:
-#             fn_return_value = None
-#         return fn_return_value
-#     CurrentShift = property(fset=setCurrentShift, fget=getCurrentShift)
+    def getServerID(self):
+        fn_return_value = self.mServerID
+        return fn_return_value
+    ServerID = property(fset=setServerID, fget=getServerID)
 
 
     
-#     def setShiftCalendar(self, value):
-#         self.mShiftCalendar = value
+    def setCurrentShiftID(self, the_mCurrentShiftID):
+        self.mCurrentShiftID = the_mCurrentShiftID
 
-#     def getShiftCalendar(self):
-#         fn_return_value = self.mShiftCalendar
-#         return fn_return_value
-#     ShiftCalendar = property(fset=setShiftCalendar, fget=getShiftCalendar)
+    def getCurrentShiftID(self):
+        fn_return_value = self.mCurrentShiftID
+        return fn_return_value
+    CurrentShiftID = property(fset=setCurrentShiftID, fget=getCurrentShiftID)
 
+
+    
+    def setCurrentShift(self, value):
+        self.mCurrentShift = value
+
+    def getCurrentShift(self):
+        if IsObject(self.mCurrentShift):
+            fn_return_value = self.mCurrentShift
+        else:
+            fn_return_value = None
+        return fn_return_value
+    CurrentShift = property(fset=setCurrentShift, fget=getCurrentShift)
+
+
+    
+    def setShiftCalendar(self, value):
+        self.mShiftCalendar = value
+
+    def getShiftCalendar(self):
+        fn_return_value = self.mShiftCalendar
+        return fn_return_value
+    ShiftCalendar = property(fset=setShiftCalendar, fget=getShiftCalendar)
 
     
     def setConCount(self, the_mConCount):
@@ -2602,121 +2600,119 @@ class Server:
         return fn_return_value
     ConCount = property(fset=setConCount, fget=getConCount)
 
-
     
-#     def setPlantID(self, the_mPlantID):
-#         self.mPlantID = the_mPlantID
+    def setPlantID(self, the_mPlantID):
+        self.mPlantID = the_mPlantID
 
-#     def getPlantID(self):
-#         fn_return_value = self.mPlantID
-#         return fn_return_value
-#     PlantID = property(fset=setPlantID, fget=getPlantID)
-
-
-    
-#     def setStatus(self, the_mStatus):
-#         self.mStatus = the_mStatus
-
-#     def getStatus(self):
-#         fn_return_value = self.mStatus
-#         return fn_return_value
-#     Status = property(fset=setStatus, fget=getStatus)
+    def getPlantID(self):
+        fn_return_value = self.mPlantID
+        return fn_return_value
+    PlantID = property(fset=setPlantID, fget=getPlantID)
 
 
     
-#     def setCNstr(self, the_mCNstr):
-#         self.mCNstr = the_mCNstr
+    def setStatus(self, the_mStatus):
+        self.mStatus = the_mStatus
 
-#     def getCNstr(self):
-#         fn_return_value = self.mCNstr
-#         return fn_return_value
-#     CNstr = property(fset=setCNstr, fget=getCNstr)
-
-
-    
-#     def setSCID(self, the_mSCID):
-#         self.mSCID = the_mSCID
-
-#     def getSCID(self):
-#         fn_return_value = self.mSCID
-#         return fn_return_value
-#     SCID = property(fset=setSCID, fget=getSCID)
+    def getStatus(self):
+        fn_return_value = self.mStatus
+        return fn_return_value
+    Status = property(fset=setStatus, fget=getStatus)
 
 
     
-#     def setCNStatus(self, the_mCNStatus):
-#         self.mCNStatus = the_mCNStatus
+    def setCNstr(self, the_mCNstr):
+        self.mCNstr = the_mCNstr
 
-#     def getCNStatus(self):
-#         fn_return_value = self.mCNStatus
-#         return fn_return_value
-#     CNStatus = property(fset=setCNStatus, fget=getCNStatus)
-
-
-    
-#     def setMetaCNstr(self, the_mMetaCNstr):
-#         self.mMetaCNstr = the_mMetaCNstr
-
-#     def getMetaCNstr(self):
-#         fn_return_value = self.mMetaCNstr
-#         return fn_return_value
-#     MetaCNstr = property(fset=setMetaCNstr, fget=getMetaCNstr)
+    def getCNstr(self):
+        fn_return_value = self.mCNstr
+        return fn_return_value
+    CNstr = property(fset=setCNstr, fget=getCNstr)
 
 
     
-#     def setMetaCNStatus(self, the_mMetaCNStatus):
-#         self.mMetaCNStatus = the_mMetaCNStatus
+    def setSCID(self, the_mSCID):
+        self.mSCID = the_mSCID
 
-#     def getMetaCNStatus(self):
-#         fn_return_value = self.mMetaCNStatus
-#         return fn_return_value
-#     MetaCNStatus = property(fset=setMetaCNStatus, fget=getMetaCNStatus)
-
-
-#     def setProducts(self, value):
-#         self.mProducts = value
-
-#     def getProducts(self):
-#         fn_return_value = self.mProducts
-#         return fn_return_value
-#     Products = property(fset=setProducts, fget=getProducts)
-
-
-#     def setMolds(self, value):
-#         self.mMolds = value
-
-#     def getMolds(self):
-#         fn_return_value = self.mMolds
-#         return fn_return_value
-#     Molds = property(fset=setMolds, fget=getMolds)
-
-
-#     def setDepartments(self, value):
-#         self.mDepartments = value
-
-#     def getDepartments(self):
-#         fn_return_value = self.mDepartments
-#         return fn_return_value
-#     Departments = property(fset=setDepartments, fget=getDepartments)
-
-
-#     def setMachineTypes(self, value):
-#         self.mMachineTypes = value
-
-#     def getMachineTypes(self):
-#         fn_return_value = self.mMachineTypes
-#         return fn_return_value
-#     MachineTypes = property(fset=setMachineTypes, fget=getMachineTypes)
+    def getSCID(self):
+        fn_return_value = self.mSCID
+        return fn_return_value
+    SCID = property(fset=setSCID, fget=getSCID)
 
 
     
-#     def setMachines(self, value):
-#         self.mMachines = value
+    def setCNStatus(self, the_mCNStatus):
+        self.mCNStatus = the_mCNStatus
 
-#     def getMachines(self):
-#         fn_return_value = self.mMachines
-#         return fn_return_value
-#     Machines = property(fset=setMachines, fget=getMachines)
+    def getCNStatus(self):
+        fn_return_value = self.mCNStatus
+        return fn_return_value
+    CNStatus = property(fset=setCNStatus, fget=getCNStatus)
+
+
+    
+    def setMetaCNstr(self, the_mMetaCNstr):
+        self.mMetaCNstr = the_mMetaCNstr
+
+    def getMetaCNstr(self):
+        fn_return_value = self.mMetaCNstr
+        return fn_return_value
+    MetaCNstr = property(fset=setMetaCNstr, fget=getMetaCNstr)
+
+
+    
+    def setMetaCNStatus(self, the_mMetaCNStatus):
+        self.mMetaCNStatus = the_mMetaCNStatus
+
+    def getMetaCNStatus(self):
+        fn_return_value = self.mMetaCNStatus
+        return fn_return_value
+    MetaCNStatus = property(fset=setMetaCNStatus, fget=getMetaCNStatus)
+
+
+    def setProducts(self, value):
+        self.mProducts = value
+
+    def getProducts(self):
+        fn_return_value = self.mProducts
+        return fn_return_value
+    Products = property(fset=setProducts, fget=getProducts)
+
+
+    def setMolds(self, value):
+        self.mMolds = value
+
+    def getMolds(self):
+        fn_return_value = self.mMolds
+        return fn_return_value
+    Molds = property(fset=setMolds, fget=getMolds)
+
+
+    def setDepartments(self, value):
+        self.mDepartments = value
+
+    def getDepartments(self):
+        fn_return_value = self.mDepartments
+        return fn_return_value
+    Departments = property(fset=setDepartments, fget=getDepartments)
+
+
+    def setMachineTypes(self, value):
+        self.mMachineTypes = value
+
+    def getMachineTypes(self):
+        fn_return_value = self.mMachineTypes
+        return fn_return_value
+    MachineTypes = property(fset=setMachineTypes, fget=getMachineTypes)
+
+    
+    def setMachines(self, value):
+        self.mMachines = value
+
+    def getMachines(self):
+        fn_return_value = self.mMachines
+        return fn_return_value
+    Machines = property(fset=setMachines, fget=getMachines)
 
 
     def setSystemVariables(self, value):
@@ -2728,27 +2724,26 @@ class Server:
     SystemVariables = property(fset=setSystemVariables, fget=getSystemVariables)
 
 
-#     def setActiveInventoryItems(self, value):
-#         self.mActiveInventoryItems = value
+    def setActiveInventoryItems(self, value):
+        self.mActiveInventoryItems = value
 
-#     def getActiveInventoryItems(self):
-#         fn_return_value = self.mActiveInventoryItems
-#         return fn_return_value
-#     ActiveInventoryItems = property(fset=setActiveInventoryItems, fget=getActiveInventoryItems)
+    def getActiveInventoryItems(self):
+        fn_return_value = self.mActiveInventoryItems
+        return fn_return_value
+    ActiveInventoryItems = property(fset=setActiveInventoryItems, fget=getActiveInventoryItems)
 
 
-#     def setGeneralUpdateRateSet(self, MachineID, vUpdateRate):
-#         tMachine = Machine()
-
-#         Counter = 0
+    def setGeneralUpdateRateSet(self, MachineID, vUpdateRate):
+        tMachine = Machine()
+        Counter = 0
         
-#         if MachineID > 0:
-#             tMachine = self.mMachines.Item(str(MachineID))
-#             tMachine.GeneralUpdateRate = vUpdateRate *  ( self.mMachines.Count + 1 )
-#         else:
-#             for Counter in range(1, self.mMachines.Count):
-#                 tMachine = self.mMachines.Item(Counter)
-#                 tMachine.GeneralUpdateRate = vUpdateRate *  ( self.mMachines.Count + 1 )
-#     GeneralUpdateRateSet = property(fset=setGeneralUpdateRateSet)
+        if MachineID > 0:
+            tMachine = self.mMachines.Item(str(MachineID))
+            tMachine.GeneralUpdateRate = vUpdateRate *  ( self.mMachines.Count + 1 )
+        else:
+            for Counter in range(1, self.mMachines.Count):
+                tMachine = self.mMachines.Item(Counter)
+                tMachine.GeneralUpdateRate = vUpdateRate *  ( self.mMachines.Count + 1 )
+    GeneralUpdateRateSet = property(fset=setGeneralUpdateRateSet)
 
     

@@ -1,6 +1,7 @@
 import enum
-from Modules import MdlADOFunctions, MdlConnection
-from Modules import MdlGlobal
+import MdlADOFunctions
+import MdlConnection
+import MdlGlobal
 
 class MaterialCalcObjectType(enum.Enum):
     FromJob = 0
@@ -20,34 +21,34 @@ class BatchAutoSubtractModeOption(enum.Enum):
     ByMinimumAmount = 2
 
 
-class MyClass:
+class Channel:
     __mID = 0
-    __mSplits = Collection()
+    __mSplits = {}
     __mSplitsCount = 0
     __mChannelNum = 0
     __mIsMain = False
     __mSplitDefinitionsFromTable = False
     __mWorkingWithBatchTracking = False
-    __mLastReadTime = Date()
-    __mLastWriteTime = Date()
-    __mMachine = Machine()
-    __mMaterialID = MaterialID()
-    __mMaterialPCTarget = MaterialPCTarget()
-    __mMaterialPC = MaterialPC()
-    __mTotalWeight = TotalWeight()
-    __mMaterialCalcStandardOption = MaterialCalcStandardOption()
-    __mJob = Job()
-    __mMaterialBatch = MaterialBatch()
+    __mLastReadTime = None
+    __mLastWriteTime = None
+    __mMachine = None
+    __mMaterialID = None
+    __mMaterialPCTarget = None
+    __mMaterialPC = None
+    __mTotalWeight = None
+    __mMaterialCalcStandardOption = None
+    __mJob = None
+    __mMaterialBatch = None
     __mLastWeightDiff = 0
-    __mForecastWeight = ForecastWeight()
+    __mForecastWeight = None
     __mMaterialFlowForNextJob = False
     __mPendingWareHouseLocationLink = False
     __mWareHouseLocationID = 0
     __mActiveInventoryID = 0
     __mActivateBatchFromLocation = False
-    __mWareHouseLocationConsumptionMethodID = WareHouseLocationConsumptionMethod()
+    __mWareHouseLocationConsumptionMethodID = None
     __mChangeLocationActiveBatchOnActiveJobBatchChange = False
-    __mBatchAutoSubtractMode = BatchAutoSubtractModeOption()
+    __mBatchAutoSubtractMode = None
     __mBatchAutoSubtractValue = 0
     __mWorkingWithWarehouseLocation = False
 
@@ -125,7 +126,7 @@ class MyClass:
                 if self.MaterialPCTarget.CurrentValue != 0 and self.MaterialPC.CurrentValue == 0:
                     self.MaterialPC.CurrentValue = self.MaterialPCTarget.CurrentValue
                 if self.MaterialID.CurrentValue != 0:
-                    CheckChannelJobMaterialRecord(self.CheckChannelJoshMaterialRecord(self.dbCursor.Close())
+                    CheckChannelJobMaterialRecord(self.CheckChannelJoshMaterialRecord(self.dbCursor.Close()))
         
         if self.Job.NextJobMaterialFlowStart != 0:
             self.MaterialFlowForNextJob = True
@@ -139,7 +140,7 @@ class MyClass:
                 MetaCn.Open()
                 Err.Clear()
                 
-            MdlGlobal.RecordError(TypeName(self. + '.Init:', Err.Number, Err.Description, 'JobID:' + pJob.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.Init:', Err.Number, Err.Description, 'JobID:' + pJob.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         dbCursor = None
         splitDbCursor = None
@@ -161,7 +162,7 @@ class MyClass:
             self.InitMaterialPCTarget
             self.InitTotalWeight(pJoshID)
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.Reset:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum))
+            MdlGlobal.RecordError(type(self) + '.Reset:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         tVariant = None
         tSplit = None
@@ -195,7 +196,7 @@ class MyClass:
             self.TotalWeight.SetOtherMaterialsAmountStandard(FromJosh, 0)
             self.TotalWeight.SetMaterialFlowAmount(FromJosh, 0)
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.ResetJoshCounters:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.ResetJoshCounters:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         tVariant = None
         tSplit = None
@@ -218,8 +219,7 @@ class MyClass:
                 tSplit.Calc(pMaterialCalcObjectType, pJob, pJosh)
         else:
             
-            if pJob.PConfigID != 0 and  ( ( pJob.PConfigIsMaterialCount == False and self.ChannelNum != 100 ) _
- or  ( pJob.PConfigIsChannel100Count == False and self.ChannelNum == 100 ) ) :
+            if pJob.PConfigID != 0 and  ( ( pJob.PConfigIsMaterialCount == False and self.ChannelNum != 100 ) or ( pJob.PConfigIsChannel100Count == False and self.ChannelNum == 100 ) ):
                 GoTo(self.Update)
             if pJob.PConfigID != 0 and  ( pJob.PConfigIsSpecialMaterialCount == True and self.MaterialID.IsPConfigSpecialMaterial == False ) :
                 GoTo(self.Update)
@@ -259,7 +259,7 @@ class MyClass:
                         tTagName = 'Cnl' + self.ChannelNum + 'WrongMissingLocationBatch'
                         self.Job.Machine.SetFieldValue(tTagName, '1')
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.Calc:', Err.Number, Err.Description, 'JobID:' + pJob.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.Calc:', Err.Number, Err.Description, 'JobID:' + pJob.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
             
         tSplit = None
@@ -410,7 +410,7 @@ class MyClass:
                 MetaCn.Open()
                 Err.Clear()
                 
-            MdlGlobal.RecordError(TypeName(self. + '.Update:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.Update:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         strTitle = vbNullString
         strSQL = vbNullString
@@ -430,7 +430,7 @@ class MyClass:
         GetChannelMaterialID(self.Job.ID, tMaterialID, self.ChannelNum)
         self.MaterialID = tMaterialID
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.InitMaterialID:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.InitMaterialID:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         tControllerField = None
         tMaterialID = None
@@ -450,7 +450,7 @@ class MyClass:
         GetChannelMaterialPC(self.Job.ID, tMaterialPC, self.ChannelNum)
         self.MaterialPC = tMaterialPC
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.InitMaterialPC:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.InitMaterialPC:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         tControllerField = None
         tMaterialPC = None
@@ -470,7 +470,7 @@ class MyClass:
         GetChannelMaterialPCTarget(self.Job.ID, tMaterialPCTarget, self.ChannelNum)
         self.MaterialPCTarget = tMaterialPCTarget
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.InitMaterialPCTarget:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.InitMaterialPCTarget:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         tControllerField = None
         tMaterialPCTarget = None
@@ -496,7 +496,7 @@ class MyClass:
         GetChannelTotalWeight(self.Job.ID, pJoshID, tTotalWeight, self.ChannelNum, self.MaterialID.CurrentValue, tMaterialBatch)
         self.TotalWeight = tTotalWeight
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.InitTotalWeight:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.InitTotalWeight:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         tControllerField = None
         tTotalWeight = None
@@ -519,7 +519,7 @@ class MyClass:
                 tTotalWeight = self.TotalWeight.CurrentValue(pMaterialCalcObjectType) + self.TotalWeight.OtherMaterialsAmount(pMaterialCalcObjectType)
         returnVal = tTotalWeight
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.GetTotalWeight:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.GetTotalWeight:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         tVariant = None
         tSplit = None
@@ -541,7 +541,7 @@ class MyClass:
             tMaterialPCTarget = self.MaterialPCTarget.CurrentValue
         returnVal = tMaterialPCTarget
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.GetMaterialPCTarget:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.GetMaterialPCTarget:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         tVariant = None
         tSplit = None
@@ -565,7 +565,7 @@ class MyClass:
                 tTotalWeightStandard = self.TotalWeight.StandardValue(pMaterialCalcObjectType) + self.TotalWeight.OtherMaterialsAmountStandard(pMaterialCalcObjectType)
         returnVal = tTotalWeightStandard
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.GetTotalWeightStandard:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.GetTotalWeightStandard:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         tVariant = None
         tSplit = None
@@ -589,7 +589,7 @@ class MyClass:
                 tMaterialActualIndex = self.TotalWeight.MaterialActualIndex(pMaterialCalcObjectType) + self.TotalWeight.OtherMaterialsActualIndex(pMaterialCalcObjectType)
         returnVal = tMaterialActualIndex
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.GetMaterialActualIndex:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.GetMaterialActualIndex:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         tVariant = None
         tSplit = None
@@ -610,7 +610,7 @@ class MyClass:
                 self.ActiveInventoryID = tMaterialBatch.ID
                 AddInventoryItemToGlobalCollection(tMaterialBatch)
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.InitMaterialBatch:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.InitMaterialBatch:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         tMaterialBatch = None
 
@@ -622,7 +622,7 @@ class MyClass:
         GetChannelForecastWeight(self.Job.ID, tForecastWeight, self.ChannelNum)
         self.ForecastWeight = tForecastWeight
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.InitForecastWeight:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.InitForecastWeight:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         tForecastWeight = None
 
@@ -630,7 +630,7 @@ class MyClass:
         
         self.ForecastWeight.JobAmountLeft = self.ForecastWeight.JobAmount - self.TotalWeight.CurrentValue(FromJob)
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.CalcMaterialForecast:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum + '. SplitNum: 0.')
+            MdlGlobal.RecordError(type(self) + '.CalcMaterialForecast:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum + '. SplitNum: 0.')
             Err.Clear()
 
     def GetMaterialStandardIndex(self, pMaterialCalcObjectType):
@@ -651,7 +651,7 @@ class MyClass:
                 tMaterialStandardIndex = self.TotalWeight.MaterialStandardIndex(pMaterialCalcObjectType)
         returnVal = tMaterialStandardIndex
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.GetMaterialStandardIndex:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.GetMaterialStandardIndex:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         tVariant = None
         tSplit = None
@@ -675,7 +675,7 @@ class MyClass:
                 tTotalWeight = self.TotalWeight.CurrentValue(pMaterialCalcObjectType) + self.TotalWeight.OtherMaterialsAmount(pMaterialCalcObjectType)
         returnVal = tTotalWeight
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.GetRawMaterialTotalWeight:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.GetRawMaterialTotalWeight:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         tVariant = None
         tSplit = None
@@ -699,7 +699,7 @@ class MyClass:
                 tTotalWeight = self.TotalWeight.CurrentValue(pMaterialCalcObjectType) + self.TotalWeight.OtherMaterialsAmount(pMaterialCalcObjectType)
         returnVal = tTotalWeight
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.GetAdditiveMaterialTotalWeight:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.GetAdditiveMaterialTotalWeight:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         tVariant = None
         tSplit = None
@@ -723,7 +723,7 @@ class MyClass:
                 tTotalWeight = self.TotalWeight.CurrentValue(pMaterialCalcObjectType)
         returnVal = tTotalWeight
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.GetAccompanyingMaterialTotalWeight:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.GetAccompanyingMaterialTotalWeight:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         tVariant = None
         tSplit = None
@@ -747,7 +747,7 @@ class MyClass:
                 tTotalWeight = self.TotalWeight.StandardValue(pMaterialCalcObjectType) + self.TotalWeight.OtherMaterialsAmountStandard(pMaterialCalcObjectType)
         returnVal = tTotalWeight
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.GetRawMaterialStandardWeight:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.GetRawMaterialStandardWeight:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         tVariant = None
         tSplit = None
@@ -771,7 +771,7 @@ class MyClass:
                 tTotalWeight = self.TotalWeight.StandardValue(pMaterialCalcObjectType) + self.TotalWeight.OtherMaterialsAmountStandard(pMaterialCalcObjectType)
         returnVal = tTotalWeight
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.GetAdditiveMaterialStandardWeight:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.GetAdditiveMaterialStandardWeight:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         tVariant = None
         tSplit = None
@@ -795,7 +795,7 @@ class MyClass:
                 tTotalWeight = self.TotalWeight.StandardValue(pMaterialCalcObjectType) + self.TotalWeight.OtherMaterialsAmountStandard(pMaterialCalcObjectType)
         returnVal = tTotalWeight
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.GetAccompanyingMaterialStandardWeight:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.GetAccompanyingMaterialStandardWeight:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         tVariant = None
         tSplit = None
@@ -819,7 +819,7 @@ class MyClass:
                 tMaterialPCTarget = self.MaterialPCTarget.CurrentValue
         returnVal = tMaterialPCTarget
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.GetRawMaterialPCTarget:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.GetRawMaterialPCTarget:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         tVariant = None
         tSplit = None
@@ -843,7 +843,7 @@ class MyClass:
                 tMaterialPCTarget = self.MaterialPCTarget.CurrentValue
         returnVal = tMaterialPCTarget
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.GetAdditiveMaterialPCTarget:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.GetAdditiveMaterialPCTarget:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         tVariant = None
         tSplit = None
@@ -867,7 +867,7 @@ class MyClass:
                 tMaterialPCTarget = self.MaterialPCTarget.CurrentValue
         returnVal = tMaterialPCTarget
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.GetAccompanyingMaterialPCTarget:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.GetAccompanyingMaterialPCTarget:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         tVariant = None
         tSplit = None
@@ -889,10 +889,9 @@ class MyClass:
                 if self.TotalWeight.ControllerField.ValidateValue == True:
                     tMaximumAmount = pTimeDiff * self.TotalWeight.ControllerField.MaxValueUnitsPerMin
                     if not self.MaterialBatch is None:
+                        pass
                     else:
                         if self.TotalWeight.CurrentValue(pMaterialCalcObjectType) > tMaximumAmount:
-                            
-                            
                             if pMaterialCalcObjectType == FromJob:
                                 strTitle = 'UPDATE TblJobMaterial'
                                 strSQL = strSQL + ' SET '
@@ -935,7 +934,7 @@ class MyClass:
                 MetaCn.Open()
                 Err.Clear()
                 
-            MdlGlobal.RecordError(TypeName(self. + '.ValidateAmount:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.ValidateAmount:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         tVariant = None
         tChannelSplit = None
@@ -952,7 +951,7 @@ class MyClass:
         else:
             self.TotalWeight.SetMaterialActualIndex(pMaterialCalcObjectType, self.MaterialID.MPGI * self.TotalWeight.CurrentValue(pMaterialCalcObjectType))
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.CalcMaterialActualIndex:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.CalcMaterialActualIndex:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         tVariant = None
         tSplit = None
@@ -1012,7 +1011,7 @@ class MyClass:
                             self.MaterialBatch.GrossWeight = ( 1 - tInventoryPart )  * self.MaterialBatch.GrossWeight
                         self.MaterialBatch.EffectiveAmount = self.MaterialBatch.EffectiveAmount - tWeightDiff
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.CalcAmount:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.CalcAmount:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
 
     
@@ -1051,7 +1050,7 @@ class MyClass:
                     tUnitsProducedOK = pJob.ActiveJosh.UnitsProducedOK
                 self.TotalWeight.SetStandardValue(pMaterialCalcObjectType, ( self.MaterialPCTarget.CurrentValue * tUnitsProducedOK )  - self.TotalWeight.OtherMaterialsAmountStandard(pMaterialCalcObjectType))
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.CalcAmountStandard:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.CalcAmountStandard:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
 
     
@@ -1068,7 +1067,7 @@ class MyClass:
         else:
             self.TotalWeight.SetProductRecipeValue(pMaterialCalcObjectType, ( self.MaterialPCTarget.ProductRecipeValue )  * tInjectionsCount)
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.CalcProductRecipeAmount:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.CalcProductRecipeAmount:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
 
     
@@ -1107,7 +1106,7 @@ class MyClass:
                         tUnitsProducedOK = pJosh.UnitsProducedOK
                     self.TotalWeight.SetProductStandardValue(pMaterialCalcObjectType, ( self.MaterialPCTarget.ProductStandardValue / 100 )  *  ( tUnitsProducedOK ))
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.CalcProductStandardAmount:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.CalcProductStandardAmount:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
 
     
@@ -1145,7 +1144,7 @@ class MyClass:
                     tUnitsProducedOK = pJosh.UnitsProducedOK
                 self.TotalWeight.SetRecipeRefValue(pMaterialCalcObjectType, ( self.MaterialPCTarget.RecipeRefValue )  * tUnitsProducedOK)
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.CalcRecipeRefAmount:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.CalcRecipeRefAmount:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
 
     def CalcMaterialStandardIndex(self, pMaterialCalcObjectType):
@@ -1156,7 +1155,7 @@ class MyClass:
         else:
             self.TotalWeight.SetMaterialStandardIndex(pMaterialCalcObjectType, self.MaterialID.RefRecipeMPGI * self.TotalWeight.RecipeRefValue(pMaterialCalcObjectType))
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.CalcMaterialStandardIndex:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.CalcMaterialStandardIndex:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
 
     def CheckMaterialRecipeAndLocationMatch(self):
@@ -1202,7 +1201,7 @@ class MyClass:
                 MetaCn.Open()
                 Err.Clear()
                 
-            MdlGlobal.RecordError(TypeName(self. + '.CheckMaterialRecipeAndLocationMatch:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.CheckMaterialRecipeAndLocationMatch:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         dbCursor = None
         return returnVal
@@ -1238,8 +1237,8 @@ class MyClass:
                 if not tMaterialBatch is None:
                     self.MaterialBatch = tMaterialBatch
                     
-                    CheckChannelJobMaterialRecord(self.
-                    CheckChannelJoshMaterialRecord(self.
+                    CheckChannelJobMaterialRecord(self)
+                    CheckChannelJoshMaterialRecord(self)
                     
                     tBatchTagName = 'Cnl' + self.ChannelNum + 'MaterialBatch'
                     self.Job.Machine.SetFieldValue(tBatchTagName, self.MaterialBatch.CurrentValue)
@@ -1261,7 +1260,7 @@ class MyClass:
                 MetaCn.Open()
                 Err.Clear()
                 
-            MdlGlobal.RecordError(TypeName(self. + '.GetNextInventoryItem:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
+            MdlGlobal.RecordError(type(self) + '.GetNextInventoryItem:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum)
             Err.Clear()
         dbCursor = None
 
@@ -1293,7 +1292,7 @@ class MyClass:
             if tAmount > 0:
                 self.Job.AddRejects(tAmount, 0, 100, False)
         if Err.Number != 0:
-            MdlGlobal.RecordError(TypeName(self. + '.AddSetupFromLocationBatchChange:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum + '. SplitNum:  ' + self.
+            MdlGlobal.RecordError(type(self) + '.AddSetupFromLocationBatchChange:', Err.Number, Err.Description, 'JobID:' + self.Job.ID + '. ChannelNum: ' + self.ChannelNum + '. SplitNum:  ' + self)
             Err.Clear()
         return returnVal
 

@@ -3,12 +3,12 @@
 import MdlADOFunctions
 import mdl_Common
 import registry
-import ServerConn
 
+from ServerConn import ServerConn
 from colorama import Fore
 
 gServerConn = None
-# LeaderSVR = Server()
+LeaderSVR = None
 strCon = ""
 strMetaCon = ""
 strSchCN = ['']
@@ -46,10 +46,10 @@ def Main():
         ArrAppParams[5] = '0'
     AllowClose = False
     
-    gServerConn = ServerConn.ServerConn()    
+    gServerConn = ServerConn()    
     print(Fore.GREEN + 'Starting server.')
     ServerStarted = gServerConn.StartServerConn(ArrAppParams, strSchCN)
-#     LeaderSVR = gServerConn.Server
+    LeaderSVR = gServerConn.Server
 #     strInterval = QueryValue('SOFTWARE\\Emerald', 'UpdateRate')
 #     if strInterval.isnumeric():
 #         tmpInterval = strInterval
