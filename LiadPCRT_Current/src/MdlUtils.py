@@ -142,10 +142,10 @@ def fGetRecipeValueStandard(StandardID, PropertyName, ChannelNum, SplitNum, Prod
     PropertyID = 0
     MachineType = 0
     strTemp = ''
-    MachineType = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('MachineType', 'TblProduct', 'ID = ' + ProductID, 'CN'))
-    PropertyID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ID', 'STblMachineTypeProperties', 'MachineType = ' + MachineType + ' AND PropertyName = \'' + PropertyName + '\'', 'CN'))
+    MachineType = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('MachineType', 'TblProduct', 'ID = ' + str(ProductID), 'CN'))
+    PropertyID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ID', 'STblMachineTypeProperties', 'MachineType = ' + str(MachineType) + ' AND PropertyName = \'' + str(PropertyName) + '\'', 'CN'))
     if PropertyID > 0:
-        strTemp = '' + MdlADOFunctions.GetSingleValue('FValue', 'TblRecipeStandards', 'StandardID = ' + StandardID + ' AND PropertyID = ' + PropertyID + ' AND ChannelNum =  ' + ChannelNum + ' AND SplitNum = ' + SplitNum, 'CN')
+        strTemp = MdlADOFunctions.GetSingleValue('FValue', 'TblRecipeStandards', 'StandardID = ' + str(StandardID) + ' AND PropertyID = ' + str(PropertyID) + ' AND ChannelNum =  ' + str(ChannelNum) + ' AND SplitNum = ' + str(SplitNum), 'CN')
     return strTemp
 
 

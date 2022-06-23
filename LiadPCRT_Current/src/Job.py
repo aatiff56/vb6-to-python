@@ -1,11 +1,20 @@
 from colorama import Fore
+from datetime import datetime
+
 from Channel import Channel
+from MachineType import PConfigSonsRefRecipeSourceOption
+from RTEvent import RTEvent
+from RTEngineEvent import RTEngineEvent
 
 import MdlADOFunctions
 import MdlConnection
 import MdlGlobal
 import mdl_Common
 import MdlServer
+import MdlUtilsH
+import MdlUtils
+import GlobalVariables
+
 
 class Job:
     __mID = 0
@@ -190,7 +199,7 @@ class Job:
             RstCursor.execute(strSQL)
             RstData = RstCursor.fetchone()
 
-            if RstCursor.arraysize == 1:
+            if RstData:
                 self.ID = pJobID
                 self.Machine = pMachine
                 if MdlADOFunctions.fGetRstValString(RstData.StartTime) != '':
@@ -215,14 +224,14 @@ class Job:
                 self.ProductID = MdlADOFunctions.fGetRstValLong(RstData.ProductID)
                 self.Product = MdlServer.GetOrCreateProduct(self.Machine.Server, self.ProductID)
                 self.MoldID = MdlADOFunctions.fGetRstValLong(RstData.MoldID)
-                self.Mold = GetOrCreateMold(self.Machine.Server, self.MoldID)
+                self.Mold = MdlServer.GetOrCreateMold(self.Machine.Server, self.MoldID)
                 
                 
                 self.GetUnitsInCycle(RstData)
                 self.MachineID = MdlADOFunctions.fGetRstValLong(RstData.MachineID)
                 self.DepartmentID = MdlADOFunctions.fGetRstValLong(RstData.Department)
-                self.Department = GetOrCreateDepartment(self.Machine.Server, self.DepartmentID)
-                self.MachineType = GetOrCreateMachineType(self.Machine.Server, MdlADOFunctions.fGetRstValLong(RstData.MachineType))
+                self.Department = MdlServer.GetOrCreateDepartment(self.Machine.Server, self.DepartmentID)
+                self.MachineType = MdlServer.GetOrCreateMachineType(self.Machine.Server, MdlADOFunctions.fGetRstValLong(RstData.MachineType))
                 
                 if pFromActivateJob and not pFromINITMachine:
                     self.InjectionsCount = 0
@@ -249,7 +258,7 @@ class Job:
                 self.UnitsProducedTheoretically = MdlADOFunctions.fGetRstValDouble(RstData.UnitsProducedTheoretically)
                 self.UnitsProducedTheoreticallyPC = MdlADOFunctions.fGetRstValDouble(RstData.UnitsProducedTheoreticallyPC)
                 self.QuantityAdjustmentUnits = MdlADOFunctions.fGetRstValDouble(RstData.QuantityAdjustmentUnits)
-                print(Fore.GREEN + 'Inside Job.Init | MachineID=' + self.MachineID + ' JobID=' + pJobID + ' UnitsProduced=' + self.UnitsProduced + ' UnitsProducedOK=' + self.UnitsProducedOK + ' FromActivateJob=' + pFromActivateJob + ' | ' + mdl_Common.NowGMT + vbCrLf)
+                print(Fore.GREEN + 'Inside Job.Init | MachineID=' + str(self.MachineID) + ' JobID=' + str(pJobID) + ' UnitsProduced=' + str(self.UnitsProduced) + ' UnitsProducedOK=' + str(self.UnitsProducedOK) + ' FromActivateJob=' + str(pFromActivateJob) + ' | ' + str(mdl_Common.NowGMT()) + '\n')
                 self.UnitsProducedLeft = MdlADOFunctions.fGetRstValDouble(RstData.UnitsProducedLeft)
                 self.DurationMin = MdlADOFunctions.fGetRstValLong(RstData.DurationMin)
                 self.DownTimeMin = MdlADOFunctions.fGetRstValLong(RstData.DownTimeMin)
@@ -262,7 +271,7 @@ class Job:
                 self.ProductWeightStandard = MdlADOFunctions.fGetRstValDouble(RstData.ProductWeightStandard)
                 self.ProductRecipeWeight = MdlADOFunctions.fGetRstValDouble(RstData.ProductRecipeWeight)
                 if self.ProductRecipeWeight == 0:
-                    self.ProductRecipeWeight = MdlADOFunctions.fGetRstValDouble(fGetRecipeValueProduct(self.Product.ID, 'ProductWeight', 0, 0))
+                    self.ProductRecipeWeight = MdlADOFunctions.fGetRstValDouble(MdlUtilsH.fGetRecipeValueProduct(self.Product.ID, 'ProductWeight', 0, 0))
                 self.CycleTimeStandard = MdlADOFunctions.fGetRstValDouble(RstData.CycleTimeStandard)
                 self.CycleTimeAvg = MdlADOFunctions.fGetRstValDouble(RstData.CycleTimeAvg)
                 self.Status = MdlADOFunctions.fGetRstValLong(RstData.Status)
@@ -281,46 +290,48 @@ class Job:
                 self.RecipeRefType = MdlADOFunctions.fGetRstValLong(RstData.RecipeRefType)
                 self.RecipeRefJob = MdlADOFunctions.fGetRstValLong(RstData.RecipeRefJob)
                 self.RecipeRefStandardID = MdlADOFunctions.fGetRstValLong(RstData.RecipeRefStandardID)
-                self.GetRefRecipeProductWeight
-                self.GetRefRecipeUnitWeight
+                self.GetRefRecipeProductWeight()
+                self.GetRefRecipeUnitWeight()
                 if self.RecipeRefStandardID != 0:
-                    self.ProductStandardRecipeWeight = MdlADOFunctions.fGetRstValDouble(fGetRecipeValueStandard(self.RecipeRefStandardID, 'ProductWeight', 0, 0, self.Product.ID))
+                    self.ProductStandardRecipeWeight = MdlADOFunctions.fGetRstValDouble(MdlUtils.MdlUtils.fGetRecipeValueStandard(self.RecipeRefStandardID, 'ProductWeight', 0, 0, self.Product.ID))
                 self.MaterialRecipeIndexJob = MdlADOFunctions.fGetRstValDouble(RstData.MaterialRecipeIndexJob)
                 self.MaterialRecipeIndexProduct = MdlADOFunctions.fGetRstValDouble(RstData.MaterialRecipeIndexProduct)
                 self.ERPJobIndexKey = MdlADOFunctions.fGetRstValString(RstData.ERPJobIndexKey)
                 
                 self.JobDef = MdlADOFunctions.fGetRstValLong(RstData.ERPJobDef)
                 if self.JobDef > 0:
-                    strSQL = 'SELECT * FROM STblJobDefinitions WHERE ID = ' + self.JobDef
-                    jdRstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-                    jdRstCursor.ActiveConnection = None
-                    if jdRstCursor.RecordCount == 1:
-                        self.JobDefCalcEfficiencies = MdlADOFunctions.fGetRstValBool(( jdRstCursor.CalcEfficiencies ), True)
-                        self.JobDefDisableProductionTime = MdlADOFunctions.fGetRstValBool(( jdRstCursor.DisableProductionTime ), False)
-                        self.JobDefSetUpEndGeneralCycles = MdlADOFunctions.fGetRstValDouble(jdRstCursor.SetUpEndGeneralCycles)
-                    jdRstCursor.Close()
+                    strSQL = 'SELECT * FROM STblJobDefinitions WHERE ID = ' + str(self.JobDef)
+                    jdRstCursor = MdlConnection.CN.cursor()
+                    jdRstCursor.execute(strSQL)
+                    jdRstData = jdRstCursor.fetchone()
+
+                    if jdRstData:
+                        self.JobDefCalcEfficiencies = MdlADOFunctions.fGetRstValBool(( jdRstData.CalcEfficiencies ), True)
+                        self.JobDefDisableProductionTime = MdlADOFunctions.fGetRstValBool(( jdRstData.DisableProductionTime ), False)
+                        self.JobDefSetUpEndGeneralCycles = MdlADOFunctions.fGetRstValDouble(jdRstData.SetUpEndGeneralCycles)
+                    jdRstCursor.close()
                 
                 self.PlannedSetupType = MdlADOFunctions.fGetRstValLong(RstData.PlannedSetupType)
                 if self.PlannedSetupType > 0:
-                    strSQL = 'SELECT * FROM STblMachineTypeSetupTypes WHERE ID = ' + self.PlannedSetupType
-                    jdRstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-                    jdRstCursor.ActiveConnection = None
-                    if jdRstCursor.RecordCount == 1:
-                        self.SetupTypeSetUpEndGeneralCycles = MdlADOFunctions.fGetRstValDouble(jdRstCursor.SetUpEndGeneralCycles)
-                    jdRstCursor.Close()
-                self.UnitsReportedOK = MdlADOFunctions.fGetRstValDouble(RstData.UnitsReportedOK)
-                
-                self.GetOpenEvent
+                    strSQL = 'SELECT * FROM STblMachineTypeSetupTypes WHERE ID = ' + str(self.PlannedSetupType)
+                    jdRstCursor = MdlConnection.CN.cursor()
+                    jdRstCursor.execute(strSQL)
+                    jdRstData = jdRstCursor.fetchone()
+
+                    if jdRstData:
+                        self.SetupTypeSetUpEndGeneralCycles = MdlADOFunctions.fGetRstValDouble(jdRstData.SetUpEndGeneralCycles)
+                    jdRstCursor.close()
+
+                self.UnitsReportedOK = MdlADOFunctions.fGetRstValDouble(RstData.UnitsReportedOK)                
+                self.GetOpenEvent()
                 
                 if self.OpenEvent is None:
-                    self.GetOpenWorkingEvent
-                
-                self.GetOpenEngineEvent
+                    self.GetOpenWorkingEvent()
+                self.GetOpenEngineEvent()
                 
                 if self.Status == 10:
-                    self.__mOpenAlarms = {}
-                    
-                    self.LoadAlarms
+                    self.__mOpenAlarms = {}                    
+                    self.LoadAlarms()
                 else:
                     self.DurationMin = MdlADOFunctions.fGetRstValLong(RstData.DurationMin)
                     self.ProductionTimeMin = MdlADOFunctions.fGetRstValLong(RstData.ProductionTimeMin)
@@ -382,32 +393,35 @@ class Job:
                     self.Status = self.PConfigParentJob.Status
                 
                 
-                if self.PConfigID != 0 and self.MachineType.PConfigSonsRefRecipeSource == FromProductRecipe:
-                    self.ProductWeightStandard = MdlADOFunctions.fGetRstValDouble(fGetRecipeValueJob(self.ID, 'ProductWeight', 0, 0))
+                if self.PConfigID != 0 and self.MachineType.PConfigSonsRefRecipeSource == PConfigSonsRefRecipeSourceOption.FromProductRecipe:
+                    self.ProductWeightStandard = MdlADOFunctions.fGetRstValDouble(MdlUtilsH.fGetRecipeValueJob(self.ID, 'ProductWeight', 0, 0))
                     self.ProductWeightLast = self.ProductWeightStandard
                     self.ProductWeightAvg = self.ProductWeightStandard
                 
                 if self.PConfigID > 0 and self.IsPConfigMain == True:
                     self.PConfigJobs = {}
                     PConfigRstCursor = None
-                    strSQL = 'SELECT ID FROM TblJob WHERE PConfigParentID = ' + self.ID + ' AND ID <> ' + self.ID
-                    PConfigRstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-                    while not PConfigRstCursor.EOF:
+                    strSQL = 'SELECT ID FROM TblJob WHERE PConfigParentID = ' + str(self.ID) + ' AND ID <> ' + str(self.ID)
+ 
+                    PConfigRstCursor = MdlConnection.CN.cursor()
+                    PConfigRstCursor.execute(strSQL)
+                    PConfigRstValues = PConfigRstCursor.fetchall()
+
+                    for PConfigRstData in PConfigRstValues:
                         tJob = Job()
-                        tJob.Init(pMachine, MdlADOFunctions.fGetRstValLong(PConfigRstCursor.ID), pFromActivateJob, Me)
-                        self.PConfigJobs.Add(tJob, str(tJob.PConfigJobID))
-                        PConfigRstCursor.MoveNext()
-                    PConfigRstCursor.Close()
+                        tJob.Init(pMachine, MdlADOFunctions.fGetRstValLong(PConfigRstData.ID), pFromActivateJob, self)
+                        self.PConfigJobs[str(tJob.PConfigJobID)] = tJob
+                    PConfigRstCursor.close()
                 
                 self.ValidationLog = MdlADOFunctions.fGetRstValString(RstData.ValidationLog)
                 
-                if IsDate(RstData.NextJobMaterialFlowStart):
-                    self.NextJobMaterialFlowStart = CDate(RstData.NextJobMaterialFlowStart)
-            RstCursor.Close()
+                if GlobalVariables.IsDate(RstData.NextJobMaterialFlowStart):
+                    self.NextJobMaterialFlowStart = datetime.strptime(RstData.NextJobMaterialFlowStart, '%d/%m/%Y %H:%M:%S')
+            RstCursor.close()
             
             if self.Status == 10 and ( self.PConfigID == 0 or ( self.PConfigID != 0 and self.IsPConfigMain == True )):
-                self.InitMachineControlParams
-                self.InitMoldChangeDetails
+                self.InitMachineControlParams()
+                self.InitMoldChangeDetails()
 
         except BaseException as error:
             if 'nnection' in error.args[0]:
@@ -419,7 +433,7 @@ class Job:
                     MdlConnection.Close(MdlConnection.MetaCn)
                 MdlConnection.MetaCn = MdlConnection.Open(MdlConnection.strMetaCon)
                     
-                MdlGlobal.RecordError(type(self) + '.Init:', str(0), error.args[0], 'JobID:' + str(pJobID))
+                MdlGlobal.RecordError(type(self).__name__ + '.Init:', str(0), error.args[0], 'JobID:' + str(pJobID))
                 print(Fore.RED + 'Job.Init: Error Descr=' + error.args[0] + ' JobID=' + str(pJobID) + ' | ' + str(mdl_Common.NowGMT()))
             
         RstCursor = None
@@ -429,135 +443,138 @@ class Job:
 
     def InitControllerChannels(self, pJoshID, pFromActivateJob):
         strSQL = ''
-
         RstCursor = None
-
         tControllerChannel = Channel()
-        
         self.ControllerChannels = None
         self.ControllerChannels = {}
-        
-        strSQL = 'SELECT * FROM TblControllerChannels WHERE ControllerID = ' + self.Machine.ControllerID
-        RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-        RstCursor.ActiveConnection = None
-        while not RstCursor.EOF:
-            tControllerChannel = Channel()
-            tControllerChannel.Init(self.Machine, MdlADOFunctions.fGetRstValLong(RstCursor.ID), Me, pJoshID, pFromActivateJob)
-            self.ControllerChannels.Add(tControllerChannel, MdlADOFunctions.fGetRstValString(RstCursor.ChannelNum))
-            RstCursor.MoveNext()
-        RstCursor.Close()
-        if Err.Number != 0:
-            if InStr(Err.Description, 'nnection') > 0:
-                if CN.State == 1:
-                    CN.Close()
-                CN.Open()
-                if MetaCn.State == 1:
-                    MetaCn.Close()
-                MetaCn.Open()
-                Err.Clear()
+
+        try:
+            strSQL = 'SELECT * FROM TblControllerChannels WHERE ControllerID = ' + self.Machine.ControllerID
+            RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
+            RstCursor.ActiveConnection = None
+            while not RstCursor.EOF:
+                tControllerChannel = Channel()
+                tControllerChannel.Init(self.Machine, MdlADOFunctions.fGetRstValLong(RstCursor.ID), self, pJoshID, pFromActivateJob)
+                self.ControllerChannels.Add(tControllerChannel, MdlADOFunctions.fGetRstValString(RstCursor.ChannelNum))
+            RstCursor.close()
+
+        except BaseException as error:
+            if 'nnection' in error.args[0]:
+                if MdlConnection.CN:
+                    MdlConnection.Close(MdlConnection.CN)
+                MdlConnection.Open(MdlConnection.CN, MdlConnection.strCon)
+
+                if MdlConnection.MetaCn:
+                    MdlConnection.Close(MdlConnection.MetaCn)
+                MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
                 
-            MdlGlobal.RecordError(type(self) + '.InitControllerChannels:', str(0), error.args[0], 'JobID:' + self.ID)
-            Err.Clear()
+            MdlGlobal.RecordError(type(self).__name__ + '.InitControllerChannels:', str(0), error.args[0], 'JobID:' + str(self.ID))
         RstCursor = None
 
     def GetOpenEvent(self):
         strSQL = ''
-
         RstCursor = None
-
-        tEvent = RTEvent()
+        tEvent = None
         
-        strSQL = 'SELECT ID FROM TblEvent Where JobID = ' + self.ID + ' AND EndTime IS NULL'
-        RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-        RstCursor.ActiveConnection = None
-        if RstCursor.RecordCount == 1:
-            tEvent = RTEvent()
-            tEvent.Init(Me, MdlADOFunctions.fGetRstValLong(RstCursor.ID))
-            self.OpenEvent = tEvent
-        RstCursor.Close()
-        if Err.Number != 0:
-            if InStr(Err.Description, 'nnection') > 0:
-                if CN.State == 1:
-                    CN.Close()
-                CN.Open()
-                if MetaCn.State == 1:
-                    MetaCn.Close()
-                MetaCn.Open()
-                Err.Clear()
-                
-            MdlGlobal.RecordError(type(self) + '.GetOpenEvent:', str(0), error.args[0], 'JobID:' + self.ID)
-            Err.Clear()
+        try:
+            strSQL = 'SELECT ID FROM TblEvent Where JobID = ' + str(self.ID) + ' AND EndTime IS NULL'
+
+            RstCursor = MdlConnection.CN.cursor()
+            RstCursor.execute(strSQL)
+            RstData = RstCursor.fetchone()
+
+            if RstData:
+                tEvent = RTEvent()
+                tEvent.Init(self, MdlADOFunctions.fGetRstValLong(RstData.ID))
+                self.OpenEvent = tEvent
+            RstCursor.close()
+
+        except BaseException as error:
+            if 'nnection' in error.args[0]:
+                if MdlConnection.CN:
+                    MdlConnection.Close(MdlConnection.CN)
+                MdlConnection.Open(MdlConnection.CN, MdlConnection.strCon)
+
+                if MdlConnection.MetaCn:
+                    MdlConnection.Close(MdlConnection.MetaCn)
+                MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
+                    
+            MdlGlobal.RecordError(type(self).__name__ + '.GetOpenEvent:', str(0), error.args[0], 'JobID:' + str(self.ID))
+
         RstCursor = None
 
     def GetOpenWorkingEvent(self):
         strSQL = ''
-
         RstCursor = None
-
-        tEvent = RTWorkingEvent()
+        tEvent = None
         
-        strSQL = 'SELECT ID FROM TblWorkingEvents Where JobID = ' + self.ID + ' AND EndTime IS NULL'
-        RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-        RstCursor.ActiveConnection = None
-        if RstCursor.RecordCount == 1:
-            tEvent = RTWorkingEvent()
-            tEvent.Init(Me, MdlADOFunctions.fGetRstValLong(RstCursor.ID))
-            self.OpenWorkingEvent = tEvent
-        RstCursor.Close()
-        if Err.Number != 0:
-            if InStr(Err.Description, 'nnection') > 0:
-                if CN.State == 1:
-                    CN.Close()
-                CN.Open()
-                if MetaCn.State == 1:
-                    MetaCn.Close()
-                MetaCn.Open()
-                Err.Clear()
+        try:
+            strSQL = 'SELECT ID FROM TblWorkingEvents Where JobID = ' + str(self.ID) + ' AND EndTime IS NULL'
+            RstCursor = MdlConnection.CN.cursor()
+            RstCursor.execute(strSQL)
+            RstData = RstCursor.fetchone()
+
+            if RstData:
+                tEvent = RTWorkingEvent()
+                tEvent.Init(self, MdlADOFunctions.fGetRstValLong(RstCursor.ID))
+                self.OpenWorkingEvent = tEvent
+            RstCursor.close()
+
+        except BaseException as error:
+            if 'nnection' in error.args[0]:
+                if MdlConnection.CN:
+                    MdlConnection.Close(MdlConnection.CN)
+                MdlConnection.Open(MdlConnection.CN, MdlConnection.strCon)
+
+                if MdlConnection.MetaCn:
+                    MdlConnection.Close(MdlConnection.MetaCn)
+                MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
                 
-            MdlGlobal.RecordError(type(self) + '.GetOpenWorkingEvent:', str(0), error.args[0], 'JobID:' + self.ID)
-            Err.Clear()
+            MdlGlobal.RecordError(type(self).__name__ + '.GetOpenWorkingEvent:', str(0), error.args[0], 'JobID:' + str(self.ID))
         RstCursor = None
 
     def GetOpenEngineEvent(self):
         strSQL = ''
-
         RstCursor = None
-
-        tEvent = RTEngineEvent()
+        tEvent = None
         
-        strSQL = 'SELECT ID FROM TblEngineEvents Where JobID = ' + self.ID + ' AND EndTime IS NULL'
-        RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-        RstCursor.ActiveConnection = None
-        if RstCursor.RecordCount == 1:
-            tEvent = RTEngineEvent()
-            tEvent.Init(Me, MdlADOFunctions.fGetRstValLong(RstCursor.ID))
-            self.OpenEngineEvent = tEvent
-        RstCursor.Close()
-        if Err.Number != 0:
-            if InStr(Err.Description, 'nnection') > 0:
-                if CN.State == 1:
-                    CN.Close()
-                CN.Open()
-                if MetaCn.State == 1:
-                    MetaCn.Close()
-                MetaCn.Open()
-                Err.Clear()
+        try:
+            strSQL = 'SELECT ID FROM TblEngineEvents Where JobID = ' + str(self.ID) + ' AND EndTime IS NULL'
+            RstCursor = MdlConnection.CN.cursor()
+            RstCursor.execute(strSQL)
+            RstData = RstCursor.fetchone()
+
+            if RstData:
+                tEvent = RTEngineEvent()
+                tEvent.Init(self, MdlADOFunctions.fGetRstValLong(RstData.ID))
+                self.OpenEngineEvent = tEvent
+            RstCursor.close()
+
+        except BaseException as error:
+            if 'nnection' in error.args[0]:
+                if MdlConnection.CN:
+                    MdlConnection.Close(MdlConnection.CN)
+                MdlConnection.Open(MdlConnection.CN, MdlConnection.strCon)
+
+                if MdlConnection.MetaCn:
+                    MdlConnection.Close(MdlConnection.MetaCn)
+                MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
                 
-            MdlGlobal.RecordError(type(self) + '.GetOpenEngineEvent:', str(0), error.args[0], 'JobID:' + self.ID)
-            Err.Clear()
+            MdlGlobal.RecordError(type(self).__name__ + '.GetOpenEngineEvent:', str(0), error.args[0], 'JobID:' + str(self.ID))
         RstCursor = None
 
     def InitMachineControlParams(self):
         
-        self.Machine.SetFieldValue('UnitsTarget', str(self.UnitsTarget))
-        self.Machine.SetFieldValue('TotalCycles', str(self.Machine.TotalCycles))
-        self.Machine.SetFieldValue('UnitsProduced', str(self.UnitsProduced))
-        self.Machine.SetFieldValue('UnitsProducedOK', str(self.UnitsProduced))
-        self.Machine.SetFieldValue('MoldID', str(self.Mold.ID))
-        self.Machine.SetFieldValue('MoldCavities', str(self.CavitiesActual))
-        if Err.Number != 0:
-            MdlGlobal.RecordError(type(self) + '.InitMachineControlParams:', str(0), error.args[0], 'JobID:' + self.ID)
-            Err.Clear()
+        try:
+            self.Machine.SetFieldValue('UnitsTarget', str(self.UnitsTarget))
+            self.Machine.SetFieldValue('TotalCycles', str(self.Machine.TotalCycles))
+            self.Machine.SetFieldValue('UnitsProduced', str(self.UnitsProduced))
+            self.Machine.SetFieldValue('UnitsProducedOK', str(self.UnitsProduced))
+            self.Machine.SetFieldValue('MoldID', str(self.Mold.ID))
+            self.Machine.SetFieldValue('MoldCavities', str(self.CavitiesActual))
+
+        except BaseException as error:
+            MdlGlobal.RecordError(type(self).__name__ + '.InitMachineControlParams:', str(0), error.args[0], 'JobID:' + str(self.ID))
 
     def DetailsCalc(self, pCalcTimes, pCalcMaterial):
         tVariant = None
@@ -630,7 +647,7 @@ class Job:
                 tChildJob = tVariant
                 tChildJob.DetailsCalc(pCalcTimes, pCalcMaterial)
         if Err.Number != 0:
-            MdlGlobal.RecordError(type(self) + '.DetailsCalc:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.DetailsCalc:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
         tChildJob = None
 
@@ -676,43 +693,43 @@ class Job:
                 if self.Machine.GetParam(temp, tParam) == True:
                     
                     if tParam.RejectReasonID > 0 and self.ID > 0:
-                        strSQL = 'SELECT SUM(Amount) as RejectsAmount FROM TblRejects Where JobID = ' + self.ID + ' AND ReasonID =' + tParam.RejectReasonID
+                        strSQL = 'SELECT SUM(Amount) as RejectsAmount FROM TblRejects Where JobID = ' + str(self.ID) + ' AND ReasonID =' + tParam.RejectReasonID
                         TRst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
                         tParam.RejectsA = MdlADOFunctions.fGetRstValDouble(TRst.RejectsAmount)
                         TRst.Close()
                         tParam.RejectsALast = tParam.RejectsA
                 RstCursor.MoveNext()
-            RstCursor.Close()
+            RstCursor.close()
         if not self.ActiveJosh is None:
             self.ActiveJosh.SetupDuration = self.ActiveJosh.EffectiveDurationMin
             self.ActiveJosh.SetUpEndInjectionsCount = self.ActiveJosh.InjectionsCount
             strSQL = 'UPDATE TblJosh SET '
             strSQL = strSQL + 'SetUpEndInjectionsCount = InjectionsCount '
-            strSQL = strSQL + 'WHERE JobID = ' + self.ID + ' AND ID < ' + self.ActiveJosh.ID
+            strSQL = strSQL + 'WHERE JobID = ' + str(self.ID) + ' AND ID < ' + self.ActiveJosh.ID
             CN.Execute(strSQL)
         
         if self.PConfigParentJob is None:
             strSQL = 'INSERT INTO TblProductSetupHistory'
             strSQL = strSQL + ' (CurrentJobID,LastJobID,SetupDuration)'
-            strSQL = strSQL + ' VALUES (' + self.ID + ',' + self.LastJobID + ',' + self.SetupDuration + ')'
+            strSQL = strSQL + ' VALUES (' + str(self.ID) + ',' + self.LastJobID + ',' + self.SetupDuration + ')'
             CN.Execute(strSQL)
         
         if self.Machine.AddRejectsOnSetupEnd == True:
-            IncludeInRejectsTotal = MdlADOFunctions.fGetRstValBool(GetSingleValue('IncludeInRejectsTotal', 'STbDefectReasons', 'ID = 100', 'CN'), True)
-            strSQL = 'SELECT ID,TotalUnitsJosh,MaterialTotal FROM TblJosh WHERE JobID = ' + self.ID + ' ORDER BY ID'
+            IncludeInRejectsTotal = MdlADOFunctions.fGetRstValBool(MdlADOFunctions.GetSingleValue('IncludeInRejectsTotal', 'STbDefectReasons', 'ID = 100', 'CN'), True)
+            strSQL = 'SELECT ID,TotalUnitsJosh,MaterialTotal FROM TblJosh WHERE JobID = ' + str(self.ID) + ' ORDER BY ID'
             RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
             RstCursor.ActiveConnection = None
-            if RstCursor.RecordCount == 1:
+            if RstData:
                 if self.UnitsProduced > 0 and self.Machine.IsOffline == False:
                     self.AddRejects(self.UnitsProduced, self.MaterialTotal, pRejectReasonID, False, VBGetMissingArgument(self.AddRejects, 4), VBGetMissingArgument(self.AddRejects, 5), VBGetMissingArgument(self.AddRejects, 6), VBGetMissingArgument(self.AddRejects, 7), IncludeInRejectsTotal)
-            elif RstCursor.RecordCount > 1:
+            elif RstData:
                 while not RstCursor.EOF:
                     if MdlADOFunctions.fGetRstValDouble(RstCursor.TotalUnitsJosh) > 0 and self.Machine.IsOffline == False:
                         self.AddRejects(MdlADOFunctions.fGetRstValDouble(RstCursor.TotalUnitsJosh), MdlADOFunctions.fGetRstValDouble(RstCursor.MaterialTotal), pRejectReasonID, False, VBGetMissingArgument(self.AddRejects, 4), VBGetMissingArgument(self.AddRejects, 5), VBGetMissingArgument(self.AddRejects, 6), MdlADOFunctions.fGetRstValLong(RstCursor.ID), IncludeInRejectsTotal)
                         if MdlADOFunctions.fGetRstValLong(RstCursor.ID) != self.ActiveJosh.ID:
                             self.Machine.Server.MachineJoshDetailsCalc(self.Machine.ID, MdlADOFunctions.fGetRstValLong(RstCursor.ID), 1, 0)
                     RstCursor.MoveNext()
-            RstCursor.Close()
+            RstCursor.close()
         self.SetupMaterialTotal = self.MaterialTotal
         
         if not ( self.OpenEvent is None ) :
@@ -754,7 +771,7 @@ class Job:
                 MetaCn.Open()
                 Err.Clear()
                 
-            MdlGlobal.RecordError(type(self) + '.EndSetUp:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.EndSetUp:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
             
         RstCursor = None
@@ -791,7 +808,7 @@ class Job:
         
         if pSpecificJoshID != 0:
             tJoshID = pSpecificJoshID
-            tShiftID = MdlADOFunctions.fGetRstValLong(GetSingleValue('ShiftID', 'TblJosh', 'ID = ' + tJoshID, 'CN'))
+            tShiftID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ShiftID', 'TblJosh', 'ID = ' + tJoshID, 'CN'))
         else:
             tJoshID = self.ActiveJosh.ID
             tShiftID = self.Machine.Server.CurrentShiftID
@@ -806,17 +823,17 @@ class Job:
         if pUpdateExistingRecord == False:
             strSQL = 'INSERT INTO TblRejects'
             strSQL = strSQL + ' (ReasonID, JobID, MachineID, ProductID, MoldID, ReportTime, ShiftID, Amount, AutomaticRejectUpdate, Weight, JoshID, Waste, IncludeInRejectsTotal)'
-            strSQL = strSQL + ' VALUES (' + pReasonID + ',' + self.ID + ',' + self.Machine.ID + ',' + self.Product.ID + ',' + self.Mold.ID + ',\'' + ShortDate(mdl_Common.NowGMT(), True, True) + '\',' + tShiftID + ',' + tAmount + ',' + IIf(pAutomaticRejectUpdate == True, 1, 0) + ',' + tWeight + ',' + tJoshID + ',' + tWaste + ',' + IIf(pIncludeInRejectsTotal == True, 1, 0) + ')'
+            strSQL = strSQL + ' VALUES (' + pReasonID + ',' + str(self.ID) + ',' + self.Machine.ID + ',' + str(self.Product.ID) + ',' + self.Mold.ID + ',\'' + ShortDate(mdl_Common.NowGMT(), True, True) + '\',' + tShiftID + ',' + tAmount + ',' + IIf(pAutomaticRejectUpdate == True, 1, 0) + ',' + tWeight + ',' + tJoshID + ',' + tWaste + ',' + IIf(pIncludeInRejectsTotal == True, 1, 0) + ')'
             CN.Execute(strSQL)
         else:
-            tRecordCriteria = 'JobID = ' + self.ID + ' AND ReasonID = ' + pReasonID
+            tRecordCriteria = 'JobID = ' + str(self.ID) + ' AND ReasonID = ' + pReasonID
             if pRejectReasonOption == 2:
                 tRecordCriteria = tRecordCriteria + ' AND JoshID = ' + self.ActiveJosh.ID
-            tExistingRecordID = MdlADOFunctions.fGetRstValLong(GetSingleValue('ID', 'TblRejects', tRecordCriteria))
+            tExistingRecordID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ID', 'TblRejects', tRecordCriteria))
             if tExistingRecordID == 0:
                 strSQL = 'INSERT INTO TblRejects'
                 strSQL = strSQL + ' (ReasonID, JobID, MachineID, ProductID, MoldID, ReportTime, ShiftID, Amount, AutomaticRejectUpdate, Weight, JoshID, Waste, IncludeInRejectsTotal)'
-                strSQL = strSQL + ' VALUES (' + pReasonID + ',' + self.ID + ',' + self.Machine.ID + ',' + self.Product.ID + ',' + self.Mold.ID + ',\'' + ShortDate(mdl_Common.NowGMT(), True, True) + '\',' + tShiftID + ',' + tAmount + ',' + IIf(pAutomaticRejectUpdate == True, 1, 0) + ',' + round(tWeight, 5) + ',' + tJoshID + ',' + round(tWaste, 5) + ',' + IIf(pIncludeInRejectsTotal == True, 1, 0) + ')'
+                strSQL = strSQL + ' VALUES (' + pReasonID + ',' + str(self.ID) + ',' + self.Machine.ID + ',' + str(self.Product.ID) + ',' + self.Mold.ID + ',\'' + ShortDate(mdl_Common.NowGMT(), True, True) + '\',' + tShiftID + ',' + tAmount + ',' + IIf(pAutomaticRejectUpdate == True, 1, 0) + ',' + round(tWeight, 5) + ',' + tJoshID + ',' + round(tWaste, 5) + ',' + IIf(pIncludeInRejectsTotal == True, 1, 0) + ')'
                 CN.Execute(strSQL)
             else:
                 if pAddAmountOrWeightToCurrentRecord == True:
@@ -824,10 +841,10 @@ class Job:
                     strSQL = 'SELECT Amount,Weight FROM TblRejects WHERE ID = ' + tExistingRecordID
                     RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
                     RstCursor.ActiveConnection = None
-                    if RstCursor.RecordCount == 1:
+                    if RstData:
                         tExistingRecordAmount = MdlADOFunctions.fGetRstValDouble(RstCursor.Amount)
                         tExistingRecordWeight = MdlADOFunctions.fGetRstValDouble(RstCursor.Weight)
-                    RstCursor.Close()
+                    RstCursor.close()
                     tAmount = tExistingRecordAmount + tAmount
                     tWeight = tExistingRecordWeight + tWeight
                 tWaste = tWeight
@@ -846,7 +863,7 @@ class Job:
                 MetaCn.Open()
                 Err.Clear()
                 
-            MdlGlobal.RecordError(type(self) + '.AddRejects:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.AddRejects:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
             
         RstCursor = None
@@ -880,20 +897,20 @@ class Job:
                         tUnitWeight = tProductWeight / self.CavitiesActual
                     else:
                         
-                        tUnitWeight = MdlADOFunctions.fGetRstValDouble(fGetRecipeValueJob(self.ID, 'UnitWeight', 0, 0))
+                        tUnitWeight = MdlADOFunctions.fGetRstValDouble(MdlUtilsH.fGetRecipeValueJob(self.ID, 'UnitWeight', 0, 0))
                         if tUnitWeight == 0:
-                            tProductWeight = MdlADOFunctions.fGetRstValDouble(fGetRecipeValueJob(self.ID, 'ProductWeight', 0, 0))
+                            tProductWeight = MdlADOFunctions.fGetRstValDouble(MdlUtilsH.fGetRecipeValueJob(self.ID, 'ProductWeight', 0, 0))
                             tProductWeight = tProductWeight - self.Mold.Angus
                             tUnitWeight = round(tProductWeight / self.CavitiesActual, 5)
         else:
-            tUnitWeight = MdlADOFunctions.fGetRstValDouble(fGetRecipeValueJob(self.ID, 'UnitWeight', 0, 0))
+            tUnitWeight = MdlADOFunctions.fGetRstValDouble(MdlUtilsH.fGetRecipeValueJob(self.ID, 'UnitWeight', 0, 0))
             if tUnitWeight == 0:
-                tProductWeight = MdlADOFunctions.fGetRstValDouble(fGetRecipeValueJob(self.ID, 'ProductWeight', 0, 0))
+                tProductWeight = MdlADOFunctions.fGetRstValDouble(MdlUtilsH.fGetRecipeValueJob(self.ID, 'ProductWeight', 0, 0))
                 tProductWeight = tProductWeight - self.Mold.Angus
                 tUnitWeight = round(tProductWeight / self.CavitiesActual, 5)
         returnVal = tUnitWeight
         if Err.Number != 0:
-            MdlGlobal.RecordError(type(self) + '.GetUnitWeight:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.GetUnitWeight:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
         return returnVal
 
@@ -929,7 +946,7 @@ class Job:
                         if self.InjectionsCount >= self.Machine.SetUpEndGeneralCycles:
                             self.EndSetUp(100)
         if Err.Number != 0:
-            MdlGlobal.RecordError(type(self) + '.CheckAutomaticSetupEnd:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.CheckAutomaticSetupEnd:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
 
     def MaterialCalc(self):
@@ -964,7 +981,7 @@ class Job:
         self.GetProductWeight
         for tVariant in self.ControllerChannels:
             tChannel = tVariant
-            tChannel.Calc(MaterialCalcObjectType.FromJob, Me, None)
+            tChannel.Calc(MaterialCalcObjectType.FromJob, self, None)
             if tChannel.ChannelNum != 100:
                 tMaterialTotal = tMaterialTotal + tChannel.GetTotalWeight(MaterialCalcObjectType.FromJob)
                 tMaterialActualIndex = tMaterialActualIndex + tChannel.GetMaterialActualIndex(MaterialCalcObjectType.FromJob)
@@ -1011,7 +1028,7 @@ class Job:
         self.MaterialActualIndex = round(tMaterialActualIndex, 5)
         self.MaterialStandardIndex = round(tMaterialStandardIndex, 5)
         if Err.Number != 0:
-            MdlGlobal.RecordError(type(self) + '.MaterialCalc:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.MaterialCalc:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
         tChannel = None
 
@@ -1067,7 +1084,7 @@ class Job:
         else:
             self.CycleTimeAvgDiffPC = 0
         if Err.Number != 0:
-            MdlGlobal.RecordError(type(self) + '.CalcCycleTimeParams:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.CalcCycleTimeParams:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
 
     def CalcEffectiveData(self):
@@ -1084,7 +1101,7 @@ class Job:
             self.EffectiveCycleTime = self.CycleTimeStandard
         self.EffectiveWeight = self.ProductWeightAvg / self.PConfigUnits
         if Err.Number != 0:
-            MdlGlobal.RecordError(type(self) + '.CalcEffectiveData:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.CalcEffectiveData:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
 
     def CalcTimes(self):
@@ -1132,10 +1149,10 @@ class Job:
             self.SetUpDownTimeMin = self.DownTimeMin
         else:
             
-            self.SetUpDownTimeMin = MdlADOFunctions.fGetRstValDouble(GetSingleValue('DownTimeMin', 'ViewRTJobSetupEvents', 'ID = ' + self.ID, 'CN'))
+            self.SetUpDownTimeMin = MdlADOFunctions.fGetRstValDouble(MdlADOFunctions.GetSingleValue('DownTimeMin', 'ViewRTJobSetupEvents', 'ID = ' + str(self.ID), 'CN'))
         self.CalcEngineTimesFromDB
         if Err.Number != 0:
-            MdlGlobal.RecordError(type(self) + '.CalcTimes:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.CalcTimes:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
 
     def __CalcTimeLeftHr(self):
@@ -1159,14 +1176,14 @@ class Job:
             tCycleTimeForTimeLeftHR = self.CycleTimeStandard
         
         if tCycleTimeForTimeLeftHR == 0:
-            tCycleTimeForTimeLeftHR = MdlADOFunctions.fGetRstValDouble(fGetRecipeValueJob(self.ID, 'CycleTime', 0, 0))
+            tCycleTimeForTimeLeftHR = MdlADOFunctions.fGetRstValDouble(MdlUtilsH.fGetRecipeValueJob(self.ID, 'CycleTime', 0, 0))
         self.TimeLeftHr = round(tCycleTimeForTimeLeftHR * self.UnitsProducedLeft /  ( 60 * self.PConfigUnits ), 5)
         if self.TimeLeftHr < 0:
             self.TimeLeftHr = 0
         if self.PConfigID == 0 and  ( self.PConfigID != 0 and self.IsPConfigMain == True ) :
             self.Machine.TimeLeftHr = self.TimeLeftHr
         if Err.Number != 0:
-            MdlGlobal.RecordError(type(self) + '.CalcTimeLeftHr:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.CalcTimeLeftHr:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
 
     def __CalcTimesFromDB(self):
@@ -1174,13 +1191,13 @@ class Job:
 
         RstCursor = None
         
-        strSQL = 'SELECT DownTimeMin,InActiveTimeMin FROM ViewRTJobEvents WHERE ID = ' + self.ID
+        strSQL = 'SELECT DownTimeMin,InActiveTimeMin FROM ViewRTJobEvents WHERE ID = ' + str(self.ID)
         RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
         RstCursor.ActiveConnection = None
-        if RstCursor.RecordCount == 1:
+        if RstData:
             self.DownTimeMin = MdlADOFunctions.fGetRstValLong(RstCursor.DownTimeMin)
             self.InActiveTimeMin = MdlADOFunctions.fGetRstValLong(RstCursor.InActiveTimeMin)
-        RstCursor.Close()
+        RstCursor.close()
         if Err.Number != 0:
             if InStr(Err.Description, 'nnection') > 0:
                 if CN.State == 1:
@@ -1191,7 +1208,7 @@ class Job:
                 MetaCn.Open()
                 Err.Clear()
                 
-            MdlGlobal.RecordError(type(self) + '.CalcTimesFromDB:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.CalcTimesFromDB:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
         RstCursor = None
 
@@ -1320,7 +1337,7 @@ class Job:
         if self.PEE > 2:
             self.PEE = 2
         if Err.Number != 0:
-            MdlGlobal.RecordError(type(self) + '.CalcEfficiencies:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.CalcEfficiencies:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
             
 
@@ -1329,17 +1346,17 @@ class Job:
 
         RstCursor = None
         
-        strSQL = 'SELECT * FROM ViewRTJobRejects WHERE ID = ' + self.ID
+        strSQL = 'SELECT * FROM ViewRTJobRejects WHERE ID = ' + str(self.ID)
         RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
         RstCursor.ActiveConnection = None
-        if RstCursor.RecordCount == 1:
+        if RstData:
             self.RejectsTotal = MdlADOFunctions.fGetRstValDouble(RstCursor.RejectsTotal)
             self.RejectsReported = MdlADOFunctions.fGetRstValDouble(RstCursor.RejectsReported)
             self.TotalWasteKg = MdlADOFunctions.fGetRstValDouble(RstCursor.TotalWasteKg)
             self.RejectsForEfficiency = MdlADOFunctions.fGetRstValDouble(RstCursor.RejectsForEfficiency)
             self.RejectsForConsumption = MdlADOFunctions.fGetRstValDouble(RstCursor.RejectsForConsumption)
             self.QuantityAdjustmentUnits = MdlADOFunctions.fGetRstValDouble(RstCursor.QuantityAdjustmentUnits)
-        RstCursor.Close()
+        RstCursor.close()
         self.ReportedRejectsDiff = self.RejectsRead - self.RejectsTotal
         if self.ReportedRejectsDiff < 0:
             self.ReportedRejectsDiff = 0
@@ -1353,7 +1370,7 @@ class Job:
                 MetaCn.Open()
                 Err.Clear()
                 
-            MdlGlobal.RecordError(type(self) + '.CalcRejects:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.CalcRejects:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
         RstCursor = None
 
@@ -1366,7 +1383,7 @@ class Job:
         self.OriginalUnitsProducedOK = self.OriginalUnitsProducedOK + self.UnitsProducedOKDiff
         self.UnitsProducedOKDiff = 0
         if Err.Number != 0:
-            MdlGlobal.RecordError(type(self) + '.CalcOriginalJobData:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.CalcOriginalJobData:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
 
     def CalcUnits(self, pInjectionsDiff):
@@ -1399,7 +1416,7 @@ class Job:
                 tSetupDuration = self.SetupDuration
             else:
                 tSetupDuration = 0
-            MachinePEETarget = MdlADOFunctions.fGetRstValDouble(GetSingleValue('PEETarget', 'TblMachines', 'ID = ' + self.Machine.ID, 'CN'))
+            MachinePEETarget = MdlADOFunctions.fGetRstValDouble(MdlADOFunctions.GetSingleValue('PEETarget', 'TblMachines', 'ID = ' + self.Machine.ID, 'CN'))
             if MachinePEETarget < 0.1 or MachinePEETarget > 2:
                 MachinePEETarget = 1
             if self.CycleTimeStandard == 0 or self.CavitiesActual == 0:
@@ -1411,7 +1428,7 @@ class Job:
             else:
                 self.UnitsProducedTheoreticallyPC = 0
         if Err.Number != 0:
-            MdlGlobal.RecordError(type(self) + '.CalcUnits:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.CalcUnits:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
             
 
@@ -1430,7 +1447,7 @@ class Job:
             if self.Machine.IsOffline == True:
                 self.Machine.SetFieldValue('TotalCycles', str(self.InjectionsCount))
         if Err.Number != 0:
-            MdlGlobal.RecordError(type(self) + '.UpdateMachineControlParams:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.UpdateMachineControlParams:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
 
     def CheckFilters(self):
@@ -1447,7 +1464,7 @@ class Job:
             returnVal = True
         self.CyclesNetActual = ( self.InjectionsCount - self.InjectionsCountStart )  - self.CyclesDroped
         if Err.Number != 0:
-            MdlGlobal.RecordError(type(self) + '.CheckFilters:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.CheckFilters:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
         return returnVal
 
@@ -1572,12 +1589,12 @@ class Job:
         strSQL = strSQL + ' ,ValidationLog = \'' + self.ValidationLog + '\''
         strSQL = strSQL + ' ,SetupMaterialTotal = ' + self.SetupMaterialTotal
         strSQL = strSQL + ' ,StartTime = \'' + ShortDate(self.StartTime, True, True, True) + '\''
-        if IsDate(self.SetUpEnd) and self.SetUpEnd != 0:
+        if GlobalVariables.IsDate(self.SetUpEnd) and self.SetUpEnd != 0:
             strSQL = strSQL + ' ,SetUpEnd = \'' + ShortDate(self.SetUpEnd, True, True, True) + '\''
             strSQL = strSQL + ' ,SetupDuration= ' + self.SetupDuration
         if self.NextJobMaterialFlowStart != 0:
             strSQL = strSQL + ' ,NextJobMaterialFlowStart = \'' + ShortDate(self.NextJobMaterialFlowStart, True, True, True) + '\''
-        strSQL = strSQL + ' WHERE ID = ' + self.ID
+        strSQL = strSQL + ' WHERE ID = ' + str(self.ID)
         CN.Execute(strTitle + strSQL)
         if self.Status == 10:
             strTitle = 'UPDATE TblJobCurrent '
@@ -1595,7 +1612,7 @@ class Job:
                 MetaCn.Open()
                 Err.Clear()
                 
-            MdlGlobal.RecordError(type(self) + '.Update:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.Update:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
         strSQL = vbNullString
 
@@ -1615,7 +1632,7 @@ class Job:
                     if self.Machine.GetParam('TotalDistance', tParam) == True:
                         if tParam.IsSPCValue == True:
                             tTotalDistance = round(MdlADOFunctions.fGetRstValDouble(tParam.LastValue), 5)
-                            tWeightDistanceRatio = MdlADOFunctions.fGetRstValDouble(fGetRecipeValueJob(self.ID, 'WeightDistanceRatio', 0, 0))
+                            tWeightDistanceRatio = MdlADOFunctions.fGetRstValDouble(MdlUtilsH.fGetRecipeValueJob(self.ID, 'WeightDistanceRatio', 0, 0))
                             if tTotalDistance > 0 and tWeightDistanceRatio > 0:
                                 self.ProductWeightAvg = round(tTotalDistance * tWeightDistanceRatio, 5)
             else:
@@ -1636,7 +1653,7 @@ class Job:
                 self.ProductWeightPC = 100
             self.ProductWeightDiff = round(self.ProductWeightAvg - self.ProductWeightStandard, 5)
         if Err.Number != 0:
-            MdlGlobal.RecordError(type(self) + '.GetProductWeight:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.GetProductWeight:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
 
     def GetCycleTime(self):
@@ -1652,16 +1669,16 @@ class Job:
                 if tParam.IsSPCValue == True:
                     self.CycleTimeAvgSMean = round(MdlADOFunctions.fGetRstValDouble(tParam.SMean), 5)
         if Err.Number != 0:
-            MdlGlobal.RecordError(type(self) + '.GetCycleTime:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.GetCycleTime:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
 
     
     def AddAlarm(self, pAlarm):
-        
-        self.OpenAlarms.Add(pAlarm, str(pAlarm.ID))
-        if Err.Number != 0:
-            MdlGlobal.RecordError(type(self) + '.AddAlarm:', str(0), error.args[0], 'JobID:' + self.ID + '. AlarmID: ' + pAlarm.ID)
-            Err.Clear()
+        try:
+            self.OpenAlarms[str(pAlarm.ID)] = pAlarm
+
+        except BaseException as error:
+            MdlGlobal.RecordError(type(self).__name__ + '.AddAlarm:', str(0), error.args[0], 'JobID:' + str(self.ID) + '. AlarmID: ' + str(pAlarm.ID))
 
     def CreateJoshForNewShift(self):
         strSQL = ''
@@ -1730,14 +1747,14 @@ class Job:
             RstCursor.WorkerID = self.ActiveJosh.WorkerID
         RstCursor.JoshStartUnitsProducedLeft = self.UnitsProducedLeft
         if not self.ActiveJosh is None:
-            RstCursor.EndOfLine = MdlADOFunctions.fGetRstValBool(GetSingleValue('TOP 1 EndOfLine', 'TblJosh WITH (NOLOCK)', 'JobID = ' + self.ID + ' ORDER BY ID DESC', 'CN'), False)
+            RstCursor.EndOfLine = MdlADOFunctions.fGetRstValBool(MdlADOFunctions.GetSingleValue('TOP 1 EndOfLine', 'TblJosh WITH (NOLOCK)', 'JobID = ' + str(self.ID) + ' ORDER BY ID DESC', 'CN'), False)
         RstCursor.UpNone
         tNewJoshID = RstCursor.ID
-        RstCursor.Close()
+        RstCursor.close()
         
         strSQL = 'SELECT * FROM TblJoshCurrent WHERE ID = ' + tNewJoshID
         RstCursor.Open(strSQL, CN, adOpenForwardOnly, adLockOptimistic)
-        if RstCursor.RecordCount == 0:
+        if RstData:
             RstCursor.AddNew()
             RstCursor.ID = tNewJoshID
         RstCursor.JobID = self.ID
@@ -1770,7 +1787,7 @@ class Job:
             RstCursor.WorkerID = self.ActiveJosh.WorkerID
         RstCursor.JoshStartUnitsProducedLeft = self.UnitsProducedLeft
         RstCursor.UpNone
-        RstCursor.Close()
+        RstCursor.close()
         
         
         if not self.ActiveJosh is None and not self.Machine.DisconnectWorkerOnShiftChange:
@@ -1798,7 +1815,7 @@ class Job:
                 strSQL = strSQL + '('
                 strSQL = strSQL + tNewJoshID
                 strSQL = strSQL + ',' + self.Machine.ID
-                strSQL = strSQL + ',' + self.ID
+                strSQL = strSQL + ',' + str(self.ID)
                 strSQL = strSQL + ',' + RstCursor.UserID
                 strSQL = strSQL + ',\'' + RstCursor.WorkerID + '\''
                 strSQL = strSQL + ',' + IIf(MdlADOFunctions.fGetRstValBool(RstCursor.HeadJoshWorker, False) == False, 0, 1)
@@ -1806,7 +1823,7 @@ class Job:
                 strSQL = strSQL + ')'
                 CN.Execute(strSQL)
                 RstCursor.MoveNext()
-            RstCursor.Close()
+            RstCursor.close()
         
         if not self.ActiveJosh is None:
             if self.ActiveJosh.ID == 0:
@@ -1820,7 +1837,7 @@ class Job:
                     pass
                 
                 tMaterialID = MdlADOFunctions.fGetRstValLong(RstCursor.Material)
-                tRecipeMaterialID = MdlADOFunctions.fGetRstValDouble(fGetRecipeValueJob(self.ID, 'Material ID', MdlADOFunctions.fGetRstValLong(RstCursor.ChannelNum), MdlADOFunctions.fGetRstValLong(RstCursor.SplitNum)))
+                tRecipeMaterialID = MdlADOFunctions.fGetRstValDouble(MdlUtilsH.fGetRecipeValueJob(self.ID, 'Material ID', MdlADOFunctions.fGetRstValLong(RstCursor.ChannelNum), MdlADOFunctions.fGetRstValLong(RstCursor.SplitNum)))
                 if tMaterialID == tRecipeMaterialID and tMaterialID != 0 and tRecipeMaterialID != 0:
                     strTitle = 'INSERT INTO TblJoshMaterial '
                     strSQL = '('
@@ -1845,7 +1862,7 @@ class Job:
                     strSQL = strSQL + ')'
                     strSQL = strSQL + ' VALUES '
                     strSQL = strSQL + '('
-                    strSQL = strSQL + self.ID
+                    strSQL = strSQL + str(self.ID)
                     strSQL = strSQL + ',' + RstCursor.ChannelNum
                     strSQL = strSQL + ',' + RstCursor.SplitNum
                     strSQL = strSQL + ',' + self.Machine.Server.CurrentShift.ID
@@ -1869,7 +1886,7 @@ class Job:
                     strTitle = 'INSERT INTO TblJoshCurrentMaterial '
                     CN.Execute(strTitle + strSQL)
                 RstCursor.MoveNext()
-            RstCursor.Close()
+            RstCursor.close()
         
         if not self.OpenEvent is None:
             if self.OpenEvent.RootEventID == 0:
@@ -1885,7 +1902,7 @@ class Job:
                 strSQL = 'SELECT MachineID, EndTime FROM TblEvent WITH (NOLOCK) WHERE ID = ' + self.OpenEvent.RootEventID
                 RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
                 RstCursor.ActiveConnection = None
-                if RstCursor.RecordCount == 1:
+                if RstData:
                     tMachine = self.Machine.Server.Machines.Item(str(RstCursor.MachineID))
                     if tMachine.ActiveJob.OpenEvent is None and IsEmptyOrNull(RstCursor.EndTime):
                         if self.Machine.NewJob:
@@ -1895,30 +1912,6 @@ class Job:
                                 self.OpenEvent.CloseAndCreateForNewShift(self.Machine.Server.CurrentShiftID, True, self.OpenEvent.RootEventID, True)
                         else:
                             self.OpenEvent.CloseAndCreateForNewShift(self.Machine.Server.CurrentShiftID, True, self.OpenEvent.RootEventID, True)
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
         
         if not self.OpenWorkingEvent is None:
             self.OpenWorkingEvent.CloseAndCreateForNewShift(self.Machine.Server.CurrentShiftID)
@@ -1933,7 +1926,7 @@ class Job:
             tChannel = tVariant
             tChannel.ResetJoshCounters
         tJosh = Josh()
-        tJosh.Init(Me, tNewJoshID)
+        tJosh.Init(self, tNewJoshID)
         
         self.ActiveJosh = tJosh
         self.Machine.ActiveJosh = tJosh
@@ -1961,7 +1954,7 @@ class Job:
                 MetaCn.Open()
                 Err.Clear()
                 
-            MdlGlobal.RecordError(type(self) + '.CreateJoshForNewShift:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.CreateJoshForNewShift:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
             
             
@@ -1987,7 +1980,7 @@ class Job:
             self.UnitsReportedOKDiff = tUnitsReportedOKDiff
             self.AddRejects(self.UnitsReportedOKDiff, 0, 500, True, VBGetMissingArgument(self.AddRejects, 4), VBGetMissingArgument(self.AddRejects, 5), False, VBGetMissingArgument(self.AddRejects, 7), False)
         if Err.Number != 0:
-            MdlGlobal.RecordError(type(self) + '.CalcUnitsReportedOK:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.CalcUnitsReportedOK:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
 
     def InitMoldChangeDetails(self):
@@ -2004,9 +1997,9 @@ class Job:
         strSQL = strSQL + ' ORDER BY MachineJobOrder'
         RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
         RstCursor.ActiveConnection = None
-        if RstCursor.RecordCount == 1:
+        if RstData:
             self.MoldChangeFirstOtherMoldMachineJobOrder = MdlADOFunctions.fGetRstValLong(RstCursor.MachineJobOrder)
-        RstCursor.Close()
+        RstCursor.close()
         if self.MoldChangeFirstOtherMoldMachineJobOrder == 0:
             self.MoldChangeFirstOtherMoldMachineJobOrder = 1000
         if (self.Machine.MoldEndTimeCalcOption == 1):
@@ -2018,9 +2011,9 @@ class Job:
             strSQL = strSQL + ' AND MachineJobOrder < ' + self.MoldChangeFirstOtherMoldMachineJobOrder
             RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
             RstCursor.ActiveConnection = None
-            if RstCursor.RecordCount == 1:
+            if RstData:
                 self.MoldChangeTimeLeftHr = MdlADOFunctions.fGetRstValDouble(RstCursor.TimeLeftHr)
-            RstCursor.Close()
+            RstCursor.close()
         elif (self.Machine.MoldEndTimeCalcOption == 2):
             strSQL = 'SELECT SUM(TimeLeftHr) AS TimeLeftHr FROM TblJob'
             strSQL = strSQL + ' WHERE Status IN(3,11,' + self.Machine.MoldEndTimeStatusOption + ')'
@@ -2029,9 +2022,9 @@ class Job:
             strSQL = strSQL + ' AND PConfigParentID = 0'
             RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
             RstCursor.ActiveConnection = None
-            if RstCursor.RecordCount == 1:
+            if RstData:
                 self.MoldChangeTimeLeftHr = MdlADOFunctions.fGetRstValDouble(RstCursor.TimeLeftHr)
-            RstCursor.Close()
+            RstCursor.close()
         elif (self.Machine.MoldEndTimeCalcOption == 3):
             strSQL = 'SELECT SUM(UnitsTarget) AS UnitsTarget, SUM(UnitsProducedOK) AS UnitsProducedOK FROM TblJob'
             strSQL = strSQL + ' WHERE Status IN(3,11,' + self.Machine.MoldEndTimeStatusOption + ')'
@@ -2041,10 +2034,10 @@ class Job:
             strSQL = strSQL + ' AND MachineJobOrder < ' + self.MoldChangeFirstOtherMoldMachineJobOrder
             RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
             RstCursor.ActiveConnection = None
-            if RstCursor.RecordCount == 1:
+            if RstData:
                 self.MoldChangeUnitsTarget = MdlADOFunctions.fGetRstValDouble(RstCursor.UnitsTarget)
                 self.MoldChangeUnitsProducedOK = MdlADOFunctions.fGetRstValDouble(RstCursor.UnitsProducedOK)
-            RstCursor.Close()
+            RstCursor.close()
         elif (self.Machine.MoldEndTimeCalcOption == 4):
             strSQL = 'SELECT SUM(UnitsTarget) AS UnitsTarget, SUM(UnitsProducedOK) AS UnitsProducedOK FROM TblJob'
             strSQL = strSQL + ' WHERE Status IN(3,11,' + self.Machine.MoldEndTimeStatusOption + ')'
@@ -2053,10 +2046,10 @@ class Job:
             strSQL = strSQL + ' AND PConfigParentID = 0'
             RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
             RstCursor.ActiveConnection = None
-            if RstCursor.RecordCount == 1:
+            if RstData:
                 self.MoldChangeUnitsTarget = MdlADOFunctions.fGetRstValDouble(RstCursor.UnitsTarget)
                 self.MoldChangeUnitsProducedOK = MdlADOFunctions.fGetRstValDouble(RstCursor.UnitsProducedOK)
-            RstCursor.Close()
+            RstCursor.close()
         else:
             strSQL = 'SELECT SUM(TimeLeftHr) AS TimeLeftHr FROM TblJob'
             strSQL = strSQL + ' WHERE Status IN(3,11,' + self.Machine.MoldEndTimeStatusOption + ')'
@@ -2066,9 +2059,9 @@ class Job:
             strSQL = strSQL + ' AND MachineJobOrder < ' + self.MoldChangeFirstOtherMoldMachineJobOrder
             RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
             RstCursor.ActiveConnection = None
-            if RstCursor.RecordCount == 1:
+            if RstData:
                 self.MoldChangeTimeLeftHr = MdlADOFunctions.fGetRstValDouble(RstCursor.TimeLeftHr)
-            RstCursor.Close()
+            RstCursor.close()
         if Err.Number != 0:
             if InStr(Err.Description, 'nnection') > 0:
                 if CN.State == 1:
@@ -2079,7 +2072,7 @@ class Job:
                 MetaCn.Open()
                 Err.Clear()
                 
-            MdlGlobal.RecordError(type(self) + '.InitMoldChangeDetails:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.InitMoldChangeDetails:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
         RstCursor = None
 
@@ -2094,7 +2087,7 @@ class Job:
         else:
             self.Machine.MoldEndTime = self.TimeLeftHr + self.MoldChangeTimeLeftHr
         if Err.Number != 0:
-            MdlGlobal.RecordError(type(self) + '.CalcMoldChangeDetails:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.CalcMoldChangeDetails:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
 
     def PrintRecordToHistory(self, pActionID, pParameterName='', pPreviousValue='', pCurrentValue=''):
@@ -2127,7 +2120,7 @@ class Job:
         strSQL = strSQL + ' MoldID, Department, Status, ' + self.ProductWeightStandard + ' AS ProductWeight, ' + str(self.GetUnitWeight) + ' AS UnitWeight, ERPJobDef,'
         strSQL = strSQL + ' \'' + pParameterName + '\' AS FieldName, \'' + pPreviousValue + '\' AS PreviousValue, \'' + pCurrentValue + '\' AS CurrentValue'
         strSQL = strSQL + ' FROM TblJob'
-        strSQL = strSQL + ' WHERE ID = ' + self.ID
+        strSQL = strSQL + ' WHERE ID = ' + str(self.ID)
         CN.Execute(strSQL)
         if Err.Number != 0:
             if InStr(Err.Description, 'nnection') > 0:
@@ -2139,7 +2132,7 @@ class Job:
                 MetaCn.Open()
                 Err.Clear()
                 
-            MdlGlobal.RecordError(type(self) + '.PrintRecordToHistory', str(0), error.args[0], 'JobID: ' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.PrintRecordToHistory', str(0), error.args[0], 'JobID: ' + str(self.ID))
             Err.Clear()
 
     def EndJob(self):
@@ -2228,108 +2221,108 @@ class Job:
         self.Machine.FireEventTriggeredTasks(2)
         self.ControllerChannels = None
         if Err.Number != 0:
-            MdlGlobal.RecordError(type(self) + '.EndJob', str(0), error.args[0], 'JobID: ' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.EndJob', str(0), error.args[0], 'JobID: ' + str(self.ID))
             Err.Clear()
 
     def GetRefRecipeProductWeight(self):
         tRefRecipeProductWeight = 0.0
         
-        if (self.RecipeRefType == 1):
-            tRefRecipeProductWeight = MdlADOFunctions.fGetRstValDouble(fGetRecipeValueProduct(self.Product.ID, 'ProductWeight', 0, 0))
-        elif (self.RecipeRefType == 2):
-            tRefRecipeProductWeight = MdlADOFunctions.fGetRstValDouble(fGetRecipeValueJob(self.RecipeRefJob, 'ProductWeight', 0, 0))
-        elif (self.RecipeRefType == 6):
-            tRefRecipeProductWeight = MdlADOFunctions.fGetRstValDouble(fGetRecipeValueStandard(self.RecipeRefStandardID, 'ProductWeight', 0, 0, self.Product.ID))
-        self.RefRecipeProductWeight = tRefRecipeProductWeight
-        if Err.Number != 0:
-            Err.Clear()
+        try:
+            if (self.RecipeRefType == 1):
+                tRefRecipeProductWeight = MdlADOFunctions.fGetRstValDouble(MdlUtilsH.fGetRecipeValueProduct(self.Product.ID, 'ProductWeight', 0, 0))
+            elif (self.RecipeRefType == 2):
+                tRefRecipeProductWeight = MdlADOFunctions.fGetRstValDouble(MdlUtilsH.fGetRecipeValueJob(self.RecipeRefJob, 'ProductWeight', 0, 0))
+            elif (self.RecipeRefType == 6):
+                tRefRecipeProductWeight = MdlADOFunctions.fGetRstValDouble(MdlUtils.fGetRecipeValueStandard(self.RecipeRefStandardID, 'ProductWeight', 0, 0, self.Product.ID))
+            self.RefRecipeProductWeight = tRefRecipeProductWeight
+
+        except:
+            pass
 
     def GetRefRecipeUnitWeight(self):
         tValue = ''
-
         tRefRecipeUnitWeight = 0.0
-
         tMoldID = 0
-
         tCavities = 0.0
-
         tRefRecipeProductWeight = 0.0
         
-        if (self.RecipeRefType == 1):
-            tValue = fGetRecipeValueProduct(self.Product.ID, 'UnitWeight', 0, 0)
-            if tValue != '':
-                tRefRecipeUnitWeight = MdlADOFunctions.fGetRstValDouble(tValue)
-                if tRefRecipeUnitWeight == 0:
-                    tRefRecipeProductWeight = MdlADOFunctions.fGetRstValDouble(fGetRecipeValueProduct(self.Product.ID, 'ProductWeight', 0, 0))
-                    tMoldID = MdlADOFunctions.fGetRstValLong(GetSingleValue('MoldID', 'TblProductMolds', 'ProductID = ' + self.Product.ID + ' ORDER BY Priority', 'CN'))
-                    if tMoldID != 0:
-                        tCavities = MdlADOFunctions.fGetRstValDouble(GetSingleValue('Cavities', 'TblMolds', 'ID = ' + tMoldID, 'CN'))
-                        if tCavities != 0:
-                            tRefRecipeUnitWeight = round(tRefRecipeProductWeight / tCavities, 0)
+        try:
+            if (self.RecipeRefType == 1):
+                tValue = MdlUtilsH.fGetRecipeValueProduct(self.Product.ID, 'UnitWeight', 0, 0)
+                if tValue != '':
+                    tRefRecipeUnitWeight = MdlADOFunctions.fGetRstValDouble(tValue)
+                    if tRefRecipeUnitWeight == 0:
+                        tRefRecipeProductWeight = MdlADOFunctions.fGetRstValDouble(MdlUtilsH.fGetRecipeValueProduct(self.Product.ID, 'ProductWeight', 0, 0))
+                        tMoldID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('MoldID', 'TblProductMolds', 'ProductID = ' + str(self.Product.ID) + ' ORDER BY Priority', 'CN'))
+                        if tMoldID != 0:
+                            tCavities = MdlADOFunctions.fGetRstValDouble(MdlADOFunctions.GetSingleValue('Cavities', 'TblMolds', 'ID = ' + str(tMoldID), 'CN'))
+                            if tCavities != 0:
+                                tRefRecipeUnitWeight = round(tRefRecipeProductWeight / tCavities, 0)
+                            else:
+                                tRefRecipeUnitWeight = tRefRecipeProductWeight
                         else:
                             tRefRecipeUnitWeight = tRefRecipeProductWeight
-                    else:
-                        tRefRecipeUnitWeight = tRefRecipeProductWeight
-            else:
-                tRefRecipeProductWeight = MdlADOFunctions.fGetRstValDouble(fGetRecipeValueProduct(self.Product.ID, 'ProductWeight', 0, 0))
-                tMoldID = MdlADOFunctions.fGetRstValLong(GetSingleValue('MoldID', 'TblProductMolds', 'ProductID = ' + self.Product.ID + ' ORDER BY Priority', 'CN'))
-                if tMoldID != 0:
-                    tCavities = MdlADOFunctions.fGetRstValDouble(GetSingleValue('Cavities', 'TblMolds', 'ID = ' + tMoldID, 'CN'))
-                    if tCavities != 0:
-                        tRefRecipeUnitWeight = round(tRefRecipeProductWeight / tCavities, 0)
-                    else:
-                        tRefRecipeUnitWeight = tRefRecipeProductWeight
                 else:
-                    tRefRecipeUnitWeight = tRefRecipeProductWeight
-        elif (self.RecipeRefType == 2):
-            tValue = fGetRecipeValueJob(self.RecipeRefJob, 'UnitWeight', 0, 0)
-            if tValue != '':
-                tRefRecipeUnitWeight = MdlADOFunctions.fGetRstValDouble(tValue)
-                if tRefRecipeUnitWeight == 0:
-                    tRefRecipeProductWeight = MdlADOFunctions.fGetRstValDouble(fGetRecipeValueJob(self.RecipeRefJob, 'ProductWeight', 0, 0))
-                    
-                    tCavities = MdlADOFunctions.fGetRstValDouble(GetSingleValue('CavitiesActual', 'TblJob', 'ID = ' + self.RecipeRefJob, 'CN'))
-                    if tCavities != 0:
-                        tRefRecipeUnitWeight = round(tRefRecipeProductWeight / tCavities, 0)
-                    else:
-                        tRefRecipeUnitWeight = tRefRecipeProductWeight
-            else:
-                tRefRecipeProductWeight = MdlADOFunctions.fGetRstValDouble(fGetRecipeValueJob(self.RecipeRefJob, 'ProductWeight', 0, 0))
-        elif (self.RecipeRefType == 6):
-            tValue = fGetRecipeValueStandard(self.RecipeRefStandardID, 'UnitWeight', 0, 0, self.Product.ID)
-            if tValue != '':
-                tRefRecipeUnitWeight = MdlADOFunctions.fGetRstValDouble(tValue)
-                if tRefRecipeUnitWeight == 0:
-                    tRefRecipeProductWeight = fGetRecipeValueStandard(self.RecipeRefStandardID, 'ProductWeight', 0, 0, self.Product.ID)
-                    tMoldID = MdlADOFunctions.fGetRstValLong(GetSingleValue('MoldID', 'TblProductRecipeStandards', 'StandardID = ' + self.RecipeRefStandardID, 'CN'))
+                    tRefRecipeProductWeight = MdlADOFunctions.fGetRstValDouble(MdlUtilsH.fGetRecipeValueProduct(self.Product.ID, 'ProductWeight', 0, 0))
+                    tMoldID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('MoldID', 'TblProductMolds', 'ProductID = ' + str(self.Product.ID) + ' ORDER BY Priority', 'CN'))
                     if tMoldID != 0:
-                        tCavities = MdlADOFunctions.fGetRstValDouble(GetSingleValue('Cavities', 'TblMolds', 'ID = ' + tMoldID, 'CN'))
+                        tCavities = MdlADOFunctions.fGetRstValDouble(MdlADOFunctions.GetSingleValue('Cavities', 'TblMolds', 'ID = ' + str(tMoldID), 'CN'))
                         if tCavities != 0:
                             tRefRecipeUnitWeight = round(tRefRecipeProductWeight / tCavities, 0)
                         else:
                             tRefRecipeUnitWeight = tRefRecipeProductWeight
-            else:
-                tRefRecipeProductWeight = fGetRecipeValueStandard(self.RecipeRefStandardID, 'ProductWeight', 0, 0, self.Product.ID)
-                tMoldID = MdlADOFunctions.fGetRstValLong(GetSingleValue('MoldID', 'TblProductRecipeStandards', 'StandardID = ' + self.RecipeRefStandardID, 'CN'))
-                if tMoldID != 0:
-                    tCavities = MdlADOFunctions.fGetRstValDouble(GetSingleValue('Cavities', 'TblMolds', 'ID = ' + tMoldID, 'CN'))
-                    if tCavities != 0:
-                        tRefRecipeUnitWeight = round(tRefRecipeProductWeight / tCavities, 0)
                     else:
                         tRefRecipeUnitWeight = tRefRecipeProductWeight
-        self.RefRecipeUnitWeight = tRefRecipeUnitWeight
-        if Err.Number != 0:
-            Err.Clear()
+            elif (self.RecipeRefType == 2):
+                tValue = MdlUtilsH.fGetRecipeValueJob(self.RecipeRefJob, 'UnitWeight', 0, 0)
+                if tValue != '':
+                    tRefRecipeUnitWeight = MdlADOFunctions.fGetRstValDouble(tValue)
+                    if tRefRecipeUnitWeight == 0:
+                        tRefRecipeProductWeight = MdlADOFunctions.fGetRstValDouble(MdlUtilsH.fGetRecipeValueJob(self.RecipeRefJob, 'ProductWeight', 0, 0))
+                        
+                        tCavities = MdlADOFunctions.fGetRstValDouble(MdlADOFunctions.GetSingleValue('CavitiesActual', 'TblJob', 'ID = ' + str(self.RecipeRefJob), 'CN'))
+                        if tCavities != 0:
+                            tRefRecipeUnitWeight = round(tRefRecipeProductWeight / tCavities, 0)
+                        else:
+                            tRefRecipeUnitWeight = tRefRecipeProductWeight
+                else:
+                    tRefRecipeProductWeight = MdlADOFunctions.fGetRstValDouble(MdlUtilsH.fGetRecipeValueJob(self.RecipeRefJob, 'ProductWeight', 0, 0))
+            elif (self.RecipeRefType == 6):
+                tValue = MdlUtils.fGetRecipeValueStandard(self.RecipeRefStandardID, 'UnitWeight', 0, 0, self.Product.ID)
+                if tValue != '':
+                    tRefRecipeUnitWeight = MdlADOFunctions.fGetRstValDouble(tValue)
+                    if tRefRecipeUnitWeight == 0:
+                        tRefRecipeProductWeight = MdlUtils.fGetRecipeValueStandard(self.RecipeRefStandardID, 'ProductWeight', 0, 0, self.Product.ID)
+                        tMoldID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('MoldID', 'TblProductRecipeStandards', 'StandardID = ' + str(self.RecipeRefStandardID), 'CN'))
+                        if tMoldID != 0:
+                            tCavities = MdlADOFunctions.fGetRstValDouble(MdlADOFunctions.GetSingleValue('Cavities', 'TblMolds', 'ID = ' + str(tMoldID), 'CN'))
+                            if tCavities != 0:
+                                tRefRecipeUnitWeight = round(tRefRecipeProductWeight / tCavities, 0)
+                            else:
+                                tRefRecipeUnitWeight = tRefRecipeProductWeight
+                else:
+                    tRefRecipeProductWeight = MdlUtils.fGetRecipeValueStandard(self.RecipeRefStandardID, 'ProductWeight', 0, 0, self.Product.ID)
+                    tMoldID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('MoldID', 'TblProductRecipeStandards', 'StandardID = ' + str(self.RecipeRefStandardID), 'CN'))
+                    if tMoldID != 0:
+                        tCavities = MdlADOFunctions.fGetRstValDouble(MdlADOFunctions.GetSingleValue('Cavities', 'TblMolds', 'ID = ' + str(tMoldID), 'CN'))
+                        if tCavities != 0:
+                            tRefRecipeUnitWeight = round(tRefRecipeProductWeight / tCavities, 0)
+                        else:
+                            tRefRecipeUnitWeight = tRefRecipeProductWeight
+            self.RefRecipeUnitWeight = tRefRecipeUnitWeight
+
+        except:
+            pass
 
     def GetParametersForOfflineJob(self):
         strSQL = ''
 
         RstCursor = None
         
-        strSQL = 'SELECT Status,InjectionsCount,InjectionsCountLast,UnitsProduced FROM TblJob WHERE ID = ' + self.ID
+        strSQL = 'SELECT Status,InjectionsCount,InjectionsCountLast,UnitsProduced FROM TblJob WHERE ID = ' + str(self.ID)
         RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
         RstCursor.ActiveConnection = None
-        if RstCursor.RecordCount == 1:
+        if RstData:
             if MdlADOFunctions.fGetRstValDouble(RstCursor.Status) == 10:
                 if MdlADOFunctions.fGetRstValDouble(RstCursor.InjectionsCount) != self.InjectionsCount:
                     self.InjectionsCount = MdlADOFunctions.fGetRstValDouble(RstCursor.InjectionsCount)
@@ -2345,7 +2338,7 @@ class Job:
                 self.InjectionsCountLast = MdlADOFunctions.fGetRstValDouble(RstCursor.InjectionsCountLast)
                 self.InjectionsDiff = self.InjectionsCount - self.InjectionsCountLast
                 self.UnitsProduced = self.InjectionsCount * self.CavitiesActual
-        RstCursor.Close()
+        RstCursor.close()
         if Err.Number != 0:
             if InStr(Err.Description, 'nnection') > 0:
                 if CN.State == 1:
@@ -2379,9 +2372,9 @@ class Job:
             tValidation = tVariant
             tValidationID = tValidation.ID
             if tValidation.ValidationTiming == pValidationTimingType:
-                tValidation.Validate(Me, tJosh)
+                tValidation.Validate(self, tJosh)
         if Err.Number != 0:
-            MdlGlobal.RecordError(type(self) + '.RunValidations:', str(0), error.args[0], 'JobID:' + self.ID + '. ValidationID:' + tValidationID)
+            MdlGlobal.RecordError(type(self).__name__ + '.RunValidations:', str(0), error.args[0], 'JobID:' + str(self.ID) + '. ValidationID:' + tValidationID)
             Err.Clear()
         tJosh = None
         tValidation = None
@@ -2400,10 +2393,10 @@ class Job:
         strSQL = ''
         strSQL = strSQL + 'UPDATE TblEvent SET AlarmDismissed = 1' + vbCrLf
         strSQL = strSQL + 'WHERE ID IN(' + vbCrLf
-        strSQL = strSQL + 'SELECT EventID FROM TblAlarms WHERE EventID <> 0 AND JobID = ' + self.ID
+        strSQL = strSQL + 'SELECT EventID FROM TblAlarms WHERE EventID <> 0 AND JobID = ' + str(self.ID)
         strSQL = strSQL + ')'
         CN.Execute(strSQL)
-        strSQL = 'DELETE FROM TblAlarms WHERE JobID = ' + self.ID
+        strSQL = 'DELETE FROM TblAlarms WHERE JobID = ' + str(self.ID)
         CN.Execute(strSQL)
         if not self.OpenAlarms is None:
             for Counter in vbForRange(1, self.OpenAlarms.Count):
@@ -2424,7 +2417,7 @@ class Job:
                 MetaCn.Open()
                 Err.Clear()
                 
-            MdlGlobal.RecordError(type(self) + '.RunValidations:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.RunValidations:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
         tAlarm = None
 
@@ -2458,41 +2451,41 @@ class Job:
             strSQL = 'SELECT TableName, FieldName, StandardTableName, StandardFieldName FROM STblMachineUnitsInCycleTypes WHERE ID = ' + tUnitsInCycleType
             RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
             RstCursor.ActiveConnection = None
-            if RstCursor.RecordCount == 1:
+            if RstData:
                 tTableName = MdlADOFunctions.fGetRstValString(RstCursor.TableName)
                 tFieldName = MdlADOFunctions.fGetRstValString(RstCursor.FieldName)
                 tStandardTableName = MdlADOFunctions.fGetRstValString(RstCursor.StandardTableName)
                 tStandardFieldName = MdlADOFunctions.fGetRstValString(RstCursor.StandardFieldName)
-            RstCursor.Close()
+            RstCursor.close()
         
         if (tTableName == 'TblMolds'):
             tRefID = self.Mold.ID
-            tUnitsInCycle = MdlADOFunctions.fGetRstValDouble(GetSingleValue(tFieldName, tTableName, 'ID = ' + tRefID, 'CN'))
+            tUnitsInCycle = MdlADOFunctions.fGetRstValDouble(MdlADOFunctions.GetSingleValue(tFieldName, tTableName, 'ID = ' + tRefID, 'CN'))
         elif (tTableName == 'TblProduct'):
             tRefID = self.Product.ID
-            tUnitsInCycle = MdlADOFunctions.fGetRstValDouble(GetSingleValue(tFieldName, tTableName, 'ID = ' + tRefID, 'CN'))
+            tUnitsInCycle = MdlADOFunctions.fGetRstValDouble(MdlADOFunctions.GetSingleValue(tFieldName, tTableName, 'ID = ' + tRefID, 'CN'))
         elif (tTableName == 'TblProductRecipe'):
             tRefID = self.ProductID
-            tUnitsInCycle = MdlADOFunctions.fGetRstValDouble(fGetRecipeValueProduct(tRefID, tFieldName, 0, 0))
+            tUnitsInCycle = MdlADOFunctions.fGetRstValDouble(MdlUtilsH.fGetRecipeValueProduct(tRefID, tFieldName, 0, 0))
         elif (tTableName == 'TblProductRecipeJob'):
-            tUnitsInCycle = MdlADOFunctions.fGetRstValDouble(fGetRecipeValueJob(self.ID, tFieldName, 0, 0))
+            tUnitsInCycle = MdlADOFunctions.fGetRstValDouble(MdlUtilsH.fGetRecipeValueJob(self.ID, tFieldName, 0, 0))
         
         if tStandardTableName != '' and tStandardFieldName != '':
             if (tStandardTableName == 'TblMolds'):
                 tRefID = self.Mold.ID
                 
-                tStandardUnitsInCycle = MdlADOFunctions.fGetRstValDouble(GetSingleValue(tStandardFieldName, tStandardTableName, 'ID = ' + tRefID, 'CN'))
+                tStandardUnitsInCycle = MdlADOFunctions.fGetRstValDouble(MdlADOFunctions.GetSingleValue(tStandardFieldName, tStandardTableName, 'ID = ' + tRefID, 'CN'))
             elif (tStandardTableName == 'TblProduct'):
                 tRefID = self.Product.ID
                 
-                tStandardUnitsInCycle = MdlADOFunctions.fGetRstValDouble(GetSingleValue(tStandardFieldName, tStandardTableName, 'ID = ' + tRefID, 'CN'))
+                tStandardUnitsInCycle = MdlADOFunctions.fGetRstValDouble(MdlADOFunctions.GetSingleValue(tStandardFieldName, tStandardTableName, 'ID = ' + tRefID, 'CN'))
             elif (tStandardTableName == 'TblProductRecipe'):
                 tRefID = self.ProductID
                 
-                tStandardUnitsInCycle = MdlADOFunctions.fGetRstValDouble(fGetRecipeValueProduct(tRefID, tStandardFieldName, 0, 0))
+                tStandardUnitsInCycle = MdlADOFunctions.fGetRstValDouble(MdlUtilsH.fGetRecipeValueProduct(tRefID, tStandardFieldName, 0, 0))
             elif (tStandardTableName == 'TblProductRecipeJob'):
                 
-                tStandardUnitsInCycle = MdlADOFunctions.fGetRstValDouble(fGetRecipeValueJob(self.ID, tStandardFieldName, 0, 0))
+                tStandardUnitsInCycle = MdlADOFunctions.fGetRstValDouble(MdlUtilsH.fGetRecipeValueJob(self.ID, tStandardFieldName, 0, 0))
         else:
             tStandardUnitsInCycle = tUnitsInCycle
         if tUnitsInCycle == 0:
@@ -2534,15 +2527,15 @@ class Job:
             tChannel = self.ControllerChannels.Item(str(RstCursor.ChannelNum))
             if not tChannel is None:
                 if MdlADOFunctions.fGetRstValLong(RstCursor.SplitNum) == 0:
-                    AddMaterialFlowAmountToChannel(Me, tChannel, MdlADOFunctions.fGetRstValDouble(RstCursor.value), FromJob)
-                    AddMaterialFlowAmountToChannel(Me, tChannel, MdlADOFunctions.fGetRstValDouble(RstCursor.value), FromJosh)
+                    AddMaterialFlowAmountToChannel(self, tChannel, MdlADOFunctions.fGetRstValDouble(RstCursor.value), FromJob)
+                    AddMaterialFlowAmountToChannel(self, tChannel, MdlADOFunctions.fGetRstValDouble(RstCursor.value), FromJosh)
                 else:
                     tSplit = tChannel.Splits.Item(str(RstCursor.SplitNum))
                     if not tSplit is None:
-                        AddMaterialFlowAmountToSplit(Me, tSplit, MdlADOFunctions.fGetRstValDouble(RstCursor.value), FromJob)
-                        AddMaterialFlowAmountToSplit(Me, tSplit, MdlADOFunctions.fGetRstValDouble(RstCursor.value), FromJosh)
+                        AddMaterialFlowAmountToSplit(self, tSplit, MdlADOFunctions.fGetRstValDouble(RstCursor.value), FromJob)
+                        AddMaterialFlowAmountToSplit(self, tSplit, MdlADOFunctions.fGetRstValDouble(RstCursor.value), FromJosh)
             RstCursor.MoveNext()
-        RstCursor.Close()
+        RstCursor.close()
         self.PrintRecordToHistory(500, 'JobID', str(tLastJobID))
         strSQL = 'UPDATE TblMachineMaterialFlow SET Value = NULL, InitialValue = NULL, JobID = NULL WHERE MachineID = ' + self.Machine.ID
         CN.Execute(strSQL)
@@ -2646,7 +2639,7 @@ class Job:
             if self.Machine.NewJob == True:
                 tReportInventoryItemAsSetUpReject = self.MachineType.ReportInventoryItemAsSetUpReject
                 if tReportInventoryItemAsSetUpReject == True:
-                    tStatus = MdlADOFunctions.fGetRstValLong(GetSingleValue('ID', 'STblInventoryStatus', 'SysName = N\'Reject\'', 'CN'))
+                    tStatus = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ID', 'STblInventoryStatus', 'SysName = N\'Reject\'', 'CN'))
                 else:
                     tStatus = tDefaultStatus
             else:
@@ -2656,11 +2649,11 @@ class Job:
             else:
                 tEffectiveAmount = pEffectiveAmount
             if self.PConfigID == 0:
-                tWhere = 'WHERE ID = ' + self.ID
+                tWhere = 'WHERE ID = ' + str(self.ID)
             else:
-                tWhere = 'WHERE ID = ' + self.ID + ' OR PConfigParentID = ' + self.ID
-            tMinQueueID = AddToLabelsQueue(pLabelID, tWhere, 1, Me)
-            if ProcessCurrentLabelSession(Me, pLabelID, tEffectiveAmount, tStatus, tMinQueueID):
+                tWhere = 'WHERE ID = ' + str(self.ID) + ' OR PConfigParentID = ' + str(self.ID)
+            tMinQueueID = AddToLabelsQueue(pLabelID, tWhere, 1, self)
+            if ProcessCurrentLabelSession(self, pLabelID, tEffectiveAmount, tStatus, tMinQueueID):
                 tDataPrepared = True
             if not self.Machine.AutoPrintLabel:
                 DeleteLabelData(self.ID)
@@ -2669,11 +2662,11 @@ class Job:
             tBatchNum = GetLabelNumerator(pLabelID, self.ID, tNumeratorID)
             if tBatchNum == - 1:
                 if (tUnitsReportedOkFrom == UnitsReportedOKFromOption.Box):
-                    tBatchNum = MdlADOFunctions.fGetRstValLong(GetSingleValue('PackageBatchNum', 'TblJob', 'ID = ' + self.ID, 'CN'))
+                    tBatchNum = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('PackageBatchNum', 'TblJob', 'ID = ' + str(self.ID), 'CN'))
                 elif (tUnitsReportedOkFrom == UnitsReportedOKFromOption.Pallet):
-                    tBatchNum = MdlADOFunctions.fGetRstValLong(GetSingleValue('PalletBatchNum', 'TblJob', 'ID = ' + self.ID, 'CN'))
+                    tBatchNum = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('PalletBatchNum', 'TblJob', 'ID = ' + str(self.ID), 'CN'))
             if tAddPackageTypeToInventoryBatch == True:
-                tPackageTypeID = MdlADOFunctions.fGetRstValLong(GetSingleValue('DefaultPackageType', 'MetaTblLabels', 'ID = ' + pLabelID, 'MetaCN'))
+                tPackageTypeID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('DefaultPackageType', 'MetaTblLabels', 'ID = ' + pLabelID, 'MetaCN'))
                 if (tInventoryBatchOption == JobID):
                     if tPackageTypeID != 0:
                         tBatch = self.ID + '.' + str(tPackageTypeID) + '.' + str(tBatchNum)
@@ -2685,7 +2678,7 @@ class Job:
                     else:
                         tBatch = self.ActiveJosh.ID + '.' + '1' + '.' + str(tBatchNum)
                 elif (tInventoryBatchOption == ERPJobID):
-                    tERPJobID = MdlADOFunctions.fGetRstValString(GetSingleValue('ERPJobID', 'TblJob', 'ID = ' + self.ID, 'CN'))
+                    tERPJobID = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('ERPJobID', 'TblJob', 'ID = ' + str(self.ID), 'CN'))
                     if tERPJobID != '':
                         if tPackageTypeID != 0:
                             tBatch = tERPJobID + '.' + str(tPackageTypeID) + '.' + str(tBatchNum)
@@ -2702,7 +2695,7 @@ class Job:
                 elif (tInventoryBatchOption == JoshID):
                     tBatch = self.ActiveJosh.ID + '.' + str(tBatchNum)
                 elif (tInventoryBatchOption == ERPJobID):
-                    tERPJobID = MdlADOFunctions.fGetRstValString(GetSingleValue('ERPJobID', 'TblJob', 'ID = ' + self.ID, 'CN'))
+                    tERPJobID = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('ERPJobID', 'TblJob', 'ID = ' + str(self.ID), 'CN'))
                     if tERPJobID != '':
                         tBatch = tERPJobID + '.' + str(tBatchNum)
                     else:
@@ -2712,13 +2705,13 @@ class Job:
             tProductID = self.ProductID
             tCatalogID = self.Product.CatalogID
             if tCatalogID != '':
-                tMaterialID = MdlADOFunctions.fGetRstValLong(GetSingleValue('ID', 'TblMaterial', 'CatalogID=\'' + tCatalogID + '\'', 'CN'))
+                tMaterialID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ID', 'TblMaterial', 'CatalogID=\'' + tCatalogID + '\'', 'CN'))
             else:
                 tMaterialID = 0
             tShiftID = self.Machine.Server.CurrentShiftID
-            tWareHouseID = MdlADOFunctions.fGetRstValLong(GetSingleValue('DefaultWareHouse', 'TblMachines', 'ID = ' + self.Machine.ID, 'CN'))
-            tWareHouseLocationID = MdlADOFunctions.fGetRstValLong(GetSingleValue('DefaultWareHouseLocationID', 'TblMachines', 'ID = ' + self.Machine.ID, 'CN'))
-            tClientID = MdlADOFunctions.fGetRstValLong(GetSingleValue('ClientID', 'TblJob', 'ID = ' + self.ID, 'CN'))
+            tWareHouseID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('DefaultWareHouse', 'TblMachines', 'ID = ' + self.Machine.ID, 'CN'))
+            tWareHouseLocationID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('DefaultWareHouseLocationID', 'TblMachines', 'ID = ' + self.Machine.ID, 'CN'))
+            tClientID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ClientID', 'TblJob', 'ID = ' + str(self.ID), 'CN'))
             
             strFields = ''
             strValues = ''
@@ -2820,7 +2813,7 @@ class Job:
             strSQL = strSQL + strValues
             strSQL = strSQL + ')'
             CN.Execute(strSQL)
-            tInventoryID = MdlADOFunctions.fGetRstValLong(GetSingleValue('TOP 1 ID', 'TblInventory', 'JobID = ' + tJobID + ' ORDER BY ID DESC', 'CN'))
+            tInventoryID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('TOP 1 ID', 'TblInventory', 'JobID = ' + tJobID + ' ORDER BY ID DESC', 'CN'))
             AddInventoryHistoryRecord(tInventoryID, 1)
             CreateInventoryTrace(tInventoryID, self.ActiveJosh.ID)
             if tAddToActivePallet:
@@ -2892,8 +2885,8 @@ class Job:
                 strSQL = strSQL + ')'
                 CN.Execute(strSQL)
             elif (tUnitsReportedOkFrom == UnitsReportedOKFromOption.Pallet):
-                tBoxUnits = MdlADOFunctions.fGetRstValLong(GetSingleValue('BoxUnits', 'TblProduct', 'ID = ' + self.ProductID, 'CN'))
-                tAmountFullBoxes = MdlADOFunctions.fGetRstValLong(GetSingleValue('PalletBoxes', 'TblProduct', 'ID = ' + self.ProductID, 'CN'))
+                tBoxUnits = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('BoxUnits', 'TblProduct', 'ID = ' + self.ProductID, 'CN'))
+                tAmountFullBoxes = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('PalletBoxes', 'TblProduct', 'ID = ' + self.ProductID, 'CN'))
                 
                 strFields = ''
                 strValues = ''
@@ -2992,7 +2985,7 @@ class Job:
                 MetaCn.Open()
                 Err.Clear()
                 
-            MdlGlobal.RecordError(type(self) + '.ReportInventoryItem:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.ReportInventoryItem:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
 
     def Terminate(self):
@@ -3059,19 +3052,19 @@ class Job:
             
 
     def LoadAlarms(self):
-        tControlParam = ControlParam()
-
-        tAlarm = Alarm()
+        tControlParam = None
+        tAlarm = None
         
-        if self.Status == 10:
-            for tControlParam in self.Machine.CParams:
-                if tControlParam.ErrorAlarmActive:
-                    if not tControlParam.Alarms is None:
-                        for tAlarm in tControlParam.Alarms:
-                            self.AddAlarm(tAlarm)
-        if Err.Number != 0:
-            MdlGlobal.RecordError(type(self) + '.LoadAlarms:', str(0), error.args[0], 'JobID:' + self.ID)
-            Err.Clear()
+        try:
+            if self.Status == 10:
+                for tControlParam in self.Machine.CParams.values():
+                    if tControlParam.ErrorAlarmActive:
+                        if not tControlParam.Alarms is None:
+                            for tAlarm in tControlParam.Alarms.values():
+                                self.AddAlarm(tAlarm)
+
+        except BaseException as error:
+            MdlGlobal.RecordError(type(self).__name__ + '.LoadAlarms:', str(0), error.args[0], 'JobID:' + str(self.ID))
 
     def Refresh(self):
         strSQL = ''
@@ -3084,10 +3077,10 @@ class Job:
 
         jdRstCursor = None
         
-        strSQL = 'SELECT * FROM TblJob WHERE ID = ' + self.ID
+        strSQL = 'SELECT * FROM TblJob WHERE ID = ' + str(self.ID)
         RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
         RstCursor.ActiveConnection = None
-        if RstCursor.RecordCount == 1:
+        if RstData:
             if MdlADOFunctions.fGetRstValString(RstCursor.StartTime) != '':
                 self.StartTime = RstCursor.StartTime
             if MdlADOFunctions.fGetRstValString(RstCursor.EndTime) != '':
@@ -3134,7 +3127,7 @@ class Job:
             self.ProductWeightStandard = MdlADOFunctions.fGetRstValDouble(RstCursor.ProductWeightStandard)
             self.ProductRecipeWeight = MdlADOFunctions.fGetRstValDouble(RstCursor.ProductRecipeWeight)
             if self.ProductRecipeWeight == 0:
-                self.ProductRecipeWeight = MdlADOFunctions.fGetRstValDouble(fGetRecipeValueProduct(self.Product.ID, 'ProductWeight', 0, 0))
+                self.ProductRecipeWeight = MdlADOFunctions.fGetRstValDouble(MdlUtilsH.fGetRecipeValueProduct(self.Product.ID, 'ProductWeight', 0, 0))
             self.CycleTimeStandard = MdlADOFunctions.fGetRstValDouble(RstCursor.CycleTimeStandard)
             self.CycleTimeAvg = MdlADOFunctions.fGetRstValDouble(RstCursor.CycleTimeAvg)
             self.Status = MdlADOFunctions.fGetRstValLong(RstCursor.Status)
@@ -3156,11 +3149,11 @@ class Job:
                 strSQL = 'SELECT * FROM STblJobDefinitions WHERE ID = ' + self.JobDef
                 jdRstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
                 jdRstCursor.ActiveConnection = None
-                if jdRstCursor.RecordCount == 1:
+                if jdRstData:
                     self.JobDefCalcEfficiencies = MdlADOFunctions.fGetRstValBool(( jdRstCursor.CalcEfficiencies ), True)
                     self.JobDefDisableProductionTime = MdlADOFunctions.fGetRstValBool(( jdRstCursor.DisableProductionTime ), False)
                     self.JobDefSetUpEndGeneralCycles = MdlADOFunctions.fGetRstValDouble(jdRstCursor.SetUpEndGeneralCycles)
-                jdRstCursor.Close()
+                jdRstCursor.close()
             
             self.RecipeRefType = MdlADOFunctions.fGetRstValLong(RstCursor.RecipeRefType)
             self.RecipeRefJob = MdlADOFunctions.fGetRstValLong(RstCursor.RecipeRefJob)
@@ -3168,7 +3161,7 @@ class Job:
             self.GetRefRecipeProductWeight
             self.GetRefRecipeUnitWeight
             if self.RecipeRefStandardID != 0:
-                self.ProductStandardRecipeWeight = MdlADOFunctions.fGetRstValDouble(fGetRecipeValueStandard(self.RecipeRefStandardID, 'ProductWeight', 0, 0, self.Product.ID))
+                self.ProductStandardRecipeWeight = MdlADOFunctions.fGetRstValDouble(MdlUtils.fGetRecipeValueStandard(self.RecipeRefStandardID, 'ProductWeight', 0, 0, self.Product.ID))
             self.MaterialRecipeIndexJob = MdlADOFunctions.fGetRstValDouble(RstCursor.MaterialRecipeIndexJob)
             self.MaterialRecipeIndexProduct = MdlADOFunctions.fGetRstValDouble(RstCursor.MaterialRecipeIndexProduct)
             self.UnitsReportedOK = MdlADOFunctions.fGetRstValDouble(RstCursor.UnitsReportedOK)
@@ -3188,8 +3181,8 @@ class Job:
                 self.Status = self.PConfigParentJob.Status
             
             
-            if self.PConfigID != 0 and self.MachineType.PConfigSonsRefRecipeSource == FromProductRecipe:
-                self.ProductWeightStandard = fGetRecipeValueJob(self.ID, 'ProductWeight', 0, 0)
+            if self.PConfigID != 0 and self.MachineType.PConfigSonsRefRecipeSource == PConfigSonsRefRecipeSourceOption.FromProductRecipe:
+                self.ProductWeightStandard = MdlUtilsH.fGetRecipeValueJob(self.ID, 'ProductWeight', 0, 0)
                 self.ProductWeightLast = self.ProductWeightStandard
                 self.ProductWeightAvg = self.ProductWeightStandard
             
@@ -3200,9 +3193,9 @@ class Job:
             
             self.ValidationLog = MdlADOFunctions.fGetRstValString(RstCursor.ValidationLog)
             
-            if IsDate(RstCursor.NextJobMaterialFlowStart):
-                self.NextJobMaterialFlowStart = CDate(RstCursor.NextJobMaterialFlowStart)
-        RstCursor.Close()
+            if GlobalVariables.IsDate(RstCursor.NextJobMaterialFlowStart):
+                self.NextJobMaterialFlowStart = datetime.strptime(RstCursor.NextJobMaterialFlowStart, '%d/%m/%Y %H:%M:%S')
+        RstCursor.close()
         
         if self.Status == 10 and  ( self.PConfigID == 0 or  ( self.PConfigID != 0 and self.IsPConfigMain == True ) ) :
             self.InitMachineControlParams
@@ -3217,7 +3210,7 @@ class Job:
                 MetaCn.Open()
                 Err.Clear()
                 
-            MdlGlobal.RecordError(type(self) + '.Refresh:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.Refresh:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
 
     def __CalcEngineTimesFromDB(self):
@@ -3225,12 +3218,12 @@ class Job:
 
         RstCursor = None
         
-        strSQL = 'SELECT EngineTimeMin FROM ViewRTJobEngineEvents WHERE ID = ' + self.ID
+        strSQL = 'SELECT EngineTimeMin FROM ViewRTJobEngineEvents WHERE ID = ' + str(self.ID)
         RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
         RstCursor.ActiveConnection = None
-        if RstCursor.RecordCount == 1:
+        if RstData:
             self.EngineTimeMin = MdlADOFunctions.fGetRstValLong(RstCursor.EngineTimeMin)
-        RstCursor.Close()
+        RstCursor.close()
         if Err.Number != 0:
             if InStr(Err.Description, 'nnection') > 0:
                 if CN.State == 1:
@@ -3241,7 +3234,7 @@ class Job:
                 MetaCn.Open()
                 Err.Clear()
                 
-            MdlGlobal.RecordError(type(self) + '.CalcEngineTimesFromDB:', str(0), error.args[0], 'JobID:' + self.ID)
+            MdlGlobal.RecordError(type(self).__name__ + '.CalcEngineTimesFromDB:', str(0), error.args[0], 'JobID:' + str(self.ID))
             Err.Clear()
         RstCursor = None
 

@@ -1,4 +1,5 @@
 # import sys
+import GlobalVariables
 
 import MdlADOFunctions
 import mdl_Common
@@ -8,7 +9,7 @@ from ServerConn import ServerConn
 from colorama import Fore
 
 gServerConn = None
-LeaderSVR = None
+# LeaderSVR = None # Kept in GlobalVaraibles.py 
 strCon = ""
 strMetaCon = ""
 strSchCN = ['']
@@ -34,8 +35,8 @@ def Main():
         boolRTCommandActivation = True
     if boolRTCommandActivation:
         ArrAppParams = registry.ArrAppPararms
-        
         # sys.argv
+        
     else:
         ArrAppParams = []
         ArrAppParams[0] = ''
@@ -49,7 +50,7 @@ def Main():
     gServerConn = ServerConn()    
     print(Fore.GREEN + 'Starting server.')
     ServerStarted = gServerConn.StartServerConn(ArrAppParams, strSchCN)
-    LeaderSVR = gServerConn.Server
+    GlobalVariables.LeaderSVR = gServerConn.Server
 #     strInterval = QueryValue('SOFTWARE\\Emerald', 'UpdateRate')
 #     if strInterval.isnumeric():
 #         tmpInterval = strInterval
@@ -99,8 +100,8 @@ def Main():
 
 # def Form_Load():
 #     str = ""
-    
 #     pass
+    
 
 # def fGetNewLeaderX():
     

@@ -1,4 +1,6 @@
 from datetime import datetime
+
+import enum
 import winreg
 import MdlGlobal
 import MdlConnection
@@ -11,32 +13,32 @@ ExternalCn = None
 SchCn = None
 cntObjectType = '1'
 
-# class SYSTEMTIME:
-#     def __init__(self):
-#         self.wYear = 0
-#         self.wMonth = 0
-#         self.wDayOfWeek = 0
-#         self.wDay = 0
-#         self.wHour = 0
-#         self.wMinute = 0
-#         self.wSecond = 0
-#         self.wMilliseconds = 0
+class SYSTEMTIME:
+    def __init__(self):
+        self.wYear = 0
+        self.wMonth = 0
+        self.wDayOfWeek = 0
+        self.wDay = 0
+        self.wHour = 0
+        self.wMinute = 0
+        self.wSecond = 0
+        self.wMilliseconds = 0
 
-# class TIME_ZONE_INFORMATION:
-#     def __init__(self):
-#         self.Bias = 0
-#         self.StandardName = 0
-#         self.StandardDate = SYSTEMTIME()
-#         self.StandardBias = 0
-#         self.DaylightName = 0
-#         self.DaylightDate = SYSTEMTIME()
-#         self.DaylightBias = 0
+class TIME_ZONE_INFORMATION:
+    def __init__(self):
+        self.Bias = 0
+        self.StandardName = 0
+        self.StandardDate = SYSTEMTIME()
+        self.StandardBias = 0
+        self.DaylightName = 0
+        self.DaylightDate = SYSTEMTIME()
+        self.DaylightBias = 0
 
 # __TIME_ZONE_ID_INVALID = 0xFFFFFFFF
 # __TIME_ZONE_ID_STANDARD = 1
 # __TIME_ZONE_ID_UNKNOWN = 0
 # __TIME_ZONE_ID_DAYLIGHT = 2
-# __mServerGMT = 0
+__mServerGMT = 0.0
 GMTAdd = 0
 # HKEY_LOCAL_MACHINE = 0x80000002
 # HKEY_CURRENT_USER = 0x80000001
@@ -64,70 +66,72 @@ GMTAdd = 0
 # CntDefaultDisplayHeight = 600
 # CntDefaultReportColWidth = 75
 
-# QCDate = 1
-# QCTime = 2
-# QCInt = 3
-# QCNum = 4
-# QCString = 5
-# QCBoolean = 6
+class QCType(enum.Enum):
+    QCDate = 1
+    QCTime = 2
+    QCInt = 3
+    QCNum = 4
+    QCString = 5
+    QCBoolean = 6
 
-# AddNew = 0
-# SaveUpdate = 1
-# Delete = 2
+class QAction(enum.Enum):
+    AddNew = 0
+    SaveUpdate = 1
+    Delete = 2
 
-# class TReportTest:
-#     def __init__(self):
-#         self.ID = 0
-#         self.TableName = ""
-#         self.TestFields = 0
-#         self.FieldsCount = 0
-#         self.strSelect = ""
-#         self.CheckStat = False
-#         self.SievesTable = ""
-#         self.SievesCount = 0
+class TReportTest:
+    def __init__(self):
+        self.ID = 0
+        self.TableName = ""
+        self.TestFields = 0
+        self.FieldsCount = 0
+        self.strSelect = ""
+        self.CheckStat = False
+        self.SievesTable = ""
+        self.SievesCount = 0
 
-# class TReportTestField:
-#     def __init__(self):
-#         self.FName = ""
-#         self.FType = QCType()
-#         self.DisplayName = ""
-#         self.StatField = False
-#         self.StatFieldTableName = ""
-#         self.ShowTested = False
-#         self.ShowPassed = False
-#         self.ShowMax = False
-#         self.ShowMin = False
-#         self.ShowAVG = False
-#         self.ShowSTDEV = False
-#         self.ColWidth = 0
+class TReportTestField:
+    def __init__(self):
+        self.FName = ""
+        self.FType = QCType()
+        self.DisplayName = ""
+        self.StatField = False
+        self.StatFieldTableName = ""
+        self.ShowTested = False
+        self.ShowPassed = False
+        self.ShowMax = False
+        self.ShowMin = False
+        self.ShowAVG = False
+        self.ShowSTDEV = False
+        self.ColWidth = 0
 
-# class Sieve:
-#     def __init__(self):
-#         self.SID = 0
-#         self.InchName = ""
-#         self.CMName = ""
+class Sieve:
+    def __init__(self):
+        self.SID = 0
+        self.InchName = ""
+        self.CMName = ""
 
-# class TReportField:
-#     def __init__(self):
-#         self.FName = ""
-#         self.TableName = ""
-#         self.DisplayName = ""
-#         self.Type = QCType()
-#         self.ColWidth = 0
-#         self.DigitsNumber = 0
-#         self.Link = ""
-#         self.LinkAddValue = False
-#         self.LinkValueField = ""
-#         self.LinkTarget = ""
+class TReportField:
+    def __init__(self):
+        self.FName = ""
+        self.TableName = ""
+        self.DisplayName = ""
+        self.Type = QCType()
+        self.ColWidth = 0
+        self.DigitsNumber = 0
+        self.Link = ""
+        self.LinkAddValue = False
+        self.LinkValueField = ""
+        self.LinkTarget = ""
 
-# class JobButton:
-#     def __init__(self):
-#         self.ID = 0
-#         self.Name = ""
-#         self.value = ""
-#         self.Class = ""
-#         self.Enabled = False
-#         self.ActionID = ""
+class JobButton:
+    def __init__(self):
+        self.ID = 0
+        self.Name = ""
+        self.value = ""
+        self.Class = ""
+        self.Enabled = False
+        self.ActionID = ""
 
 
 # def strRemovePar(strSource, AddASCII, HtmlText):

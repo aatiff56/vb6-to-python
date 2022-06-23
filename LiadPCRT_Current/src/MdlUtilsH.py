@@ -1,6 +1,7 @@
 from datetime import datetime
 import MdlADOFunctions
 import mdl_Common
+import GlobalVariables
 
 cnTypeDateTime = '135'
 cnTypeNVarCHar = '202'
@@ -61,12 +62,12 @@ def fGetShiftCalendarIDByMachine(pMachineID):
     returnVal = None
     strSQL = ''
     DepID = 0
-    tDepartment = Department()
-    tMachine = Machine()
-    tVariant = Variant()
+    tDepartment = None
+    tMachine = None
+    tVariant = None
     returnVal = 0
 
-    for tVariant in LeaderSVR.Machines:
+    for tVariant in GlobalVariables.LeaderSVR.Machines:
         tMachine = tVariant
         if tMachine.ID == pMachineID:
             break
@@ -93,16 +94,16 @@ def fGetShiftCalendarIDByMachine(pMachineID):
 
 
 def fGetRecipeValueProduct(ProductID, PropertyName, ChannelNum, SplitNum, FieldName='FValue'):
-    returnVal = None
+    strTemp = ''
     PropertyID = 0
     MachineType = 0
-    strTemp = ''
-    MachineType = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('MachineType', 'TblProduct', 'ID = ' + ProductID, 'CN'))
 
+    MachineType = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('MachineType', 'TblProduct', 'ID = ' + str(ProductID), 'CN'))
+    PropertyID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue("ID", "STblMachineTypeProperties", "MachineType = " + str(MachineType) + " AND PropertyName = '" + str(PropertyName) + "'", "CN"))
     if PropertyID > 0:
-        strTemp = '' + MdlADOFunctions.GetSingleValue(FieldName, 'TblProductRecipe', 'ProductID = ' + ProductID + ' AND PropertyID = ' + PropertyID + ' AND ChannelNum =  ' + ChannelNum + ' AND SplitNum = ' + SplitNum, 'CN')
-    returnVal = strTemp
-    return returnVal
+        strTemp = MdlADOFunctions.GetSingleValue(FieldName, 'TblProductRecipe', 'ProductID = ' + str(ProductID) + ' AND PropertyID = ' + str(PropertyID) + ' AND ChannelNum = ' + str(ChannelNum) + ' AND SplitNum = ' + str(SplitNum), 'CN')
+
+    return strTemp
 
 
 def fGetRecipeValueJob(JobID, PropertyName, ChannelNum, SplitNum, FieldName='FValue'):

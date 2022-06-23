@@ -8,6 +8,8 @@ def fGetRstValLong(rstVal):
         raise Exception("Incorrect function.")
     if rstVal.isnumeric():
         return int(rstVal)
+    else:
+        return 0
 
 
 def fGetRstValString(rstVal):

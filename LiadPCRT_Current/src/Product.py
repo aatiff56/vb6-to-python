@@ -1,3 +1,4 @@
+import GlobalVariables
 import MdlADOFunctions
 import MdlGlobal
 import MdlConnection
@@ -22,7 +23,7 @@ class Product:
 
             if RstCursor.arraysize == 1:
                 self.ID = pProductID
-                self.MachineType = MdlServer.GetOrCreateMachineType(MdlMain.LeaderSVR, MdlADOFunctions.fGetRstValLong(RstData.MachineType))
+                self.MachineType = MdlServer.GetOrCreateMachineType(GlobalVariables.LeaderSVR, MdlADOFunctions.fGetRstValLong(RstData.MachineType))
                 self.CatalogID = MdlADOFunctions.fGetRstValString(RstData.CatalogID)
                 self.ActivePalletCreationModeID = MdlADOFunctions.fGetRstValLong(RstData.ActivePalletCreationModeID)
             RstCursor.close()

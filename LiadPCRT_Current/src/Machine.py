@@ -223,7 +223,7 @@ class Machine:
     __mEngineSignalExist = False
     __mEngineSignalActive = False
     __mReportStopReasonByOpenCall = False
-
+    __mTotalCycles = 0.0
     
     def INITMachine(self, MachineID, vOpcServer):
         returnVal = None
@@ -483,11 +483,11 @@ class Machine:
                     MdlConnection.Close(MdlConnection.MetaCn)
                 MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
 
-        if RstCursor.connection:
+        if RstCursor:
             RstCursor.close()
         RstCursor = None
 
-        if validateRstCursor.connection:
+        if validateRstCursor:
             validateRstCursor.close()
         validateRstCursor = None
         tControllerChannel = None
@@ -5238,7 +5238,7 @@ class Machine:
     def UpdateMachineStatusTime(self, pDate=None):
         strSQL = ''
         
-        if pDate != datetime.strptime('00:00:00'):
+        if pDate != datetime.strptime('00:00:00', "%d %B, %Y"):
             self.StatusLastChangeTime = pDate
         strSQL = 'Update TblMachines Set StatusLastChangeTime = \'' + MdlUtilsH.ShortDate(self.StatusLastChangeTime, True, True, True) + '\' Where ID=' + self.ID
         MdlConnection.CN.execute(strSQL)
@@ -5446,6 +5446,15 @@ class Machine:
         return returnVal
     EngineSignalExist = property(fset=setEngineSignalExist, fget=getEngineSignalExist)
 
+    def setTotalCycles(self, value):
+        self.__mTotalCycles = value
+
+    def getTotalCycles(self):
+        returnVal = None
+        returnVal = self.__mTotalCycles
+        return returnVal
+    TotalCycles = property(fset=setTotalCycles, fget=getTotalCycles)
+
 
     def setTotalWeight(self, the_mTotalWeight):
         strSQL = ''
@@ -5481,3 +5490,4 @@ class Machine:
         returnVal = self.__mTotalWeight
         return returnVal
     TotalWeight = property(fset=setTotalWeight, fget=getTotalWeight)
+

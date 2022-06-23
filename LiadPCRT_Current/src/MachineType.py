@@ -22,7 +22,7 @@ class MachineType:
         RstCursor = None
         
         try:
-            strSQL = 'SELECT * FROM STblMachineTypes WHERE ID = ' + pMachineTypeID
+            strSQL = 'SELECT * FROM STblMachineTypes WHERE ID = ' + str(pMachineTypeID)
             RstCursor = MdlConnection.CN.cursor()
             RstCursor.execute(strSQL)
             RstData = RstCursor.fetchone()
@@ -56,7 +56,7 @@ class MachineType:
                     MdlConnection.Close(MdlConnection.MetaCn)
                 MdlConnection.MetaCn = MdlConnection.Open(MdlConnection.strMetaCon)
                     
-            MdlGlobal.RecordError(type(self) + '.Init:', str(0), error.args[0], 'MachineTypeID:' + str(pMachineTypeID))
+            MdlGlobal.RecordError(type(self).__name__ + '.Init:', str(0), error.args[0], 'MachineTypeID:' + str(pMachineTypeID))
         RstCursor = None
 
 

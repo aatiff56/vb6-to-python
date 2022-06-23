@@ -1,5 +1,7 @@
+import GlobalVariables
+
 from datetime import datetime
-import Server as server
+from Server import Server
 
 class ServerConn:
     mSCID = 0
@@ -20,9 +22,9 @@ class ServerConn:
                 self.mSCID = pArr[5]
             else:
                 self.mSCID = 0
-            self.gServer = server.Server()
+            self.gServer = Server()
             self.gServer.StartTime = datetime.now()
-            LeaderSVR = self.gServer
+            GlobalVariables.LeaderSVR = self.gServer
             fn_return_value = self.gServer.StartServer(pArr, strSchCN)
             return fn_return_value
         

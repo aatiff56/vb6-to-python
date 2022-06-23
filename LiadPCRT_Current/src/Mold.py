@@ -49,7 +49,7 @@ class Mold:
                     MdlConnection.Close(MdlConnection.MetaCn)
                 MdlConnection.MetaCn = MdlConnection.Open(MdlConnection.strMetaCon)
                     
-                MdlGlobal.RecordError(type(self) + '.Init:', str(0), error.args[0], 'MoldID:' + str(pMoldID))
+                MdlGlobal.RecordError(type(self).__name__ + '.Init:', str(0), error.args[0], 'MoldID:' + str(pMoldID))
 
             RstCursor = None
 
