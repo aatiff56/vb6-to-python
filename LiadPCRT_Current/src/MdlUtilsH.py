@@ -107,17 +107,17 @@ def fGetRecipeValueProduct(ProductID, PropertyName, ChannelNum, SplitNum, FieldN
 
 
 def fGetRecipeValueJob(JobID, PropertyName, ChannelNum, SplitNum, FieldName='FValue'):
-    returnVal = None
+    strTemp = ''
     ProductID = 0
     PropertyID = 0
     MachineType = 0
 
-    PropertyID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue("ID", "STblMachineTypeProperties", "MachineType = " & MachineType & " AND PropertyName = '" + PropertyName + "'", "CN"))
-
+    ProductID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue("ProductID", "TblJob", "ID = " + str(JobID), "CN"))
+    MachineType = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue("MachineType", "TblProduct", "ID = " + str(ProductID), "CN"))
+    PropertyID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue("ID", "STblMachineTypeProperties", "MachineType = " + str(MachineType) + " AND PropertyName = '" + PropertyName + "'", "CN"))
     if PropertyID > 0:
-        strTemp = '' + MdlADOFunctions.GetSingleValue(FieldName, 'TblProductRecipeJob', 'JobID = ' + JobID + ' AND PropertyID = ' + PropertyID + ' AND ChannelNum =  ' + ChannelNum + ' AND SplitNum = ' + SplitNum, 'CN')
-    returnVal = strTemp
-    return returnVal
+        strTemp = MdlADOFunctions.GetSingleValue(FieldName, 'TblProductRecipeJob', 'JobID = ' + str(JobID) + ' AND PropertyID = ' + str(PropertyID) + ' AND ChannelNum =  ' + str(ChannelNum) + ' AND SplitNum = ' + str(SplitNum), 'CN')
+    return strTemp
 
 
 def GetChannelSplitProperty(pPropertyFieldName, pControllerID, pChannelNum, pSplitNum):

@@ -68,7 +68,7 @@ def GetOrCreateMold(pServer, pMoldID):
         for tVariant in pServer.Molds.values():
             tMold = tVariant
             if tMold.ID == pMoldID:
-                tMold.Refresh
+                tMold.Refresh()
                 returnVal = tMold
                 Found = True
                 break

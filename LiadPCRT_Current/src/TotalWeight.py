@@ -1,6 +1,8 @@
+from GlobalVariables import MaterialCalcObjectType
+
 class TotalWeight:
 
-    mControllerField = ControlParam()
+    mControllerField = None
     mJobCurrentValue = 0
     mJoshCurrentValue = 0
     mJobStandardValue = 0
@@ -15,7 +17,7 @@ class TotalWeight:
     mJoshMaterialStandardIndex = 0
     mJobRecipeRefValue = 0
     mJoshRecipeRefValue = 0
-    mParent = Object()
+    mParent = None
     mJobOtherMaterialsActualIndex = 0
     mJoshOtherMaterialsActualIndex = 0
     mJobOtherMaterialsAmount = 0
@@ -26,67 +28,67 @@ class TotalWeight:
     mJoshMaterialFlowAmount = 0
 
     def SetCurrentValue(self, pMaterialCalcObjectType, value):
-        if pMaterialCalcObjectType == FromJob:
+        if pMaterialCalcObjectType == MaterialCalcObjectType.FromJob:
             self.mJobCurrentValue = value
         else:
             self.mJoshCurrentValue = value
 
     def SetStandardValue(self, pMaterialCalcObjectType, value):
-        if pMaterialCalcObjectType == FromJob:
+        if pMaterialCalcObjectType == MaterialCalcObjectType.FromJob:
             self.mJobStandardValue = value
         else:
             self.mJoshStandardValue = value
 
     def SetProductStandardValue(self, pMaterialCalcObjectType, value):
-        if pMaterialCalcObjectType == FromJob:
+        if pMaterialCalcObjectType == MaterialCalcObjectType.FromJob:
             self.mJobProductStandardValue = value
         else:
             self.mJoshProductStandardValue = value
 
     def SetProductRecipeValue(self, pMaterialCalcObjectType, value):
-        if pMaterialCalcObjectType == FromJob:
+        if pMaterialCalcObjectType == MaterialCalcObjectType.FromJob:
             self.mJobProductRecipeValue = value
         else:
             self.mJoshProductRecipeValue = value
 
     def SetMaterialActualIndex(self, pMaterialCalcObjectType, value):
-        if pMaterialCalcObjectType == FromJob:
+        if pMaterialCalcObjectType == MaterialCalcObjectType.FromJob:
             self.mJobMaterialActualIndex = value
         else:
             self.mJoshMaterialActualIndex = value
 
     def SetMaterialStandardIndex(self, pMaterialCalcObjectType, value):
-        if pMaterialCalcObjectType == FromJob:
+        if pMaterialCalcObjectType == MaterialCalcObjectType.FromJob:
             self.mJobMaterialStandardIndex = value
         else:
             self.mJoshMaterialStandardIndex = value
 
     def SetRecipeRefValue(self, pMaterialCalcObjectType, value):
-        if pMaterialCalcObjectType == FromJob:
+        if pMaterialCalcObjectType == MaterialCalcObjectType.FromJob:
             self.mJobRecipeRefValue = value
         else:
             self.mJoshRecipeRefValue = value
 
     def SetOtherMaterialsActualIndex(self, pMaterialCalcObjectType, value):
-        if pMaterialCalcObjectType == FromJob:
+        if pMaterialCalcObjectType == MaterialCalcObjectType.FromJob:
             self.mJobOtherMaterialsActualIndex = value
         else:
             self.mJoshOtherMaterialsActualIndex = value
 
     def SetOtherMaterialsAmount(self, pMaterialCalcObjectType, value):
-        if pMaterialCalcObjectType == FromJob:
+        if pMaterialCalcObjectType == MaterialCalcObjectType.FromJob:
             self.mJobOtherMaterialsAmount = value
         else:
             self.mJoshOtherMaterialsAmount = value
 
     def SetOtherMaterialsAmountStandard(self, pMaterialCalcObjectType, value):
-        if pMaterialCalcObjectType == FromJob:
+        if pMaterialCalcObjectType == MaterialCalcObjectType.FromJob:
             self.mJobOtherMaterialsAmountStandard = value
         else:
             self.mJoshOtherMaterialsAmountStandard = value
 
     def SetMaterialFlowAmount(self, pMaterialCalcObjectType, value):
-        if pMaterialCalcObjectType == FromJob:
+        if pMaterialCalcObjectType == MaterialCalcObjectType.FromJob:
             self.mJobMaterialFlowAmount = value
         else:
             self.mJoshMaterialFlowAmount = value

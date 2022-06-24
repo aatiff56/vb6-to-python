@@ -1,9 +1,10 @@
+from GlobalVariables import MaterialCalcObjectType
+
 import MdlChannelSplit
 import MdlConnection
 import MdlADOFunctions
 import MdlGlobal
-from ClassModules.Channel import MaterialCalcObjectType
-
+import MdlUtilsH
 
 def GetChannelControllerFieldName(ChannelNum, NameType):
     result = ""
@@ -24,7 +25,7 @@ def GetChannelControllerFieldName(ChannelNum, NameType):
 
 def GetChannelTotalWeight(pJobID, pJoshID, pTotalWeight, pChannelNum, pMaterialID, pMaterialBatch=''):
     strSQL = ""
-    dbCursor = None
+    RstCursor = None
 
     try:
         if pJoshID != 0:
@@ -35,15 +36,15 @@ def GetChannelTotalWeight(pJobID, pJoshID, pTotalWeight, pChannelNum, pMaterialI
             if pMaterialBatch != '':
                 strSQL = strSQL + ' AND MaterialBatch = \'' + pMaterialBatch + '\''
             
-            dbCursor = MdlConnection.CN.cursor()
-            dbCursor.execute(strSQL)
-            val = dbCursor.fetchone()
+            RstCursor = MdlConnection.CN.cursor()
+            RstCursor.execute(strSQL)
+            val = RstCursor.fetchone()
             if val:
                 pTotalWeight.SetCurrentValue(MaterialCalcObjectType.FromJob, MdlADOFunctions.fGetRstValDouble(val["Amount"]))
                 pTotalWeight.SetMaterialFlowAmount(MaterialCalcObjectType.FromJob, MdlADOFunctions.fGetRstValDouble(val["MaterialFlowAmount"]))
         
-            if dbCursor:
-                dbCursor.close()
+            if RstCursor:
+                RstCursor.close()
             
             strSQL = 'SELECT SUM(MaterialActualIndex) AS MaterialActualIndex, '
             strSQL = strSQL + 'SUM(Amount) AS Amount, '
@@ -56,16 +57,16 @@ def GetChannelTotalWeight(pJobID, pJoshID, pTotalWeight, pChannelNum, pMaterialI
             else:
                 strSQL = strSQL + ' AND Material <> ' + pMaterialID
 
-            dbCursor = MdlConnection.CN.cursor()
-            dbCursor.execute(strSQL)
-            val = dbCursor.fetchone()
+            RstCursor = MdlConnection.CN.cursor()
+            RstCursor.execute(strSQL)
+            val = RstCursor.fetchone()
             if val:
                 pTotalWeight.SetOtherMaterialsActualIndex(MaterialCalcObjectType.FromJob, round(MdlADOFunctions.fGetRstValDouble(val["MaterialActualIndex"]), 5))
                 pTotalWeight.SetOtherMaterialsAmount(MaterialCalcObjectType.FromJob, round(MdlADOFunctions.fGetRstValDouble(val["Amount"]), 5))
                 pTotalWeight.SetOtherMaterialsAmountStandard(MaterialCalcObjectType.FromJob, round(MdlADOFunctions.fGetRstValDouble(val["AmountStandard"]), 5))
         
-            if dbCursor:
-                dbCursor.close()
+            if RstCursor:
+                RstCursor.close()
             GetAmountForJosh(pJoshID, pTotalWeight, pChannelNum, pMaterialID, pMaterialBatch)
         
         else:   
@@ -75,16 +76,16 @@ def GetChannelTotalWeight(pJobID, pJoshID, pTotalWeight, pChannelNum, pMaterialI
             strSQL = strSQL + ' AND Material = ' + pMaterialID
             if pMaterialBatch != '':
                 strSQL = strSQL + ' AND MaterialBatch = \'' + pMaterialBatch + '\''
-            dbCursor = MdlConnection.CN.cursor()
+            RstCursor = MdlConnection.CN.cursor()
             
-            dbCursor.execute(strSQL)
-            val = dbCursor.fetchone()
+            RstCursor.execute(strSQL)
+            val = RstCursor.fetchone()
             if val:
                 pTotalWeight.SetCurrentValue(MaterialCalcObjectType.FromJob, MdlADOFunctions.fGetRstValDouble(val["Amount"]))
                 pTotalWeight.SetMaterialFlowAmount(MaterialCalcObjectType.FromJob, MdlADOFunctions.fGetRstValDouble(val["MaterialFlowAmount"]))
         
-            if dbCursor:
-                dbCursor.close()
+            if RstCursor:
+                RstCursor.close()
             
             strSQL = 'SELECT SUM(MaterialActualIndex) AS MaterialActualIndex, '
             strSQL = strSQL + ' SUM(Amount) AS Amount, '
@@ -96,17 +97,17 @@ def GetChannelTotalWeight(pJobID, pJoshID, pTotalWeight, pChannelNum, pMaterialI
                 strSQL = strSQL + ' AND (Material <> ' + pMaterialID + ' OR (Material = ' + pMaterialID + ' AND MaterialBatch <> \'' + pMaterialBatch + '\'))'
             else:
                 strSQL = strSQL + ' AND Material <> ' + pMaterialID
-            dbCursor = MdlConnection.CN.cursor()
+            RstCursor = MdlConnection.CN.cursor()
             
-            dbCursor.execute(strSQL)
-            val = dbCursor.fetchone()
+            RstCursor.execute(strSQL)
+            val = RstCursor.fetchone()
             if val:
                 pTotalWeight.SetOtherMaterialsActualIndex(MaterialCalcObjectType.FromJob, round(MdlADOFunctions.fGetRstValDouble(val["MaterialActualIndex"]), 5))
                 pTotalWeight.SetOtherMaterialsAmount(MaterialCalcObjectType.FromJob, round(MdlADOFunctions.fGetRstValDouble(val["Amount"]), 5))
                 pTotalWeight.SetOtherMaterialsAmountStandard(MaterialCalcObjectType.FromJob, round(MdlADOFunctions.fGetRstValDouble(val["AmountStandard"]), 5))
         
-            if dbCursor:
-                dbCursor.close()
+            if RstCursor:
+                RstCursor.close()
             
             
             if pTotalWeight.Parent.Job.Status == 10:
@@ -125,9 +126,9 @@ def GetChannelTotalWeight(pJobID, pJoshID, pTotalWeight, pChannelNum, pMaterialI
             MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
         MdlGlobal.RecordError('GetChannelTotalWeight', 0, error.args[0], 'JobID: ' + pJobID + '. JoshID: ' + pJoshID + '. ChannelNum: ' + pChannelNum)
 
-    if dbCursor:
-        dbCursor.close()
-    dbCursor = None
+    if RstCursor:
+        RstCursor.close()
+    RstCursor = None
 
 
 def GetAmountForJosh(pJoshID, pTotalWeight, pChannelNum, pMaterialID, pMaterialBatch=''):
@@ -137,17 +138,17 @@ def GetAmountForJosh(pJoshID, pTotalWeight, pChannelNum, pMaterialID, pMaterialB
     strSQL = strSQL + ' AND Material = ' + pMaterialID
     if pMaterialBatch != '':
         strSQL = strSQL + ' AND MaterialBatch = \'' + pMaterialBatch + '\''
-    dbCursor = MdlConnection.CN.cursor()
+    RstCursor = MdlConnection.CN.cursor()
     
-    dbCursor.execute(strSQL)
-    val = dbCursor.fetchone()
+    RstCursor.execute(strSQL)
+    val = RstCursor.fetchone()
     if val:
         pTotalWeight.SetCurrentValue(MaterialCalcObjectType.FromJosh, MdlADOFunctions.fGetRstValDouble(val["Amount"]))
         pTotalWeight.SetStandardValue(MaterialCalcObjectType.FromJosh, MdlADOFunctions.fGetRstValDouble(val["AmountStandard"]))
         pTotalWeight.SetMaterialFlowAmount(MaterialCalcObjectType.FromJosh, MdlADOFunctions.fGetRstValDouble(val["MaterialFlowAmount"]))
 
-    if dbCursor:
-        dbCursor.close()
+    if RstCursor:
+        RstCursor.close()
     
     strSQL = 'SELECT SUM(MaterialActualIndex) as MaterialActualIndex, '
     strSQL = strSQL + ' SUM(Amount) AS Amount, '
@@ -159,17 +160,17 @@ def GetAmountForJosh(pJoshID, pTotalWeight, pChannelNum, pMaterialID, pMaterialB
         strSQL = strSQL + ' AND (Material <> ' + pMaterialID + ' OR (Material = ' + pMaterialID + ' AND MaterialBatch <> \'' + pMaterialBatch + '\'))'
     else:
         strSQL = strSQL + ' AND Material <> ' + pMaterialID
-    dbCursor = MdlConnection.CN.cursor()
+    RstCursor = MdlConnection.CN.cursor()
     
-    dbCursor.execute(strSQL)
-    val = dbCursor.fetchone()
+    RstCursor.execute(strSQL)
+    val = RstCursor.fetchone()
     if val:
         pTotalWeight.SetOtherMaterialsActualIndex(MaterialCalcObjectType.FromJosh, round(MdlADOFunctions.fGetRstValDouble(val["MaterialActualIndex"]), 5))
         pTotalWeight.SetOtherMaterialsAmount(MaterialCalcObjectType.FromJosh, round(MdlADOFunctions.fGetRstValDouble(val["Amount"]), 5))
         pTotalWeight.SetOtherMaterialsAmountStandard(MaterialCalcObjectType.FromJosh, round(MdlADOFunctions.fGetRstValDouble(val["AmountStandard"]), 5))
 
-    if dbCursor:
-        dbCursor.close()
+    if RstCursor:
+        RstCursor.close()
 
 
 def GetChannelForecastWeight(pJobID, pForecastWeight, pChannelNum):
@@ -201,7 +202,7 @@ def GetChannelMaterialID(pJobID, pMaterialID, pChannelNum):
     tMaterialClassID = 0
     tMPGI = 0
     strSQL = ""
-    dbCursor = None
+    RstCursor = None
     tRefRecipeMaterialID = 0
     tRefRecipeMaterialMPGI = 0
 
@@ -210,30 +211,30 @@ def GetChannelMaterialID(pJobID, pMaterialID, pChannelNum):
         if tMaterialID != 0:
             pMaterialID.CurrentValue = tMaterialID
             strSQL = 'SELECT CalcInMaterialTotal, IsPConfigSpecialMaterial, MaterialClassID, MaterialGroup FROM TblMaterial WHERE ID = ' + tMaterialID
-            dbCursor = MdlConnection.CN.cursor()
+            RstCursor = MdlConnection.CN.cursor()
             
-            dbCursor.execute(strSQL)
-            val = dbCursor.fetchone()
+            RstCursor.execute(strSQL)
+            val = RstCursor.fetchone()
             if val:
                 pMaterialID.MaterialType = MdlADOFunctions.fGetRstValLong(val["MaterialGroup"])
                 pMaterialID.IsPConfigSpecialMaterial = MdlADOFunctions.fGetRstValBool(val["IsPConfigSpecialMaterial"], False)
                 pMaterialID.CalcInMaterialTotal = MdlADOFunctions.fGetRstValBool(val["CalcInMaterialTotal"], True)
                 tMaterialClassID = MdlADOFunctions.fGetRstValLong(val["MaterialClassID"])
         
-            if dbCursor:
-                dbCursor.close()
+            if RstCursor:
+                RstCursor.close()
             strSQL = 'SELECT IsRawMaterial,IsAdditiveMaterial,IsAccompanyingMaterial FROM STblMaterialGroup WHERE ID = ' + pMaterialID.MaterialType
-            dbCursor = MdlConnection.CN.cursor()
+            RstCursor = MdlConnection.CN.cursor()
             
-            dbCursor.execute(strSQL)
-            val = dbCursor.fetchone()
+            RstCursor.execute(strSQL)
+            val = RstCursor.fetchone()
             if val:
                 pMaterialID.IsRawMaterial = MdlADOFunctions.fGetRstValBool(val["IsRawMaterial"], False)
                 pMaterialID.IsAdditiveMaterial = MdlADOFunctions.fGetRstValBool(val["IsAdditiveMaterial"], False)
                 pMaterialID.IsAccompanyingMaterial = MdlADOFunctions.fGetRstValBool(val["IsAccompanyingMaterial"], False)
         
-            if dbCursor:
-                dbCursor.close()
+            if RstCursor:
+                RstCursor.close()
             pMaterialID.MaterialClassID = tMaterialClassID
             if tMaterialClassID != 0:
                 tMPGI = MdlADOFunctions.fGetRstValDouble(MdlADOFunctions.GetSingleValue('MPGI', 'TblMaterialClass', 'ID = ' + tMaterialClassID))
@@ -250,27 +251,27 @@ def GetChannelMaterialID(pJobID, pMaterialID, pChannelNum):
             if tRefRecipeMaterialID != 0:
                 pMaterialID.RefRecipeValue = tRefRecipeMaterialID
                 strSQL = 'SELECT CalcInMaterialTotal,MaterialClassID FROM TblMaterial WHERE ID = ' + tRefRecipeMaterialID
-                dbCursor = MdlConnection.CN.cursor()
+                RstCursor = MdlConnection.CN.cursor()
                 
-                dbCursor.execute(strSQL)
-            val = dbCursor.fetchone()
+                RstCursor.execute(strSQL)
+            val = RstCursor.fetchone()
             if val:
                 pMaterialID.RefRecipeMaterialClassID = MdlADOFunctions.fGetRstValLong(val["MaterialClassID"])
                 pMaterialID.RefRecipeCalcInMaterialTotal = MdlADOFunctions.fGetRstValBool(val["CalcInMaterialTotal"], True)
         
-                if dbCursor:
-                    dbCursor.close()
+                if RstCursor:
+                    RstCursor.close()
                 if pMaterialID.RefRecipeMaterialClassID != 0:
                     strSQL = 'SELECT MPGI FROM TblMaterialClass WHERE ID = ' + pMaterialID.RefRecipeMaterialClassID
-                    dbCursor = MdlConnection.CN.cursor()
+                    RstCursor = MdlConnection.CN.cursor()
                     
-                    dbCursor.execute(strSQL)
-            val = dbCursor.fetchone()
+                    RstCursor.execute(strSQL)
+            val = RstCursor.fetchone()
             if val:
                 pMaterialID.RefRecipeMPGI = MdlADOFunctions.fGetRstValDouble(val["MPGI"])
         
-                if dbCursor:
-                    dbCursor.close()
+                if RstCursor:
+                    RstCursor.close()
                 else:
                     pMaterialID.RefRecipeMPGI = 1
    
@@ -285,9 +286,9 @@ def GetChannelMaterialID(pJobID, pMaterialID, pChannelNum):
             MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
         MdlGlobal.RecordError('GetChannelMaterialID', 0, error.args[0], 'JobID: ' + pJobID + '. ChannelNum: ' + pChannelNum)
 
-    if dbCursor:
-        dbCursor.close()
-    dbCursor = None
+    if RstCursor:
+        RstCursor.close()
+    RstCursor = None
 
 
 def GetChannelMaterialPC(pJobID, pMaterialPC, pChannelNum):
@@ -343,19 +344,19 @@ def GetChannelMaterialPCTarget(pJobID, pMaterialPCTarget, pChannelNum):
 
 def CheckChannelJobMaterialRecord(pChannel):
     strSQL = ""
-    dbCursor = None
+    RstCursor = None
     strTitle = ""
 
     try:        
-        strSQL = 'SELECT ID FROM TblJobMaterial WHERE Job = ' + pChannel.Job.ID
-        strSQL = strSQL + ' AND ChannelNum = ' + pChannel.ChannelNum
+        strSQL = 'SELECT ID FROM TblJobMaterial WHERE Job = ' + str(pChannel.Job.ID)
+        strSQL = strSQL + ' AND ChannelNum = ' + str(pChannel.ChannelNum)
         strSQL = strSQL + ' AND SplitNum = 0'
-        strSQL = strSQL + ' AND Material = ' + pChannel.MaterialID.CurrentValue
+        strSQL = strSQL + ' AND Material = ' + str(pChannel.MaterialID.CurrentValue)
         if not pChannel.MaterialBatch is None:
-            strSQL = strSQL + ' AND MaterialBatch = \'' + pChannel.MaterialBatch.CurrentValue + '\''
-        dbCursor = MdlConnection.CN.cursor()
+            strSQL = strSQL + ' AND MaterialBatch = \'' + str(pChannel.MaterialBatch.CurrentValue) + '\''
+        RstCursor = MdlConnection.CN.cursor()
         
-        if dbCursor:
+        if RstCursor:
             strTitle = 'INSERT INTO TblJobMaterial'
             strSQL = ' ('
             strSQL = strSQL + 'Job'
@@ -366,29 +367,31 @@ def CheckChannelJobMaterialRecord(pChannel):
             strSQL = strSQL + ',MaterialClassID'
             strSQL = strSQL + ',MaterialPC'
             strSQL = strSQL + ',MaterialPCStandad'
-            if not pChannel.MaterialBatch is None:
+
+            if pChannel.MaterialBatch:
                 strSQL = strSQL + ',MaterialBatch'
                 strSQL = strSQL + ',InventoryID'
             strSQL = strSQL + ')'
             strSQL = strSQL + ' VALUES '
             strSQL = strSQL + '('
-            strSQL = strSQL + pChannel.Job.ID
-            strSQL = strSQL + ',' + pChannel.ChannelNum
+            strSQL = strSQL + str(pChannel.Job.ID)
+            strSQL = strSQL + ',' + str(pChannel.ChannelNum)
             strSQL = strSQL + ',0'
-            strSQL = strSQL + ',' + pChannel.MaterialID.CurrentValue
-            strSQL = strSQL + ',' + pChannel.MaterialID.MaterialType
-            strSQL = strSQL + ',' + pChannel.MaterialID.MaterialClassID
-            strSQL = strSQL + ',' + pChannel.MaterialPCTarget.CurrentValue
-            strSQL = strSQL + ',' + pChannel.MaterialPCTarget.CurrentValue
-            if not pChannel.MaterialBatch is None:
-                strSQL = strSQL + ',\'' + pChannel.MaterialBatch.CurrentValue + '\''
-                strSQL = strSQL + ',' + pChannel.MaterialBatch.ID
+            strSQL = strSQL + ',' + str(pChannel.MaterialID.CurrentValue)
+            strSQL = strSQL + ',' + str(pChannel.MaterialID.MaterialType)
+            strSQL = strSQL + ',' + str(pChannel.MaterialID.MaterialClassID)
+            strSQL = strSQL + ',' + str(pChannel.MaterialPCTarget.CurrentValue)
+            strSQL = strSQL + ',' + str(pChannel.MaterialPCTarget.CurrentValue)
+            
+            if pChannel.MaterialBatch:
+                strSQL = strSQL + ',\'' + str(pChannel.MaterialBatch.CurrentValue) + '\''
+                strSQL = strSQL + ',' + str(pChannel.MaterialBatch.ID)
             strSQL = strSQL + ')'
 
-            dbCursor.execute(strTitle + strSQL)
+            RstCursor.execute(strTitle + strSQL)
             if pChannel.Job.Status == 10:
                 strTitle = 'INSERT INTO TblJobCurrentMaterial'
-                dbCursor.execute(strTitle + strSQL)
+                RstCursor.execute(strTitle + strSQL)
         
     except BaseException as error:
         if 'nnection' in error.args[0]:
@@ -399,28 +402,29 @@ def CheckChannelJobMaterialRecord(pChannel):
             if MdlConnection.MetaCn:
                 MdlConnection.Close(MdlConnection.MetaCn)
             MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
-        MdlGlobal.RecordError('CheckChannelJobMaterialRecord', 0, error.args[0], 'JobID: ' + pChannel.Job.ID + '. ChannelNum: ' + pChannel.ChannelNum)
+        MdlGlobal.RecordError('CheckChannelJobMaterialRecord', 0, error.args[0], 'JobID: ' + str(pChannel.Job.ID) + '. ChannelNum: ' + str(pChannel.ChannelNum))
 
-    if dbCursor:
-        dbCursor.close()
-    dbCursor = None
+    if RstCursor:
+        RstCursor.close()
+    RstCursor = None
 
 
 def CheckChannelJoshMaterialRecord(pChannel):
     strSQL = ""
-    dbCursor = None
+    RstCursor = None
     strTitle = ""
 
     try:        
-        strSQL = 'SELECT ID FROM TblJoshMaterial WHERE JoshID = ' + pChannel.Job.ActiveJosh.ID
-        strSQL = strSQL + ' AND ChannelNum = ' + pChannel.ChannelNum
+        strSQL = 'SELECT ID FROM TblJoshMaterial WHERE JoshID = ' + str(pChannel.Job.ActiveJosh.ID)
+        strSQL = strSQL + ' AND ChannelNum = ' + str(pChannel.ChannelNum)
         strSQL = strSQL + ' AND SplitNum = 0'
-        strSQL = strSQL + ' AND Material = ' + pChannel.MaterialID.CurrentValue
-        if not pChannel.MaterialBatch is None:
-            strSQL = strSQL + ' AND MaterialBatch = \'' + pChannel.MaterialBatch.CurrentValue + '\''
-        dbCursor = MdlConnection.CN.cursor()
+        strSQL = strSQL + ' AND Material = ' + str(pChannel.MaterialID.CurrentValue)
         
-        if dbCursor:
+        if pChannel.MaterialBatch:
+            strSQL = strSQL + ' AND MaterialBatch = \'' + str(pChannel.MaterialBatch.CurrentValue) + '\''
+        RstCursor = MdlConnection.CN.cursor()
+        
+        if RstCursor:
             strTitle = 'INSERT INTO TblJoshMaterial'
             strSQL = ' ('
             strSQL = strSQL + 'JobID'
@@ -437,34 +441,37 @@ def CheckChannelJoshMaterialRecord(pChannel):
             strSQL = strSQL + ',MachineID'
             strSQL = strSQL + ',MaterialPC'
             strSQL = strSQL + ',MaterialPCStandad'
-            if not pChannel.MaterialBatch is None:
+        
+            if pChannel.MaterialBatch:
                 strSQL = strSQL + ',MaterialBatch'
                 strSQL = strSQL + ',InventoryID'
             strSQL = strSQL + ')'
             strSQL = strSQL + ' VALUES '
             strSQL = strSQL + '('
-            strSQL = strSQL + pChannel.Job.ID
-            strSQL = strSQL + ',' + pChannel.Job.ActiveJosh.ID
-            strSQL = strSQL + ',' + pChannel.Job.Product.ID
-            strSQL = strSQL + ',' + pChannel.ChannelNum
+            strSQL = strSQL + str(pChannel.Job.ID)
+            strSQL = strSQL + ',' + str(pChannel.Job.ActiveJosh.ID)
+            strSQL = strSQL + ',' + str(pChannel.Job.Product.ID)
+            strSQL = strSQL + ',' + str(pChannel.ChannelNum)
             strSQL = strSQL + ',0'
-            strSQL = strSQL + ',' + pChannel.MaterialID.CurrentValue
-            strSQL = strSQL + ',' + pChannel.MaterialID.MaterialType
-            strSQL = strSQL + ',' + pChannel.MaterialID.MaterialClassID
-            strSQL = strSQL + ',' + pChannel.Job.ActiveJosh.ShiftID
-            strSQL = strSQL + ',' + pChannel.Job.ActiveJosh.ShiftDefID
-            strSQL = strSQL + ',\'' + ShortDate(pChannel.Job.ActiveJosh.StartTime, True, True, True) + '\''
-            strSQL = strSQL + ',' + pChannel.Job.Machine.ID
-            strSQL = strSQL + ',' + pChannel.MaterialPCTarget.CurrentValue
-            strSQL = strSQL + ',' + pChannel.MaterialPCTarget.CurrentValue
-            if not pChannel.MaterialBatch is None:
-                strSQL = strSQL + ',\'' + pChannel.MaterialBatch.CurrentValue + '\''
-                strSQL = strSQL + ',' + pChannel.MaterialBatch.ID
+            strSQL = strSQL + ',' + str(pChannel.MaterialID.CurrentValue)
+            strSQL = strSQL + ',' + str(pChannel.MaterialID.MaterialType)
+            strSQL = strSQL + ',' + str(pChannel.MaterialID.MaterialClassID)
+            strSQL = strSQL + ',' + str(pChannel.Job.ActiveJosh.ShiftID)
+            strSQL = strSQL + ',' + str(pChannel.Job.ActiveJosh.ShiftDefID)
+            strSQL = strSQL + ',\'' + MdlUtilsH.ShortDate(pChannel.Job.ActiveJosh.StartTime, True, True, True) + '\''
+            strSQL = strSQL + ',' + str(pChannel.Job.Machine.ID)
+            strSQL = strSQL + ',' + str(pChannel.MaterialPCTarget.CurrentValue)
+            strSQL = strSQL + ',' + str(pChannel.MaterialPCTarget.CurrentValue)
+
+            if pChannel.MaterialBatch:
+                strSQL = strSQL + ',\'' + str(pChannel.MaterialBatch.CurrentValue) + '\''
+                strSQL = strSQL + ',' + str(pChannel.MaterialBatch.ID)
             strSQL = strSQL + ')'
-            dbCursor.execute(strTitle + strSQL)
+
+            RstCursor.execute(strTitle + strSQL)
             if pChannel.Job.Status == 10:
                 strTitle = 'INSERT INTO TblJoshCurrentMaterial'
-                dbCursor.execute(strTitle + strSQL)
+                RstCursor.execute(strTitle + strSQL)
         
     except BaseException as error:
         if 'nnection' in error.args[0]:
@@ -475,27 +482,27 @@ def CheckChannelJoshMaterialRecord(pChannel):
             if MdlConnection.MetaCn:
                 MdlConnection.Close(MdlConnection.MetaCn)
             MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
-        MdlGlobal.RecordError('CheckChannelJoshMaterialRecord', 0, error.args[0], 'JobID: ' + pChannel.Job.ID + '. ChannelNum: ' + pChannel.ChannelNum)
+        MdlGlobal.RecordError('CheckChannelJoshMaterialRecord', 0, error.args[0], 'JobID: ' + str(pChannel.Job.ID) + '. ChannelNum: ' + str(pChannel.ChannelNum))
 
-    if dbCursor:
-        dbCursor.close()                
-    dbCursor = None
+    if RstCursor:
+        RstCursor.close()                
+    RstCursor = None
 
 
 def GetChannelMaterialBatch(pJobID, pMaterialBatch, pChannelNum):
     tMaterialBatch = ""
     strSQL = ""
-    dbCursor = None
+    RstCursor = None
     tInventoryID = 0
 
     try:        
         tMaterialBatch = fGetRecipeValueJob(pJobID, 'MaterialBatch', pChannelNum, 0)
         if tMaterialBatch != '':
             strSQL = 'SELECT ID,Amount,EffectiveAmount, EffectiveOriginalAmount,Weight,GrossWeight,ParentInventoryID FROM TblInventory WHERE Batch = \'' + tMaterialBatch + '\''
-            dbCursor = MdlConnection.CN.cursor()
+            RstCursor = MdlConnection.CN.cursor()
             
-            dbCursor.execute(strSQL)
-            val = dbCursor.fetchone()
+            RstCursor.execute(strSQL)
+            val = RstCursor.fetchone()
             if val:
                 tInventoryID = MdlADOFunctions.fGetRstValLong(val["ID"])
                 pMaterialBatch = GetInventoryItemFromGlobalCollection(gServer.ActiveInventoryItems, tInventoryID)
@@ -525,9 +532,9 @@ def GetChannelMaterialBatch(pJobID, pMaterialBatch, pChannelNum):
             MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
         MdlGlobal.RecordError('GetChannelMaterialPCTarget', 0, error.args[0], 'JobID: ' + pJobID + '. ChannelNum: ' + pChannelNum)
 
-    if dbCursor:
-        dbCursor.close()
-    dbCursor = None
+    if RstCursor:
+        RstCursor.close()
+    RstCursor = None
 
 
 def AddMaterialFlowAmountToChannel(pJob, pChannel, pAmount, pMaterialCalcObjectType):

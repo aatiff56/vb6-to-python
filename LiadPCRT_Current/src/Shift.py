@@ -1,167 +1,201 @@
-from Common import MdlADOFunctions as adoFunc
-from LiadPCUnite.DataAccess import QueryExecutor as qe
-from LiadPCUnite.BusinessLogic import SqlConnector as sc
-from LiadPCUnite.Global import Logs
-from datetime import datetime
+import MdlADOFunctions
+import MdlConnection
+import MdlGlobal
 
 class Shift:
-    mID: 0
-    mShiftCalendarID = 0
-    mShiftDefID = 0
-    mStartTime = None
-    mEndTime = None
-    mManagerID = 0
-    mIsWorkingShift = False
-
-    sqlCntr = sc.SqlConnector()
-    logger = Logs.Logger()
+    __mID = 0
+    __mShiftCalendarID = 0
+    __mShiftDefID = 0
+    __mStartTime = None
+    __mEndTime = None
+    __mManagerID = 0
+    __mIsWorkingShift = False
 
     def Init(self, pShiftID):
+        strSQL = ''
+        RstCursor = None
+        
         try:
-            strSQL = ''
-            self.sqlCntr.OpenConnection()
-            Rst = qe.QueryExecutor(self.sqlCntr.GetConnection())
-            strSQL = 'SELECT ID,ShiftCalendarID,ShiftDefID,ManagerID,StartTime,IsWorkingShift FROM TblShift WHERE ID = ' + pShiftID
-            RstData = Rst.SelectAllData(strSQL)
-            
-            if RstData.RecordCount == 1:
+            strSQL = 'SELECT ID,ShiftCalendarID,ShiftDefID,ManagerID,StartTime,IsWorkingShift FROM TblShift WHERE ID = ' + str(pShiftID)
+            RstCursor = MdlConnection.CN.cursor()
+            RstCursor.execute(strSQL)
+            RstData = RstCursor.fetchone()
+
+            if RstData:
                 self.ID = pShiftID
-                self.ShiftCalendarID = adoFunc.fGetRstValLong(RstData["ShiftCalendarID"])
-                self.ShiftDefID = adoFunc.fGetRstValLong(RstData["ShiftDefID"])
-                self.ManagerID = adoFunc.fGetRstValLong(RstData["ManagerID"])
-                self.StartTime = RstData["StartTime"]
-                self.IsWorkingShift = adoFunc.fGetRstValBool(RstData["IsWorkingShift"], True)
-            RstData.Close()
-            RstData = None
+                self.ShiftCalendarID = MdlADOFunctions.fGetRstValLong(RstData.ShiftCalendarID)
+                self.ShiftDefID = MdlADOFunctions.fGetRstValLong(RstData.ShiftDefID)
+                self.ManagerID = MdlADOFunctions.fGetRstValLong(RstData.ManagerID)
+                self.StartTime = RstData.StartTime
+                self.IsWorkingShift = MdlADOFunctions.fGetRstValBool(RstData.IsWorkingShift, True)
+            RstCursor.close()
+        
         except BaseException as error:
-            self.sqlCntr.CloseConnection()
-            self.logger.Error(error)
+            if 'nnection' in error.args[0]:
+                if MdlConnection.CN:
+                    MdlConnection.Close(MdlConnection.CN)
+                MdlConnection.CN = MdlConnection.Open(MdlConnection.strCon)
+
+                if MdlConnection.MetaCn:
+                    MdlConnection.Close(MdlConnection.MetaCn)
+                MdlConnection.MetaCn = MdlConnection.Open(MdlConnection.strMetaCon)
+                
+            MdlGlobal.RecordError(type(self).__name__ + '.Init:', str(0), error.args[0], 'ShiftID: ' + str(pShiftID))
+        RstCursor = None
 
     def Create(self, pShiftDefID):
-        try:
-            strSQL = ''
-            SourceRst = qe.QueryExecutor(self.sqlCntr.GetConnection())
-            TargetRst = qe.QueryExecutor(self.sqlCntr.GetConnection())
-            tNewShiftID = 0
-            WDayEng = ''
-            WDayLoc = ''
+        strSQL = ''
+        SourceRst = None
+        TargetRst = None
+        tNewShiftID = 0
+        WDayEng = ''
+        WDayLoc = ''
+       
+        strSQL = 'SELECT * FROM TblShiftDef WHERE ID = ' + pShiftDefID
+        SourceRst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
+        SourceRst.ActiveConnection = None
+        if SourceRst.RecordCount == 1:
+            strSQL = 'SELECT * FROM TblShift WHERE ID = 0'
+            TargetRst.Open(strSQL, CN, adOpenDynamic, adLockOptimistic)
+            if TargetRst.RecordCount == 0:
+                TargetRst.AddNew()
+                TargetRstData.ShiftCalendarID = SourceRstData.ShiftCalendarID
+                TargetRstData.ManagerID = MdlADOFunctions.fGetRstValLong(SourceRstData.ManagerUserID)
+                TargetRstData.StartTime = NowGMT()
+                TargetRstData.wDay = SourceRstData.wDay
+                TargetRstData.ShiftName = SourceRstData.ShiftName
+                TargetRstData.Department = SourceRstData.Department
+                TargetRstData.ShiftDefID = pShiftDefID
+                WDayEng = fGetRstValString(GetSingleValue('WDayEng', 'tblWeekDays', 'ID=' + SourceRstData.wDay, 'CN'))
+                WDayLoc = fGetRstValString(GetSingleValue('WDayLoc', 'tblWeekDays', 'ID=' + SourceRstData.wDay, 'CN'))
+                TargetRstData.WDayEng = WDayEng
+                TargetRstData.WDayLoc = WDayLoc
+                TargetRstData.ShiftStatus = 1
+                TargetRstData.IsWorkingShift = MdlADOFunctions.fGetRstValBool(SourceRstData.IsWorkingShift, True)
+                TargetRstData.PermanentWorkersHours = MdlADOFunctions.fGetRstValLong(SourceRstData.PermanentWorkersHours)
+                TargetRst.UpNone
+                tNewShiftID = MdlADOFunctions.fGetRstValLong(TargetRstData.ID)
+                TargetRst.Close()
+        SourceRst.Close()
+        Me.Init(tNewShiftID)
+        if Me.ShiftCalendarID > 0:
+            strSQL = 'Update STblShiftCalendar set CurrentShiftID = ' + tNewShiftID + ', CurrentShiftDefID = ' + pShiftDefID + ' Where ID = ' + Me.ShiftCalendarID
+            CN.Execute(strSQL)
             
-            self.sqlCntr.OpenConnection()
-            strSQL = 'SELECT * FROM TblShiftDef WHERE ID = ' + pShiftDefID
-            SourceRstData = SourceRst.SelectAllData(strSQL)
-
-            if SourceRstData.RecordCount == 1:
-                strSQL = 'SELECT * FROM TblShift WHERE ID = 0'
-                TargetRstData = TargetRst.SelectAllData(strSQL)
-                if TargetRstData.RecordCount == 0:
-                    TargetRstData.AddNew()
-                    TargetRstData["ShiftCalendarID"] = SourceRstData["ShiftCalendarID"]
-                    TargetRstData["ManagerID"] = adoFunc.fGetRstValLong(SourceRstData["ManagerUserID"])
-                    TargetRstData["StartTime"] = datetime.now()
-                    TargetRstData["wDay"] = SourceRstData["wDay"]
-                    TargetRstData["ShiftName"] = SourceRstData["ShiftName"]
-                    TargetRstData["Department"] = SourceRstData["Department"]
-                    TargetRstData["ShiftDefID"] = pShiftDefID
-                    WDayEng = adoFunc.fGetRstValString(adoFunc.GetSingleValue('WDayEng', 'tblWeekDays', 'ID=' + SourceRstData["wDay"], 'CN'))
-                    WDayLoc = adoFunc.fGetRstValString(adoFunc.GetSingleValue('WDayLoc', 'tblWeekDays', 'ID=' + SourceRstData["wDay"], 'CN'))
-                    TargetRstData["WDayEng"] = WDayEng
-                    TargetRstData["WDayLoc"] = WDayLoc
-                    TargetRstData["ShiftStatus"] = 1
-                    TargetRstData["IsWorkingShift"] = adoFunc.fGetRstValBool(SourceRstData["IsWorkingShift"], True)
-                    TargetRstData["PermanentWorkersHours"] = adoFunc.fGetRstValLong(SourceRstData["PermanentWorkersHours"])
-                    TargetRstData.Update()
-                    tNewShiftID = adoFunc.fGetRstValLong(TargetRstData["ID"])
-                    TargetRstData.Close()
-            SourceRstData.Close()
-            self.Init(tNewShiftID)
-            if self.ShiftCalendarID > 0:
-                strSQL = 'Update STblShiftCalendar set CurrentShiftID = ' + tNewShiftID + ', CurrentShiftDefID = ' + pShiftDefID + ' Where ID = ' + self.ShiftCalendarID
-                SourceRst.ManipulateData(strSQL)
+            strSQL = 'Update STblSystemVariables set CurrentShiftID = ' + tNewShiftID + ', CurrentShiftDef = ' + pShiftDefID
+            CN.Execute(strSQL)
+        else:
+            strSQL = 'Update STblSystemVariables set CurrentShiftID = ' + tNewShiftID + ', CurrentShiftDef = ' + pShiftDefID
+            CN.Execute(strSQL)
+        if Err.Number != 0:
+            if InStr(Err.Description, 'nnection') > 0:
+                if CN.State == 1:
+                    CN.Close()
+                CN.Open()
+                if MetaCn.State == 1:
+                    MetaCn.Close()
+                MetaCn.Open()
+                Err.Clear()
                 
-                strSQL = 'Update STblSystemVariables set CurrentShiftID = ' + tNewShiftID + ', CurrentShiftDef = ' + pShiftDefID
-                SourceRst.ManipulateData(strSQL)
-            else:
-                strSQL = 'Update STblSystemVariables set CurrentShiftID = ' + tNewShiftID + ', CurrentShiftDef = ' + pShiftDefID
-                SourceRst.ManipulateData(strSQL)
-            SourceRst = None
-            TargetRst = None
-        except BaseException as error:
-            self.sqlCntr.CloseConnection()
-            self.logger.Error(error)
+            MdlGlobal.RecordError(type(self).__name__ + '.Create:', str(0), error.args[0], 'ShiftDefID: ' + pShiftDefID)
+            Err.Clear()
+        SourceRst = None
+        TargetRst = None
 
     def CloseShift(self, pNextShiftID):
-        try:
-            strSQL = ''
-            Rst = qe.QueryExecutor(self.sqlCntr.GetConnection())
-            self.sqlCntr.OpenConnection()
-            strSQL = 'SELECT * FROM TblShift WHERE ID = ' + self.ID
-            RstData = Rst.SelectAllData(strSQL)
-                    
-            if Rst.RecordCount == 1:
-                Rst["EndTime"] = datetime.now()
-                Rst["DurationHr"] = DateDiff('h', Rst["StartTime"], Rst["EndTime"])
-                Rst["NextShiftID"] = pNextShiftID
-                Rst["ShiftStatus"] = 2
-                Rst.Update()
-            Rst.Close()
-            Rst = None
-        except BaseException as error:
-            self.sqlCntr.CloseConnection()
-            self.logger.Error(error)
+        strSQL = ''
+        RstCursor = None
+        
+        strSQL = 'SELECT * FROM TblShift WHERE ID = ' + Me.ID
+        RstCursor.Open(strSQL, CN, adOpenForwardOnly, adLockPessimistic)
+        if RstCursor.RecordCount == 1:
+            RstData.EndTime = NowGMT()
+            RstData.DurationHr = DateDiff('h', RstData.StartTime, RstData.EndTime)
+            RstData.NextShiftID = pNextShiftID
+            RstData.ShiftStatus = 2
+            RstCursor.UpNone
+        RstCursor.Close()
+        if Err.Number != 0:
+            if InStr(Err.Description, 'nnection') > 0:
+                if CN.State == 1:
+                    CN.Close()
+                CN.Open()
+                if MetaCn.State == 1:
+                    MetaCn.Close()
+                MetaCn.Open()
+                Err.Clear()
+                
+            MdlGlobal.RecordError(type(self).__name__ + '.CloseShift:', str(0), error.args[0], 'ShiftID: ' + Me.ID + '. NextShiftID: ' + pNextShiftID)
+            Err.Clear()
+        RstCursor = None
 
 
     def setIsWorkingShift(self, value):
-        self.mIsWorkingShift = value
+        self.__mIsWorkingShift = value
 
     def getIsWorkingShift(self):
-        fn_return_value = self.mIsWorkingShift
-        return fn_return_value
+        returnVal = None
+        returnVal = self.__mIsWorkingShift
+        return returnVal
     IsWorkingShift = property(fset=setIsWorkingShift, fget=getIsWorkingShift)
 
+
     def setID(self, value):
-        self.mID = value
+        self.__mID = value
 
     def getID(self):
-        fn_return_value = self.mID
-        return fn_return_value
+        returnVal = None
+        returnVal = self.__mID
+        return returnVal
     ID = property(fset=setID, fget=getID)
 
+
     def setShiftCalendarID(self, value):
-        self.mShiftCalendarID = value
+        self.__mShiftCalendarID = value
 
     def getShiftCalendarID(self):
-        fn_return_value = self.mShiftCalendarID
-        return fn_return_value
+        returnVal = None
+        returnVal = self.__mShiftCalendarID
+        return returnVal
     ShiftCalendarID = property(fset=setShiftCalendarID, fget=getShiftCalendarID)
 
+
     def setManagerID(self, value):
-        self.mManagerID = value
+        self.__mManagerID = value
 
     def getManagerID(self):
-        fn_return_value = self.mManagerID
-        return fn_return_value
+        returnVal = None
+        returnVal = self.__mManagerID
+        return returnVal
     ManagerID = property(fset=setManagerID, fget=getManagerID)
 
+
     def setShiftDefID(self, value):
-        self.mShiftDefID = value
+        self.__mShiftDefID = value
 
     def getShiftDefID(self):
-        fn_return_value = self.mShiftDefID
-        return fn_return_value
+        returnVal = None
+        returnVal = self.__mShiftDefID
+        return returnVal
     ShiftDefID = property(fset=setShiftDefID, fget=getShiftDefID)
 
+
     def setStartTime(self, value):
-        self.mStartTime = value
+        self.__mStartTime = value
 
     def getStartTime(self):
-        fn_return_value = self.mStartTime
-        return fn_return_value
+        returnVal = None
+        returnVal = self.__mStartTime
+        return returnVal
     StartTime = property(fset=setStartTime, fget=getStartTime)
 
+
     def setEndTime(self, value):
-        self.mEndTime = value
+        self.__mEndTime = value
 
     def getEndTime(self):
-        fn_return_value = self.mEndTime
-        return fn_return_value
+        returnVal = None
+        returnVal = self.__mEndTime
+        return returnVal
     EndTime = property(fset=setEndTime, fget=getEndTime)
+

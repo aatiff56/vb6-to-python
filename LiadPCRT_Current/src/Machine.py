@@ -1,8 +1,10 @@
 from datetime import datetime
 from colorama import Fore
-
 from ControlParam import ControlParam
 from Job import Job
+from Josh import Josh
+from RTEvent import RTEvent
+
 import mdl_Common
 import MdlADOFunctions
 import MdlConnection
@@ -11,7 +13,7 @@ import MdlGlobal
 import MdlDataSample
 import MdlRTControllerFieldActions
 import MdlOnlineTasks
-
+import MdlRTWorkOrder
 
 class Machine:
     __mID = 0
@@ -1035,7 +1037,7 @@ class Machine:
         
         if self.__mIOEnabled == True:
             ItemsCount = self.__mOPCGroupGeneral.OPCItems.Count
-            TransID = CLng(self.__mID) * 10
+            TransID = int(self.__mID) * 10
             CancelID = TransID
             
             self.mIOCancelID = CancelID            
@@ -1272,7 +1274,7 @@ class Machine:
                     if self.__mCParams(Counter).ChannelNum > 0 and self.__mCParams(Counter).ChannelNum != ChannelNum:
                         
                         CnlFields = CnlFields + ', ControllerID, MachineID, ChannelID, ChannelNum, LastReadTime'
-                        CnlVals = CnlVals + ', ' + self.__mControllerID + ', ' + str(self.__mID) + ', ' + self.__mCParams(Counter).ChannelID + ', ' + ChannelNum + ', \'' + ShortDate(mdl_Common.NowGMT(), True, True) + '\''
+                        CnlVals = CnlVals + ', ' + str(self.__mControllerID) + ', ' + str(self.__mID) + ', ' + self.__mCParams(Counter).ChannelID + ', ' + ChannelNum + ', \'' + ShortDate(mdl_Common.NowGMT(), True, True) + '\''
                         
                         
                         CnlFields = ''
@@ -1280,7 +1282,7 @@ class Machine:
                         strChannelSQL = ''
                         if strSetParams != '':
                             strSetParams = Right(strSetParams, Len(strSetParams) - 2)
-                            strChannelSQL = 'Update TblControllerChannels SET ' + strSetParams + ' Where ControllerID = ' + self.__mControllerID + ' AND ChannelNum = ' + ChannelNum
+                            strChannelSQL = 'Update TblControllerChannels SET ' + strSetParams + ' Where ControllerID = ' + str(self.__mControllerID) + ' AND ChannelNum = ' + ChannelNum
                             MdlConnection.CN.execute(strChannelSQL)
                         strSetParams = ''
                         strChannelSQL = ''
@@ -1302,7 +1304,7 @@ class Machine:
         
         if ChannelNum > 0 and strSetParams != '':
             strSetParams = Right(strSetParams, Len(strSetParams) - 2)
-            strChannelSQL = 'Update TblControllerChannels SET ' + strSetParams + ' Where ControllerID = ' + self.__mControllerID + ' AND ChannelNum = ' + ChannelNum
+            strChannelSQL = 'Update TblControllerChannels SET ' + strSetParams + ' Where ControllerID = ' + str(self.__mControllerID) + ' AND ChannelNum = ' + ChannelNum
             MdlConnection.CN.execute(strChannelSQL)
         self.UpdateMachineStatus
         
@@ -1363,7 +1365,7 @@ class Machine:
             strSQL = 'Update TblJobCurrent Set MachineStatus = ' + self.Status + ' Where ID = ' + self.ActiveJobID
             MdlConnection.CN.execute(strSQL)
         if not ( self.ActiveJob is None ) :
-            self.ActiveJob.MachineStatus = CLng(self.__mStatus)
+            self.ActiveJob.MachineStatus = int(self.__mStatus)
         if Err.Number != 0:
             if InStr(Err.Description, 'nnection') > 0:
                 if CN.State == 1:
@@ -3274,8 +3276,8 @@ class Machine:
         self.__mControllerXML = XmlHeader + vbCrLf + '<Machine ID=\'' + str(self.__mID) + '\'>' + vbCrLf + strSpecial + strXML + '</Machine>' + vbCrLf
         strSQL = 'Select MachineXML, IsActiveCalendar From TblMachines Where ID  = ' + self.ID
         Rst.Open(strSQL, CN, adOpenForwardOnly, adLockPessimistic)
-        self.IsActiveCalendar = MdlADOFunctions.fGetRstValBool(Rst.Fields("IsActiveCalendar").Value, True)
-        Rst.Fields("MachineXML").Value = self.__mControllerXML
+        self.IsActiveCalendar = MdlADOFunctions.fGetRstValBool(RstData.IsActiveCalendar, True)
+        RstData.MachineXML = self.__mControllerXML
         Rst.Update()
         RstCursor.close()
         strSpecial = ''
@@ -3321,7 +3323,7 @@ class Machine:
         self.__mChannelXML = XmlHeader + vbCrLf + '<MachineChannel>' + vbCrLf + strXML + vbCrLf + '</MachineChannel>' + vbCrLf
         strSQL = 'Select ChannelXML From TblMachines Where ID  = ' + self.ID
         Rst.Open(strSQL, CN, adOpenForwardOnly, adLockPessimistic)
-        Rst.Fields("ChannelXML").Value = self.__mChannelXML
+        RstData.ChannelXML = self.__mChannelXML
         Rst.Update()
         RstCursor.close()
         strXML = ''
@@ -3382,7 +3384,7 @@ class Machine:
         
         strSQL = 'Select AlarmsXML From TblMachines Where ID  = ' + self.ID
         Rst.Open(strSQL, CN, adOpenForwardOnly, adLockPessimistic)
-        Rst.Fields("AlarmsXML").Value = AlarmsXML
+        RstData.AlarmsXML = AlarmsXML
         Rst.Update()
         RstCursor.close()
         strXML = ''
@@ -3534,21 +3536,21 @@ class Machine:
                         tParam.RejectsALast = 0
                     if tParam.AlarmPerminentAcknowledge == True and pFromActivateJob:
                         tParam.AlarmPerminentAcknowledge = False
-                        strSQL = 'Update TblControllerFields SET AlarmPerminentAcknowledge = ' + 0 + ' Where ControllerID = ' + self.__mControllerID + ' AND FieldName = \'' + str(tParam.FName) + '\''
+                        strSQL = 'Update TblControllerFields SET AlarmPerminentAcknowledge = 0 Where ControllerID = ' + str(self.__mControllerID) + ' AND FieldName = \'' + str(tParam.FName) + '\''
                         MdlConnection.CN.execute(strSQL)
                     if tParam.AlarmCycleAcknowledge == True and pFromActivateJob:
                         tParam.AlarmCycleAcknowledge = False
-                        strSQL = 'Update TblControllerFields SET AlarmCylceAcknowledge = ' + 0 + ' Where ControllerID = ' + self.__mControllerID + ' AND FieldName = \'' + str(tParam.FName) + '\''
+                        strSQL = 'Update TblControllerFields SET AlarmCylceAcknowledge = 0 Where ControllerID = ' + str(self.__mControllerID) + ' AND FieldName = \'' + str(tParam.FName) + '\''
                         MdlConnection.CN.execute(strSQL)
                     
-                    if FromINITMachine == False and  ( InStr(tParam.FName, 'TTLW') > 0 or InStr(tParam.FName, 'TotalWeight') )  and tParam.CitectDeviceType == 1 and tParam.ValidateValue == True:
+                    if FromINITMachine == False and  ( 'TTLW' in tParam.FName or 'TotalWeight' in tParam.FName ) and tParam.CitectDeviceType == 1 and tParam.ValidateValue == True:
                         tParam.LastValidValue = '0'
                     if not tParam.BatchParams is None:
                         for Counter2 in range(0, tParam.BatchParams.Count):
                             tBatchParam = tParam.BatchParams(Counter2)
                             if tBatchParam.FName == 'Cnl1MainMatTTLW1':
                                 tBatchParam.FName = tBatchParam.FName
-                            if FromINITMachine == False and  ( InStr(tBatchParam.FName, 'TTLW') > 0 or InStr(tBatchParam.FName, 'TotalWeight') )  and tBatchParam.DirectRead == True and tBatchParam.ValidateValue == True:
+                            if FromINITMachine == False and  ( 'TTLW' in tBatchParam.FName or 'TotalWeight' in tBatchParam.FName ) and tBatchParam.DirectRead == True and tBatchParam.ValidateValue == True:
                                 tBatchParam.LastValidValue = '0'
                     if tParam.StartCalcAfterDelayInSeconds == 0:
                         tParam.CalcDelayPassed = True
@@ -3564,7 +3566,7 @@ class Machine:
                         self.SetFieldValue('Cnl1IsActive', '1')
                     else:
                         self.SetFieldValue('Cnl1IsActive', '0')
-                print('Exit Function JobLoad: JobID=' + JobID + ' | ' + mdl_Common.NowGMT())
+                print('Exit Function JobLoad: JobID=' + str(JobID) + ' | ' + mdl_Common.NowGMT())
                 return returnVal
             returnVal = False
             
@@ -3573,12 +3575,13 @@ class Machine:
                 tJob.Init(self, JobID, True, FromINITMachine)                
             else:
                 tJob = self.ActiveJob                
-                tJob.Refresh
+                tJob.Refresh()
                 
             self.ActiveJob = tJob
-            self.ActiveJoshID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ID', 'TblJoshCurrent', 'JobID = ' + JobID + ' AND ShiftID = ' + self.Server.CurrentShiftID, 'CN'))
+            self.ActiveJoshID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ID', 'TblJoshCurrent', 'JobID = ' + str(JobID) + ' AND ShiftID = ' + str(self.Server.CurrentShiftID), 'CN'))
             tJosh = Josh()
             tJosh.Init(tJob, self.ActiveJoshID)
+
             self.ActiveJob.ActiveJosh = tJosh
             self.ActiveJobID = self.ActiveJob.ID
             self.ActiveJosh = tJosh
@@ -3594,7 +3597,7 @@ class Machine:
                         tJob.ActiveJosh = tJosh
                         tJob.InitControllerChannels(tJoshID, pFromActivateJob)
             self.TotalCycles = self.ActiveJob.InjectionsCount
-            print('MachineID=' + self.ID + ' ActiveJob.TotalCycles = ' + self.ActiveJob.InjectionsCount + ' | ' + mdl_Common.NowGMT())
+            print(Fore.GREEN + 'MachineID=' + str(self.ID) + ' ActiveJob.TotalCycles = ' + str(self.ActiveJob.InjectionsCount) + ' | ' + mdl_Common.NowGMT())
             if FromINITMachine == True:
                 self.TotalCyclesLast = self.ActiveJob.InjectionsCount
             else:
@@ -3606,14 +3609,17 @@ class Machine:
             UnitsTarget = self.ActiveJob.UnitsTarget
             self.SetFieldValue('UnitsTarget', UnitsTarget)
             
-            temp = '' + MdlADOFunctions.GetSingleValue('MoldEndTime', 'TblMachines', 'ID=' + self.str(__mID))
+            temp = '' + MdlADOFunctions.GetSingleValue('MoldEndTime', 'TblMachines', 'ID=' + str(self.__mID))
             if temp != '':
-                self.__mMoldEndTime = CLng(temp)
-            strSQL = 'Select * From TblControllerFields Where ControllerID = ' + self.__mControllerID
-            TRst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-            TRst.ActiveConnection = None
-            while ( not TRst.EOF ):
-                temp = TRst.Fields('FieldName').value
+                self.__mMoldEndTime = int(temp)
+            strSQL = 'Select * From TblControllerFields Where ControllerID = ' + str(self.__mControllerID)
+
+            TRstCursor = MdlConnection.CN.cursor()
+            TRstCursor.execute(strSQL)
+            TRstValues = TRstCursor.fetchall()
+
+            for TRstData in TRstValues:
+                temp = TRstData.FieldName
                 if self.GetParam(temp, tParam) == True:
                     if not FromINITMachine and pFromActivateJob:
                         tParam.FirstReadInCurrentJob = True
@@ -3622,33 +3628,33 @@ class Machine:
                         tParam.Alarms = []
                     
                     if (temp == 'WorkOrder'):
-                        strSQL = 'Update TblControllerFields SET TargetValue = \'' + JobID + '\' Where ControllerID = ' + self.__mControllerID + ' AND FieldName = \'' + temp + '\''
+                        strSQL = 'Update TblControllerFields SET TargetValue = \'' + str(JobID) + '\' Where ControllerID = ' + str(self.__mControllerID) + ' AND FieldName = \'' + temp + '\''
                         MdlConnection.CN.execute(strSQL)
                         
                         self.__mActiveJobID = JobID
                         tParam.LastValue = JobID
                     elif (temp == 'CycleTime'):
-                        self.__mCycleTimeStandard = MdlADOFunctions.fGetRstValDouble(TRst.Fields('TargetValue').value)
+                        self.__mCycleTimeStandard = MdlADOFunctions.fGetRstValDouble(TRstData.TargetValue)
                         
                     elif (temp == 'UnitsTarget'):
                         
                         tParam.LastValue = UnitsTarget
                     
-                    strUCL = '' + MdlADOFunctions.fGetRstValDouble(TRst.Fields('HValue').value)
-                    strLCL = '' + MdlADOFunctions.fGetRstValDouble(TRst.Fields('LValue').value)
-                    strQUCL = '' + MdlADOFunctions.fGetRstValDouble(TRst.Fields('HHValue').value)
-                    strQLCL = '' + MdlADOFunctions.fGetRstValDouble(TRst.Fields('LLValue').value)
-                    strMean = '' + TRst.Fields('TargetValue').value
+                    strUCL = '' + MdlADOFunctions.fGetRstValDouble(TRstData.HValue)
+                    strLCL = '' + MdlADOFunctions.fGetRstValDouble(TRstData.LValue)
+                    strQUCL = '' + MdlADOFunctions.fGetRstValDouble(TRstData.HHValue)
+                    strQLCL = '' + MdlADOFunctions.fGetRstValDouble(TRstData.LLValue)
+                    strMean = '' + TRstData.TargetValue
                     if tParam.FName == 'TotalCycles':
                         tParam.FName = tParam.FName
                     
-                    if ( ( strMean != '' and UpdateController == True )  or  ( TRst.Fields("CitectDeviceType").Value != 1 ) )  and  ( TRst.Fields("CitectDeviceType").Value != 3 ) :
-                        if TRst.Fields("ChannelNum").Value == 1:
-                            if InStr(tParam.FName, 'Feeder') > 0 or InStr(tParam.FName, 'MainMatPC') > 0 or tParam.FName == 'Cnl1IsActive':
+                    if ( ( strMean != '' and UpdateController == True )  or  ( TRstData.CitectDeviceType != 1 ) )  and  ( TRstData.CitectDeviceType != 3 ) :
+                        if TRstData.ChannelNum == 1:
+                            if 'Feeder' in tParam.FName or 'MainMatPC' in tParam.FName or tParam.FName == 'Cnl1IsActive':
                                 if ( MainDSID > 0 and DSIsActive == True )  or  ( MainDSID == 0 ) :
                                     if not ( FromINITMachine and not tParam.WriteConditionalControllerField is None ) :
                                         pass
-                                if InStr(tParam.FName, 'MainMatPC') > 0:
+                                if 'MainMatPC' in tParam.FName:
                                     if ( MainDSID > 0 and DSIsActive == False )  and  ( tParam.DirectRead == False ) :
                                         if not ( FromINITMachine and not tParam.WriteConditionalControllerField is None ) :
                                             pass
@@ -3667,15 +3673,18 @@ class Machine:
                         tParam.UpdateLimits(strMean, strUCL, strLCL, strQUCL, strQLCL)
                     
                     if tParam.RejectReasonID > 0 and self.__mActiveJobID > 0:                    
-                        strSQL = 'SELECT SUM(Amount) as RejectsAmount FROM TblRejects Where JobID = ' + self.__mActiveJobID + ' AND ReasonID =' + tParam.RejectReasonID
-                        Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-                        Rst.ActiveConnection = None
-                        tParam.RejectsA = MdlADOFunctions.fGetRstValLong(Rst.Fields("RejectsAmount").Value)
+                        strSQL = 'SELECT SUM(Amount) as RejectsAmount FROM TblRejects Where JobID = ' + str(self.__mActiveJobID) + ' AND ReasonID =' + str(tParam.RejectReasonID)
+
+                        RstCursor = MdlConnection.CN.cursor()
+                        RstCursor.execute(strSQL)
+                        RstData = RstCursor.fetchone()
+
+                        tParam.RejectsA = MdlADOFunctions.fGetRstValLong(RstData.RejectsAmount)
                         RstCursor.close()
                         
                         tParam.RejectsALast = tParam.RejectsA
 
-            TRst.close()
+            TRstCursor.close()
             if ResetTotals() == True:
                 if UpdateController == True:
                     for i in range(0, self.__mResetTotals.Count):
@@ -3687,43 +3696,45 @@ class Machine:
                 if ( ( DirectBatchBlender == True )  or  ( DownloadRecipeDirectly == True ) )  and DSIsActive == True:
                     self.SetFieldValue('Cnl1NewJob', '1')
                     self.SetFieldValue('Cnl1IsActive', '1')
-                strSQL = 'Update TblControllers Set TotalCycles = 0, TotalWeight = 0, TotalWeightLast = 0, AdditiveTotalWeight = 0, CyclesTargetPC = 0, UnitsProduced = 0, UnitsProducedOK = 0, TotalCyclesReadCurrent = 0 Where ID = ' + self.ControllerID
+                strSQL = 'Update TblControllers Set TotalCycles = 0, TotalWeight = 0, TotalWeightLast = 0, AdditiveTotalWeight = 0, CyclesTargetPC = 0, UnitsProduced = 0, UnitsProducedOK = 0, TotalCyclesReadCurrent = 0 Where ID = ' + str(self.ControllerID)
                 MdlConnection.CN.execute(strSQL)
-                strSQL = 'Update TblControllerChannels Set TotalWeight = 0, TotalWeightLast = 0 Where ControllerID = ' + self.ControllerID
+                strSQL = 'Update TblControllerChannels Set TotalWeight = 0, TotalWeightLast = 0 Where ControllerID = ' + str(self.ControllerID)
                 MdlConnection.CN.execute(strSQL)
             
             self.SetFieldValue('Cnl1CreateNewBatch', '1')
             
-            if ( ( DirectBatchBlender == True )  or  ( DownloadRecipeDirectly == True ) )  and DSIsActive == True:
-                
+            if ( ( DirectBatchBlender == True )  or  ( DownloadRecipeDirectly == True ) )  and DSIsActive == True:                
                 self.SetFieldValue('Cnl1IsActive', '1')
+
             if MainDSID > 0 and DSIsActive == True:
                 if DSActiveDemand == True:
                     self.SetFieldValue('Cnl1IsActive', '1')
                 else:
                     self.SetFieldValue('Cnl1IsActive', '0')
+
             if MainDSID > 0 and DSIsActive == False:
                 self.SetFieldValue('Cnl1IsActive', '0')
             temp = 'MachineID'
+
             if self.GetParam(temp, tParam) == True:
                 tParam = self.__mCParams.Item(temp)
                 tParam.LastValue = self.__mID
+
             if self.UpdateAddressOnJobActive == True:
-                if UpdateController == True and pFromActivateJob == True:
-                    
+                if UpdateController == True and pFromActivateJob == True:                    
                     self.__mUpdateAddress.LastValue = 1
             else:
                 if UpdateController == True:
                     self.__mUpdateAddress.LastValue = 1
-            strSQL = 'Select SetUPEnd, PConfigID From TblJob Where ID = ' + JobID
-            Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-            Rst.ActiveConnection = None
+            strSQL = 'Select SetUPEnd, PConfigID From TblJob Where ID = ' + str(JobID)
+            RstCursor = MdlConnection.CN.cursor()
+            RstCursor.execute(strSQL)
+            RstData = RstCursor.fetchone()
+
             if JobID > 0 and ResetTotals() == True:
-                
-                if not IsNull(Rst.Fields("SetUpEnd").Value):
+                if RstData.SetUpEnd:
                     self.__mNewJob = False
-                else:
-                    
+                else:                    
                     if self.MonitorSetupWorkingTime == False:
                         if self.ActiveJob.OpenEvent is None:
                             tEvent = RTEvent()
@@ -3739,8 +3750,8 @@ class Machine:
                                         tChildJob.OpenWorkingEvent.EndEvent
                                         tChildJob.OpenWorkingEvent = None
                     self.__mNewJob = True
-                if MdlADOFunctions.fGetRstValLong(Rst.Fields("PConfigID").Value) > 0:
-                    fJobPConfigSubDetailsUpdate(JobID)
+                if MdlADOFunctions.fGetRstValLong(RstData.PConfigID) > 0:
+                    MdlRTWorkOrder.fJobPConfigSubDetailsUpdate(JobID)
             RstCursor.close()
             if FromINITMachine:
                 if not self.ActiveJob is None:
@@ -3751,8 +3762,7 @@ class Machine:
             if FromINITMachine == False and pFromActivateJob:
                 
                 self.CreateActivePallet(2, self.ActiveJob.MachineType.ActivePalletCreationBy)
-            
-            
+
             returnVal = True
 
         except BaseException as error:
@@ -3918,14 +3928,14 @@ class Machine:
             for Counter in range(0, self.__mCParams.Count):
                 
                 
-                self.__mCParams.Item(Counter).ShrinkData(self.ActiveJob.ID, str(self.__mActiveLocalID), self.__mID, CLng(self.ActiveJob.Mold.ID), self.ActiveJob.Product.ID, StartTime, EndTime, self.__mStatus)
+                self.__mCParams.Item(Counter).ShrinkData(self.ActiveJob.ID, str(self.__mActiveLocalID), self.__mID, int(self.ActiveJob.Mold.ID), self.ActiveJob.Product.ID, StartTime, EndTime, self.__mStatus)
         if self.__mBatchTrigerSet == True:
             
-            self.__mBatchTrigerP.ShrinkData(self.ActiveJob.ID, str(self.__mActiveLocalID), self.__mID, CLng(self.ActiveJob.Mold.ID), self.ActiveJob.Product.ID, StartTime, EndTime, self.__mStatus)
+            self.__mBatchTrigerP.ShrinkData(self.ActiveJob.ID, str(self.__mActiveLocalID), self.__mID, int(self.ActiveJob.Mold.ID), self.ActiveJob.Product.ID, StartTime, EndTime, self.__mStatus)
             if self.__mBatchTrigerP.BatchParams.Count > 0:
                 for Counter in range(0, self.__mBatchTrigerP.BatchParams.Count):
                     
-                    self.__mBatchTrigerP.BatchParams.Item(Counter).ShrinkData(self.ActiveJob.ID, str(self.__mActiveLocalID), self.__mID, CLng(self.ActiveJob.Mold.ID), self.ActiveJob.Product.ID, StartTime, EndTime, self.__mStatus)
+                    self.__mBatchTrigerP.BatchParams.Item(Counter).ShrinkData(self.ActiveJob.ID, str(self.__mActiveLocalID), self.__mID, int(self.ActiveJob.Mold.ID), self.ActiveJob.Product.ID, StartTime, EndTime, self.__mStatus)
         self.__mLastShrinkTime = mdl_Common.NowGMT()
         if Err.Number != 0:
             RecordError('Machine:ShrinkData', '' + Err.Number, '' + Err.Description, 'MID = ' + self.str(__mID))
@@ -4086,7 +4096,7 @@ class Machine:
         self.TotalWeight = 0
         self.TotalWeightLast = 0
         self.CycleWeight = 0
-        strSQL = 'Update TblControllerChannels Set TotalWeight=' + 0 + ', TotalWeightLast=' + 0 + ' Where ControllerID = ' + self.__mControllerID
+        strSQL = 'Update TblControllerChannels Set TotalWeight=0, TotalWeightLast=0 Where ControllerID = ' + self.__mControllerID
         MdlConnection.CN.execute(strSQL)
         returnVal = True
         if Err.Number != 0:
@@ -4119,9 +4129,9 @@ class Machine:
                     tParam.LastValue = the_mTotalWeightChannel
             if UpdateTable == True:
                 if UpdateLast == True:
-                    strSQL = 'Update TblControllerChannels SET TotalWeight = ' + the_mTotalWeightChannel + ' WHERE ControllerID = ' + self.__mControllerID + ' AND ChannelNum = ' + ChannelNum
+                    strSQL = 'Update TblControllerChannels SET TotalWeight = ' + the_mTotalWeightChannel + ' WHERE ControllerID = ' + str(self.__mControllerID) + ' AND ChannelNum = ' + ChannelNum
                 else:
-                    strSQL = 'Update TblControllerChannels SET TotalWeight = ' + the_mTotalWeightChannel + ',TotalWeightLast = ' + the_mTotalWeightChannel + ' WHERE ControllerID = ' + self.__mControllerID + ' AND ChannelNum = ' + ChannelNum
+                    strSQL = 'Update TblControllerChannels SET TotalWeight = ' + the_mTotalWeightChannel + ',TotalWeightLast = ' + the_mTotalWeightChannel + ' WHERE ControllerID = ' + str(self.__mControllerID) + ' AND ChannelNum = ' + ChannelNum
                 MdlConnection.CN.execute(strSQL)
         if Err.Number != 0:
             if InStr(Err.Description, 'nnection') > 0:
@@ -4162,27 +4172,27 @@ class Machine:
         Rst.ActiveConnection = None
         while not Rst.EOF:
             if not WebAlarmAcknowledge:
-                if not IsNull(Rst.Fields("CalcFunction").Value):
-                    self.__mCParams.Item[Rst.Fields("FieldName").Value].CalcFunction = Rst.Fields("CalcFunction").Value
-                if not IsNull(Rst.Fields("RawZero").Value):
-                    self.__mCParams.Item[Rst.Fields("FieldName").Value].RawZero = MdlADOFunctions.fGetRstValDouble(Rst.Fields("RawZero").Value)
-                if not IsNull(Rst.Fields("RawFull").Value):
-                    self.__mCParams.Item[Rst.Fields("FieldName").Value].RawFull = MdlADOFunctions.fGetRstValDouble(Rst.Fields("RawFull").Value)
-                if not IsNull(Rst.Fields("ScaleZero").Value):
-                    self.__mCParams.Item[Rst.Fields("FieldName").Value].ScaledZero = MdlADOFunctions.fGetRstValDouble(Rst.Fields("ScaleZero").Value)
-                if not IsNull(Rst.Fields("ScaleFull").Value):
-                    self.__mCParams.Item[Rst.Fields("FieldName").Value].ScaledFull = MdlADOFunctions.fGetRstValDouble(Rst.Fields("ScaleFull").Value)
-                if not IsNull(Rst.Fields("AlarmCylceAcknowledge").Value):
-                    self.__mCParams.Item[Rst.Fields("FieldName").Value].AlarmCycleAcknowledge = MdlADOFunctions.fGetRstValBool(Rst.Fields("AlarmCylceAcknowledge").Value, False)
+                if not IsNull(RstData.CalcFunction):
+                    self.__mCParams.Item[RstData.FieldName].CalcFunction = RstData.CalcFunction
+                if not IsNull(RstData.RawZero):
+                    self.__mCParams.Item[RstData.FieldName].RawZero = MdlADOFunctions.fGetRstValDouble(RstData.RawZero)
+                if not IsNull(RstData.RawFull):
+                    self.__mCParams.Item[RstData.FieldName].RawFull = MdlADOFunctions.fGetRstValDouble(RstData.RawFull)
+                if not IsNull(RstData.ScaleZero):
+                    self.__mCParams.Item[RstData.FieldName].ScaledZero = MdlADOFunctions.fGetRstValDouble(RstData.ScaleZero)
+                if not IsNull(RstData.ScaleFull):
+                    self.__mCParams.Item[RstData.FieldName].ScaledFull = MdlADOFunctions.fGetRstValDouble(RstData.ScaleFull)
+                if not IsNull(RstData.AlarmCylceAcknowledge):
+                    self.__mCParams.Item[RstData.FieldName].AlarmCycleAcknowledge = MdlADOFunctions.fGetRstValBool(RstData.AlarmCylceAcknowledge, False)
                     
-                if not IsNull(Rst.Fields("AlarmPerminentAcknowledge").Value):
-                    self.__mCParams.Item[Rst.Fields("FieldName").Value].AlarmPerminentAcknowledge = MdlADOFunctions.fGetRstValBool(Rst.Fields("AlarmPerminentAcknowledge").Value, False)
+                if not IsNull(RstData.AlarmPerminentAcknowledge):
+                    self.__mCParams.Item[RstData.FieldName].AlarmPerminentAcknowledge = MdlADOFunctions.fGetRstValBool(RstData.AlarmPerminentAcknowledge, False)
                     
-            if not IsNull(Rst.Fields("AlarmCylceAcknowledge").Value):
-                self.__mCParams.Item[Rst.Fields("FieldName").Value].AlarmCycleAcknowledge = MdlADOFunctions.fGetRstValBool(Rst.Fields("AlarmCylceAcknowledge").Value, False)
+            if not IsNull(RstData.AlarmCylceAcknowledge):
+                self.__mCParams.Item[RstData.FieldName].AlarmCycleAcknowledge = MdlADOFunctions.fGetRstValBool(RstData.AlarmCylceAcknowledge, False)
                 
-            if not IsNull(Rst.Fields("AlarmPerminentAcknowledge").Value):
-                self.__mCParams.Item[Rst.Fields("FieldName").Value].AlarmPerminentAcknowledge = MdlADOFunctions.fGetRstValBool(Rst.Fields("AlarmPerminentAcknowledge").Value, False)
+            if not IsNull(RstData.AlarmPerminentAcknowledge):
+                self.__mCParams.Item[RstData.FieldName].AlarmPerminentAcknowledge = MdlADOFunctions.fGetRstValBool(RstData.AlarmPerminentAcknowledge, False)
                 
             Rst.MoveNext()
         RstCursor.close()
@@ -4383,19 +4393,19 @@ class Machine:
         Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
         Rst.ActiveConnection = None
         while not Rst.EOF:
-            if self.GetParam(Rst.Fields("FieldName").Value, tParam) == True:
-                if tParam.AlarmCycleAcknowledge == False and MdlADOFunctions.fGetRstValBool(Rst.Fields("AlarmCylceAcknowledge").Value, False) == True:
+            if self.GetParam(RstData.FieldName, tParam) == True:
+                if tParam.AlarmCycleAcknowledge == False and MdlADOFunctions.fGetRstValBool(RstData.AlarmCylceAcknowledge, False) == True:
                     self.CancelAlarm(tParam, True)
                     
                     tParam.AlarmFileLastPlay = 0
                     tParam.AlarmFirstDetected = 0
-                if tParam.AlarmPerminentAcknowledge == False and MdlADOFunctions.fGetRstValBool(Rst.Fields("AlarmPerminentAcknowledge").Value, False) == True:
+                if tParam.AlarmPerminentAcknowledge == False and MdlADOFunctions.fGetRstValBool(RstData.AlarmPerminentAcknowledge, False) == True:
                     self.CancelAlarm(tParam, True)
                     
                     tParam.AlarmFileLastPlay = 0
                     tParam.AlarmFirstDetected = 0
-                tParam.AlarmCycleAcknowledge = MdlADOFunctions.fGetRstValBool(Rst.Fields("AlarmCylceAcknowledge").Value, False)
-                tParam.AlarmPerminentAcknowledge = MdlADOFunctions.fGetRstValBool(Rst.Fields("AlarmPerminentAcknowledge").Value, False)
+                tParam.AlarmCycleAcknowledge = MdlADOFunctions.fGetRstValBool(RstData.AlarmCylceAcknowledge, False)
+                tParam.AlarmPerminentAcknowledge = MdlADOFunctions.fGetRstValBool(RstData.AlarmPerminentAcknowledge, False)
             Rst.MoveNext()
         RstCursor.close()
         if Err.Number != 0:
@@ -4430,18 +4440,18 @@ class Machine:
         strSQL = 'SELECT ID, ChannelNum, SplitNum, InitialValue, JobID FROM TblMachineMaterialFlow WHERE MachineID = ' + self.ID + ' ORDER BY ChannelNum'
         Rst.Open(strSQL, CN, adOpenDynamic, adLockOptimistic)
         while not Rst.EOF:
-            tChannel = pJob.ControllerChannels.Item(str(Rst.Fields("ChannelNum").Value))
+            tChannel = pJob.ControllerChannels.Item(str(RstData.ChannelNum))
             if not tChannel is None:
-                if ( MdlADOFunctions.fGetRstValLong(Rst.Fields("SplitNum").Value) == 0 and tChannel.SplitsCounter == 0 )  or  ( MdlADOFunctions.fGetRstValLong(Rst.Fields("SplitNum").Value) > 0 and tChannel.SplitsCounter > 0 ) :
+                if ( MdlADOFunctions.fGetRstValLong(RstData.SplitNum) == 0 and tChannel.SplitsCounter == 0 )  or  ( MdlADOFunctions.fGetRstValLong(RstData.SplitNum) > 0 and tChannel.SplitsCounter > 0 ) :
                     if tChannel.SplitsCounter == 0:
                         if not tChannel.TotalWeight.ControllerField is None:
                             if tChannel.TotalWeight.ControllerField.CitectDeviceType == 1:
                                 tDataSample = DataSample()
-                                tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( Rst.Fields("ID").Value )  * - 1), tChannel.TotalWeight.ControllerField.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), mdl_Common.NowGMT(), 'TblMachineMaterialFlow', 'Values', 'ID = ' + MdlADOFunctions.fGetRstValLong(Rst.Fields("ID").Value))
+                                tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tChannel.TotalWeight.ControllerField.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), mdl_Common.NowGMT(), 'TblMachineMaterialFlow', 'Values', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
                                 tChannel.TotalWeight.ControllerField.DataSamples.Add(tDataSample, str(tDataSample.ID))
                                 tInitialValue = tChannel.TotalWeight.ControllerField.LastValidValue
-                                Rst.Fields("JobID").Value = pJob.ID
-                                Rst.Fields("InitialValue").Value = tInitialValue
+                                RstData.JobID = pJob.ID
+                                RstData.InitialValue = tInitialValue
                                 Rst.Update()
                                 tChannel.MaterialFlowForNextJob = True
                             else:
@@ -4449,11 +4459,11 @@ class Machine:
                                 if self.GetParam('TotalCycles', tControlParam) == True:
                                     tDataSample = DataSample()
                                     
-                                    tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( Rst.Fields("ID").Value )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), mdl_Common.NowGMT(), 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(Rst.Fields("ID").Value))
+                                    tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), mdl_Common.NowGMT(), 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
                                     tControlParam.DataSamples.Add(tDataSample, str(tDataSample.ID))
                                     tInitialValue = tControlParam.LastValidValue
-                                    Rst.Fields("JobID").Value = pJob.ID
-                                    Rst.Fields("InitialValue").Value = tInitialValue
+                                    RstData.JobID = pJob.ID
+                                    RstData.InitialValue = tInitialValue
                                     Rst.Update()
                                     tChannel.MaterialFlowForNextJob = True
                         else:
@@ -4461,25 +4471,25 @@ class Machine:
                             if self.GetParam('TotalCycles', tControlParam) == True:
                                 tDataSample = DataSample()
                                 
-                                tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( Rst.Fields("ID").Value )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), mdl_Common.NowGMT(), 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(Rst.Fields("ID").Value))
+                                tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), mdl_Common.NowGMT(), 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
                                 tControlParam.DataSamples.Add(tDataSample, str(tDataSample.ID))
                                 tInitialValue = tControlParam.LastValidValue
-                                Rst.Fields("JobID").Value = pJob.ID
-                                Rst.Fields("InitialValue").Value = tInitialValue
+                                RstData.JobID = pJob.ID
+                                RstData.InitialValue = tInitialValue
                                 Rst.Update()
                                 tChannel.MaterialFlowForNextJob = True
                     else:
-                        tSplit = tChannel.Splits.Item(str(Rst.Fields("SplitNum").Value))
+                        tSplit = tChannel.Splits.Item(str(RstData.SplitNum))
                         if not tSplit is None:
                             if not tSplit.TotalWeight.ControllerField is None:
                                 if tSplit.TotalWeight.ControllerField.CitectDeviceType == 1:
                                     tDataSample = DataSample()
                                     
-                                    tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( Rst.Fields("ID").Value )  * - 1), tSplit.TotalWeight.ControllerField.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), mdl_Common.NowGMT(), 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(Rst.Fields("ID").Value))
+                                    tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tSplit.TotalWeight.ControllerField.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), mdl_Common.NowGMT(), 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
                                     tSplit.TotalWeight.ControllerField.DataSamples.Add(tDataSample, str(tDataSample.ID))
                                     tInitialValue = tSplit.TotalWeight.ControllerField.LastValidValue
-                                    Rst.Fields("JobID").Value = pJob.ID
-                                    Rst.Fields("InitialValue").Value = tInitialValue
+                                    RstData.JobID = pJob.ID
+                                    RstData.InitialValue = tInitialValue
                                     Rst.Update()
                                     tSplit.MaterialFlowForNextJob = True
                                 else:
@@ -4487,11 +4497,11 @@ class Machine:
                                     if self.GetParam('TotalCycles', tControlParam) == True:
                                         tDataSample = DataSample()
                                         
-                                        tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( Rst.Fields("ID").Value )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), mdl_Common.NowGMT(), 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(Rst.Fields("ID").Value))
+                                        tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), mdl_Common.NowGMT(), 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
                                         tControlParam.DataSamples.Add(tDataSample, str(tDataSample.ID))
                                         tInitialValue = tControlParam.LastValidValue
-                                        Rst.Fields("JobID").Value = pJob.ID
-                                        Rst.Fields("InitialValue").Value = tInitialValue
+                                        RstData.JobID = pJob.ID
+                                        RstData.InitialValue = tInitialValue
                                         Rst.Update()
                                         tSplit.MaterialFlowForNextJob = True
                             else:
@@ -4499,11 +4509,11 @@ class Machine:
                                 if self.GetParam('TotalCycles', tControlParam) == True:
                                     tDataSample = DataSample()
                                     
-                                    tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( Rst.Fields("ID").Value )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), mdl_Common.NowGMT(), 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(Rst.Fields("ID").Value))
+                                    tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), mdl_Common.NowGMT(), 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
                                     tControlParam.DataSamples.Add(tDataSample, str(tDataSample.ID))
                                     tInitialValue = tControlParam.LastValidValue
-                                    Rst.Fields("JobID").Value = pJob.ID
-                                    Rst.Fields("InitialValue").Value = tInitialValue
+                                    RstData.JobID = pJob.ID
+                                    RstData.InitialValue = tInitialValue
                                     Rst.Update()
                                     tSplit.MaterialFlowForNextJob = True
             Rst.MoveNext()
@@ -4538,9 +4548,9 @@ class Machine:
         Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
         Rst.ActiveConnection = None
         while not Rst.EOF:
-            tChannel = pJob.ControllerChannels.Item(str(Rst.Fields("ChannelNum").Value))
+            tChannel = pJob.ControllerChannels.Item(str(RstData.ChannelNum))
             if not tChannel is None:
-                if ( MdlADOFunctions.fGetRstValLong(Rst.Fields("SplitNum").Value) == 0 and tChannel.SplitsCounter == 0 ) or ( MdlADOFunctions.fGetRstValLong(Rst.Fields("SplitNum").Value) > 0 and tChannel.SplitsCounter > 0 ) :
+                if ( MdlADOFunctions.fGetRstValLong(RstData.SplitNum) == 0 and tChannel.SplitsCounter == 0 ) or ( MdlADOFunctions.fGetRstValLong(RstData.SplitNum) > 0 and tChannel.SplitsCounter > 0 ) :
                     if tChannel.SplitsCounter == 0:
                         tControlParam = None
                         if not tChannel.TotalWeight.ControllerField is None:
@@ -4548,8 +4558,8 @@ class Machine:
                             if tControlParam.CitectDeviceType == 1:
                                 tDataSample = DataSample()
                                 
-                                tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( Rst.Fields("ID").Value )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), pJob.NextJobMaterialFlowStart, 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(Rst.Fields("ID").Value))
-                                tDataSample.AddValue(Rst.Fields("InitialValue").Value, pJob.NextJobMaterialFlowStart)
+                                tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), pJob.NextJobMaterialFlowStart, 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
+                                tDataSample.AddValue(RstData.InitialValue, pJob.NextJobMaterialFlowStart)
                                 tControlParam.DataSamples.Add(tDataSample, str(tDataSample.ID))
                                 tChannel.MaterialFlowForNextJob = True
                             else:
@@ -4557,8 +4567,8 @@ class Machine:
                                 if self.GetParam('TotalCycles', tControlParam) == True:
                                     tDataSample = DataSample()
                                     
-                                    tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( Rst.Fields("ID").Value )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), pJob.NextJobMaterialFlowStart, 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(Rst.Fields("ID").Value))
-                                    tDataSample.AddValue(Rst.Fields("InitialValue").Value, pJob.NextJobMaterialFlowStart)
+                                    tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), pJob.NextJobMaterialFlowStart, 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
+                                    tDataSample.AddValue(RstData.InitialValue, pJob.NextJobMaterialFlowStart)
                                     tControlParam.DataSamples.Add(tDataSample, str(tDataSample.ID))
                                     tChannel.MaterialFlowForNextJob = True
                         else:
@@ -4566,20 +4576,20 @@ class Machine:
                             if self.GetParam('TotalCycles', tControlParam) == True:
                                 tDataSample = DataSample()
                                 
-                                tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( Rst.Fields("ID").Value )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), pJob.NextJobMaterialFlowStart, 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(Rst.Fields("ID").Value))
-                                tDataSample.AddValue(Rst.Fields("InitialValue").Value, pJob.NextJobMaterialFlowStart)
+                                tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), pJob.NextJobMaterialFlowStart, 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
+                                tDataSample.AddValue(RstData.InitialValue, pJob.NextJobMaterialFlowStart)
                                 tControlParam.DataSamples.Add(tDataSample, str(tDataSample.ID))
                                 tChannel.MaterialFlowForNextJob = True
                     else:
-                        tSplit = tChannel.Splits(str(Rst.Fields("SplitNum").Value))
+                        tSplit = tChannel.Splits(str(RstData.SplitNum))
                         if not tSplit.TotalWeight.ControllerField is None:
                             tControlParam = None
                             tControlParam = tSplit.TotalWeight.ControllerField
                             if tControlParam.CitectDeviceType == 1:
                                 tDataSample = DataSample()
                                 
-                                tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( Rst.Fields("ID").Value )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), pJob.NextJobMaterialFlowStart, 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(Rst.Fields("ID").Value))
-                                tDataSample.AddValue(Rst.Fields("InitialValue").Value, pJob.NextJobMaterialFlowStart)
+                                tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), pJob.NextJobMaterialFlowStart, 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
+                                tDataSample.AddValue(RstData.InitialValue, pJob.NextJobMaterialFlowStart)
                                 tControlParam.DataSamples.Add(tDataSample, str(tDataSample.ID))
                                 tSplit.MaterialFlowForNextJob = True
                             else:
@@ -4587,8 +4597,8 @@ class Machine:
                                 if self.GetParam('TotalCycles', tControlParam) == True:
                                     tDataSample = DataSample()
                                     
-                                    tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( Rst.Fields("ID").Value )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), pJob.NextJobMaterialFlowStart, 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(Rst.Fields("ID").Value))
-                                    tDataSample.AddValue(Rst.Fields("InitialValue").Value, pJob.NextJobMaterialFlowStart)
+                                    tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), pJob.NextJobMaterialFlowStart, 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
+                                    tDataSample.AddValue(RstData.InitialValue, pJob.NextJobMaterialFlowStart)
                                     tControlParam.DataSamples.Add(tDataSample, str(tDataSample.ID))
                                     tSplit.MaterialFlowForNextJob = True
                         else:
@@ -4596,8 +4606,8 @@ class Machine:
                             if self.GetParam('TotalCycles', tControlParam) == True:
                                 tDataSample = DataSample()
                                 
-                                tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( Rst.Fields("ID").Value )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), pJob.NextJobMaterialFlowStart, 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(Rst.Fields("ID").Value))
-                                tDataSample.AddValue(Rst.Fields("InitialValue").Value, pJob.NextJobMaterialFlowStart)
+                                tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), pJob.NextJobMaterialFlowStart, 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
+                                tDataSample.AddValue(RstData.InitialValue, pJob.NextJobMaterialFlowStart)
                                 tControlParam.DataSamples.Add(tDataSample, str(tDataSample.ID))
                                 tSplit.MaterialFlowForNextJob = True
             Rst.MoveNext()
@@ -4791,9 +4801,9 @@ class Machine:
         Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
         Rst.ActiveConnection = None
         while not Rst.EOF:
-            SourceTableName = MdlADOFunctions.fGetRstValString(Rst.Fields("SourceTableName").Value)
-            SourceFieldName = MdlADOFunctions.fGetRstValString(Rst.Fields("SourceFieldName").Value)
-            FieldName = MdlADOFunctions.fGetRstValString(Rst.Fields("FieldName").Value)
+            SourceTableName = MdlADOFunctions.fGetRstValString(RstData.SourceTableName)
+            SourceFieldName = MdlADOFunctions.fGetRstValString(RstData.SourceFieldName)
+            FieldName = MdlADOFunctions.fGetRstValString(RstData.FieldName)
             ColumnExist = 0
             ColumnExist = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('COUNT(COLUMN_NAME)', 'INFORMATION_SCHEMA.COLUMNS', 'TABLE_NAME = \'TblMachineParametersHistory\' AND COLUMN_NAME = \'' + FieldName + '\'', 'CN'))
             if ColumnExist == 0:
@@ -4809,7 +4819,7 @@ class Machine:
             elif (select_6 == 'TBLMACHINES'):
                 value = CallByName(self, SourceFieldName, VbGet)
             else:
-                value = MdlADOFunctions.GetSingleValue(SourceFieldName, SourceTableName, MdlADOFunctions.fGetRstValString(Rst.Fields("SourceStrWhere").Value), 'CN')
+                value = MdlADOFunctions.GetSingleValue(SourceFieldName, SourceTableName, MdlADOFunctions.fGetRstValString(RstData.SourceStrWhere), 'CN')
             BatchParams.Add(FieldName, value)
             Rst.MoveNext()
         RstCursor.close()
@@ -5348,8 +5358,8 @@ class Machine:
                 Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
                 Rst.ActiveConnection = None
                 if Rst.RecordCount == 1:
-                    EventID = MdlADOFunctions.fGetRstValLong(Rst.Fields("EventReasonID").Value)
-                    EventGroupID = MdlADOFunctions.fGetRstValLong(Rst.Fields("EventGroupID").Value)
+                    EventID = MdlADOFunctions.fGetRstValLong(RstData.EventReasonID)
+                    EventGroupID = MdlADOFunctions.fGetRstValLong(RstData.EventGroupID)
                     tEvent.Create(self, EventGroupID, EventID, '', self.ActiveJob, VBGetMissingArgument(tEvent.Create, 5), VBGetMissingArgument(tEvent.Create, 6), self.MachineSignalStopTimestamp)
                 else:
                     
@@ -5380,15 +5390,15 @@ class Machine:
                 Rst.ActiveConnection = None
                 if Rst.RecordCount == 1:
                     
-                    if MdlADOFunctions.fGetRstValLong(Rst.Fields("RootEventID").Value) == 0:
-                        EventID = MdlADOFunctions.fGetRstValLong(Rst.Fields("event").Value)
-                        EventGroupID = MdlADOFunctions.fGetRstValLong(Rst.Fields("EventGroup").Value)
-                        tEvent.Create(self, EventGroupID, EventID, '', self.ActiveJob, VBGetMissingArgument(tEvent.Create, 5), MdlADOFunctions.fGetRstValLong(Rst.Fields("ID").Value), self.MachineSignalStopTimestamp)
+                    if MdlADOFunctions.fGetRstValLong(RstData.RootEventID) == 0:
+                        EventID = MdlADOFunctions.fGetRstValLong(RstData.event)
+                        EventGroupID = MdlADOFunctions.fGetRstValLong(RstData.EventGroup)
+                        tEvent.Create(self, EventGroupID, EventID, '', self.ActiveJob, VBGetMissingArgument(tEvent.Create, 5), MdlADOFunctions.fGetRstValLong(RstData.ID), self.MachineSignalStopTimestamp)
                         
-                    elif MdlADOFunctions.fGetRstValLong(Rst.Fields("TimeSinceParent").Value) <= self.RootEventAttachDurationMin:
-                        EventID = MdlADOFunctions.fGetRstValLong(Rst.Fields("ParentEvent").Value)
-                        EventGroupID = MdlADOFunctions.fGetRstValLong(Rst.Fields("ParentEventGroup").Value)
-                        tEvent.Create(self, EventGroupID, EventID, '', self.ActiveJob, VBGetMissingArgument(tEvent.Create, 5), MdlADOFunctions.fGetRstValLong(Rst.Fields("ParentID").Value), self.MachineSignalStopTimestamp)
+                    elif MdlADOFunctions.fGetRstValLong(RstData.TimeSinceParent) <= self.RootEventAttachDurationMin:
+                        EventID = MdlADOFunctions.fGetRstValLong(RstData.ParentEvent)
+                        EventGroupID = MdlADOFunctions.fGetRstValLong(RstData.ParentEventGroup)
+                        tEvent.Create(self, EventGroupID, EventID, '', self.ActiveJob, VBGetMissingArgument(tEvent.Create, 5), MdlADOFunctions.fGetRstValLong(RstData.ParentID), self.MachineSignalStopTimestamp)
                     else:
                         tEvent.Create(self, 6, 0, '', self.ActiveJob, VBGetMissingArgument(tEvent.Create, 5), VBGetMissingArgument(tEvent.Create, 6), self.MachineSignalStopTimestamp)
                 else:

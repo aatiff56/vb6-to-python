@@ -2574,7 +2574,7 @@ class Server:
         self.mCurrentShift = value
 
     def getCurrentShift(self):
-        if IsObject(self.mCurrentShift):
+        if self.mCurrentShift:
             fn_return_value = self.mCurrentShift
         else:
             fn_return_value = None

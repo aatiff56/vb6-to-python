@@ -449,13 +449,16 @@ class Job:
         self.ControllerChannels = {}
 
         try:
-            strSQL = 'SELECT * FROM TblControllerChannels WHERE ControllerID = ' + self.Machine.ControllerID
-            RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-            RstCursor.ActiveConnection = None
-            while not RstCursor.EOF:
+            strSQL = 'SELECT * FROM TblControllerChannels WHERE ControllerID = ' + str(self.Machine.ControllerID)
+
+            RstCursor = MdlConnection.CN.cursor()
+            RstCursor.execute(strSQL)
+            RstValues = RstCursor.fetchall()
+
+            for RstData in RstValues:
                 tControllerChannel = Channel()
-                tControllerChannel.Init(self.Machine, MdlADOFunctions.fGetRstValLong(RstCursor.ID), self, pJoshID, pFromActivateJob)
-                self.ControllerChannels.Add(tControllerChannel, MdlADOFunctions.fGetRstValString(RstCursor.ChannelNum))
+                tControllerChannel.Init(self.Machine, MdlADOFunctions.fGetRstValLong(RstData.ID), self, pJoshID, pFromActivateJob)
+                self.ControllerChannels.Add(tControllerChannel, MdlADOFunctions.fGetRstValString(RstData.ChannelNum))
             RstCursor.close()
 
         except BaseException as error:
@@ -1985,95 +1988,117 @@ class Job:
 
     def InitMoldChangeDetails(self):
         strSQL = ''
-
         RstCursor = None
-        
-        
-        strSQL = 'SELECT TOP 1 MachineJobOrder FROM TblJob'
-        strSQL = strSQL + ' WHERE MachineID = ' + self.Machine.ID
-        strSQL = strSQL + ' AND MoldID <> ' + self.Mold.ID
-        strSQL = strSQL + ' AND MachineJobOrder IS NOT NULL'
-        strSQL = strSQL + ' AND Status IN (2,3,11)'
-        strSQL = strSQL + ' ORDER BY MachineJobOrder'
-        RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-        RstCursor.ActiveConnection = None
-        if RstData:
-            self.MoldChangeFirstOtherMoldMachineJobOrder = MdlADOFunctions.fGetRstValLong(RstCursor.MachineJobOrder)
-        RstCursor.close()
-        if self.MoldChangeFirstOtherMoldMachineJobOrder == 0:
-            self.MoldChangeFirstOtherMoldMachineJobOrder = 1000
-        if (self.Machine.MoldEndTimeCalcOption == 1):
-            strSQL = 'SELECT SUM(TimeLeftHr) AS TimeLeftHr FROM TblJob'
-            strSQL = strSQL + ' WHERE Status IN(3,11,' + self.Machine.MoldEndTimeStatusOption + ')'
-            strSQL = strSQL + ' AND MoldID = ' + self.Mold.ID
-            strSQL = strSQL + ' AND MachineID = ' + self.Machine.ID
-            strSQL = strSQL + ' AND PConfigParentID = 0'
-            strSQL = strSQL + ' AND MachineJobOrder < ' + self.MoldChangeFirstOtherMoldMachineJobOrder
-            RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-            RstCursor.ActiveConnection = None
+
+        try:        
+            strSQL = 'SELECT TOP 1 MachineJobOrder FROM TblJob'
+            strSQL = strSQL + ' WHERE MachineID = ' + str(self.Machine.ID)
+            strSQL = strSQL + ' AND MoldID <> ' + str(self.Mold.ID)
+            strSQL = strSQL + ' AND MachineJobOrder IS NOT NULL'
+            strSQL = strSQL + ' AND Status IN (2,3,11)'
+            strSQL = strSQL + ' ORDER BY MachineJobOrder'
+
+            RstCursor = MdlConnection.CN.cursor()
+            RstCursor.execute(strSQL)
+            RstData = RstCursor.fetchone()
+
             if RstData:
-                self.MoldChangeTimeLeftHr = MdlADOFunctions.fGetRstValDouble(RstCursor.TimeLeftHr)
+                self.MoldChangeFirstOtherMoldMachineJobOrder = MdlADOFunctions.fGetRstValLong(RstData.MachineJobOrder)
             RstCursor.close()
-        elif (self.Machine.MoldEndTimeCalcOption == 2):
-            strSQL = 'SELECT SUM(TimeLeftHr) AS TimeLeftHr FROM TblJob'
-            strSQL = strSQL + ' WHERE Status IN(3,11,' + self.Machine.MoldEndTimeStatusOption + ')'
-            strSQL = strSQL + ' AND MoldID = ' + self.Mold.ID
-            strSQL = strSQL + ' AND MachineID = ' + self.Machine.ID
-            strSQL = strSQL + ' AND PConfigParentID = 0'
-            RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-            RstCursor.ActiveConnection = None
-            if RstData:
-                self.MoldChangeTimeLeftHr = MdlADOFunctions.fGetRstValDouble(RstCursor.TimeLeftHr)
-            RstCursor.close()
-        elif (self.Machine.MoldEndTimeCalcOption == 3):
-            strSQL = 'SELECT SUM(UnitsTarget) AS UnitsTarget, SUM(UnitsProducedOK) AS UnitsProducedOK FROM TblJob'
-            strSQL = strSQL + ' WHERE Status IN(3,11,' + self.Machine.MoldEndTimeStatusOption + ')'
-            strSQL = strSQL + ' AND MoldID = ' + self.Mold.ID
-            strSQL = strSQL + ' AND MachineID = ' + self.Machine.ID
-            strSQL = strSQL + ' AND PConfigParentID = 0'
-            strSQL = strSQL + ' AND MachineJobOrder < ' + self.MoldChangeFirstOtherMoldMachineJobOrder
-            RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-            RstCursor.ActiveConnection = None
-            if RstData:
-                self.MoldChangeUnitsTarget = MdlADOFunctions.fGetRstValDouble(RstCursor.UnitsTarget)
-                self.MoldChangeUnitsProducedOK = MdlADOFunctions.fGetRstValDouble(RstCursor.UnitsProducedOK)
-            RstCursor.close()
-        elif (self.Machine.MoldEndTimeCalcOption == 4):
-            strSQL = 'SELECT SUM(UnitsTarget) AS UnitsTarget, SUM(UnitsProducedOK) AS UnitsProducedOK FROM TblJob'
-            strSQL = strSQL + ' WHERE Status IN(3,11,' + self.Machine.MoldEndTimeStatusOption + ')'
-            strSQL = strSQL + ' AND MoldID = ' + self.Mold.ID
-            strSQL = strSQL + ' AND MachineID = ' + self.Machine.ID
-            strSQL = strSQL + ' AND PConfigParentID = 0'
-            RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-            RstCursor.ActiveConnection = None
-            if RstData:
-                self.MoldChangeUnitsTarget = MdlADOFunctions.fGetRstValDouble(RstCursor.UnitsTarget)
-                self.MoldChangeUnitsProducedOK = MdlADOFunctions.fGetRstValDouble(RstCursor.UnitsProducedOK)
-            RstCursor.close()
-        else:
-            strSQL = 'SELECT SUM(TimeLeftHr) AS TimeLeftHr FROM TblJob'
-            strSQL = strSQL + ' WHERE Status IN(3,11,' + self.Machine.MoldEndTimeStatusOption + ')'
-            strSQL = strSQL + ' AND MoldID = ' + self.Mold.ID
-            strSQL = strSQL + ' AND MachineID = ' + self.Machine.ID
-            strSQL = strSQL + ' AND PConfigParentID = 0'
-            strSQL = strSQL + ' AND MachineJobOrder < ' + self.MoldChangeFirstOtherMoldMachineJobOrder
-            RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-            RstCursor.ActiveConnection = None
-            if RstData:
-                self.MoldChangeTimeLeftHr = MdlADOFunctions.fGetRstValDouble(RstCursor.TimeLeftHr)
-            RstCursor.close()
-        if Err.Number != 0:
-            if InStr(Err.Description, 'nnection') > 0:
-                if CN.State == 1:
-                    CN.Close()
-                CN.Open()
-                if MetaCn.State == 1:
-                    MetaCn.Close()
-                MetaCn.Open()
-                Err.Clear()
-                
-            MdlGlobal.RecordError(type(self).__name__ + '.InitMoldChangeDetails:', str(0), error.args[0], 'JobID:' + str(self.ID))
-            Err.Clear()
+
+            if self.MoldChangeFirstOtherMoldMachineJobOrder == 0:
+                self.MoldChangeFirstOtherMoldMachineJobOrder = 1000
+
+            if (self.Machine.MoldEndTimeCalcOption == 1):
+                strSQL = 'SELECT SUM(TimeLeftHr) AS TimeLeftHr FROM TblJob'
+                strSQL = strSQL + ' WHERE Status IN(3,11,' + str(self.Machine.MoldEndTimeStatusOption) + ')'
+                strSQL = strSQL + ' AND MoldID = ' + str(self.Mold.ID)
+                strSQL = strSQL + ' AND MachineID = ' + str(self.Machine.ID)
+                strSQL = strSQL + ' AND PConfigParentID = 0'
+                strSQL = strSQL + ' AND MachineJobOrder < ' + str(self.MoldChangeFirstOtherMoldMachineJobOrder)
+
+                RstCursor = MdlConnection.CN.cursor()
+                RstCursor.execute(strSQL)
+                RstData = RstCursor.fetchone()
+
+                if RstData:
+                    self.MoldChangeTimeLeftHr = MdlADOFunctions.fGetRstValDouble(RstData.TimeLeftHr)
+                RstCursor.close()
+            elif (self.Machine.MoldEndTimeCalcOption == 2):
+                strSQL = 'SELECT SUM(TimeLeftHr) AS TimeLeftHr FROM TblJob'
+                strSQL = strSQL + ' WHERE Status IN(3,11,' + str(self.Machine.MoldEndTimeStatusOption) + ')'
+                strSQL = strSQL + ' AND MoldID = ' + str(self.Mold.ID)
+                strSQL = strSQL + ' AND MachineID = ' + str(self.Machine.ID)
+                strSQL = strSQL + ' AND PConfigParentID = 0'
+
+                RstCursor = MdlConnection.CN.cursor()
+                RstCursor.execute(strSQL)
+                RstData = RstCursor.fetchone()
+
+                if RstData:
+                    self.MoldChangeTimeLeftHr = MdlADOFunctions.fGetRstValDouble(RstData.TimeLeftHr)
+                RstCursor.close()
+
+            elif (self.Machine.MoldEndTimeCalcOption == 3):
+                strSQL = 'SELECT SUM(UnitsTarget) AS UnitsTarget, SUM(UnitsProducedOK) AS UnitsProducedOK FROM TblJob'
+                strSQL = strSQL + ' WHERE Status IN(3,11,' + str(self.Machine.MoldEndTimeStatusOption) + ')'
+                strSQL = strSQL + ' AND MoldID = ' + str(self.Mold.ID)
+                strSQL = strSQL + ' AND MachineID = ' + str(self.Machine.ID)
+                strSQL = strSQL + ' AND PConfigParentID = 0'
+                strSQL = strSQL + ' AND MachineJobOrder < ' + str(self.MoldChangeFirstOtherMoldMachineJobOrder)
+
+                RstCursor = MdlConnection.CN.cursor()
+                RstCursor.execute(strSQL)
+                RstData = RstCursor.fetchone()
+
+                if RstData:
+                    self.MoldChangeUnitsTarget = MdlADOFunctions.fGetRstValDouble(RstData.UnitsTarget)
+                    self.MoldChangeUnitsProducedOK = MdlADOFunctions.fGetRstValDouble(RstData.UnitsProducedOK)
+                RstCursor.close()
+
+            elif (self.Machine.MoldEndTimeCalcOption == 4):
+                strSQL = 'SELECT SUM(UnitsTarget) AS UnitsTarget, SUM(UnitsProducedOK) AS UnitsProducedOK FROM TblJob'
+                strSQL = strSQL + ' WHERE Status IN(3,11,' + str(self.Machine.MoldEndTimeStatusOption) + ')'
+                strSQL = strSQL + ' AND MoldID = ' + str(self.Mold.ID)
+                strSQL = strSQL + ' AND MachineID = ' + str(self.Machine.ID)
+                strSQL = strSQL + ' AND PConfigParentID = 0'
+
+                RstCursor = MdlConnection.CN.cursor()
+                RstCursor.execute(strSQL)
+                RstData = RstCursor.fetchone()
+
+                if RstData:
+                    self.MoldChangeUnitsTarget = MdlADOFunctions.fGetRstValDouble(RstData.UnitsTarget)
+                    self.MoldChangeUnitsProducedOK = MdlADOFunctions.fGetRstValDouble(RstData.UnitsProducedOK)
+                RstCursor.close()
+            else:
+                strSQL = 'SELECT SUM(TimeLeftHr) AS TimeLeftHr FROM TblJob'
+                strSQL = strSQL + ' WHERE Status IN(3,11,' + str(self.Machine.MoldEndTimeStatusOption) + ')'
+                strSQL = strSQL + ' AND MoldID = ' + str(self.Mold.ID)
+                strSQL = strSQL + ' AND MachineID = ' + str(self.Machine.ID)
+                strSQL = strSQL + ' AND PConfigParentID = 0'
+                strSQL = strSQL + ' AND MachineJobOrder < ' + str(self.MoldChangeFirstOtherMoldMachineJobOrder)
+
+                RstCursor = MdlConnection.CN.cursor()
+                RstCursor.execute(strSQL)
+                RstData = RstCursor.fetchone()
+
+                if RstData:
+                    self.MoldChangeTimeLeftHr = MdlADOFunctions.fGetRstValDouble(RstData.TimeLeftHr)
+                RstCursor.close()
+
+        except BaseException as error:
+            if 'nnection' in error.args[0]:
+                if MdlConnection.CN:
+                    MdlConnection.Close(MdlConnection.CN)
+                MdlConnection.CN = MdlConnection.Open(MdlConnection.strCon)
+
+                if MdlConnection.MetaCn:
+                    MdlConnection.Close(MdlConnection.MetaCn)
+                MdlConnection.MetaCn = MdlConnection.Open(MdlConnection.strMetaCon)
+                    
+                MdlGlobal.RecordError(type(self).__name__ + '.InitMoldChangeDetails:', str(0), error.args[0], 'JobID:' + str(self.ID))
+
         RstCursor = None
 
     def CalcMoldChangeDetails(self):

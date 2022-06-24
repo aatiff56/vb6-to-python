@@ -22,62 +22,62 @@ def fJobPConfigSubDetailsUpdate(JobID):
         strSQL = 'Select * From Meta_Tbl_FormFields where FormID = 68 AND IsActive <> 0'
         rstFormCursor.execute(strSQL)
 
-        strSQL = 'Select * From TblJob Where ID = ' + JobID
+        strSQL = 'Select * From TblJob Where ID = ' + str(JobID)
         SRstCursor.execute(strSQL)
         SRstData = SRstCursor.fetchone()
-        if SRstData["IsPConfigMain"] == True and SRstData["PConfigID"] > 0:
-            PConfigID = SRstData["PConfigID"]
-            JobAmount = MdlADOFunctions.fGetRstValDouble(MdlADOFunctions.GetSingleValue('Amount', 'TblPConfigJobs', 'PConfigID = ' + PConfigID + ' AND ProductID = ' + SRstData["ProductID"], 'CN'))
+        if SRstData.IsPConfigMain == True and SRstData.PConfigID > 0:
+            PConfigID = SRstData.PConfigID
+            JobAmount = MdlADOFunctions.fGetRstValDouble(MdlADOFunctions.GetSingleValue('Amount', 'TblPConfigJobs', 'PConfigID = ' + str(PConfigID) + ' AND ProductID = ' + SRstData.ProductID, 'CN'))
             
-            strSQL = 'Select * From TblPConfigJobs Where PConfigID = ' + PConfigID + ' AND ProductID <> ' + SRstData["ProductID"] + ' ORDER BY ID'
+            strSQL = 'Select * From TblPConfigJobs Where PConfigID = ' + str(PConfigID) + ' AND ProductID <> ' + str(SRstData.ProductID) + ' ORDER BY ID'
             PCRstCursor.execute(strSQL)
+            PCRstValues = PCRstCursor.fetchall()
 
-            while not PCRstCursor.next():
-                PCRstData = PCRst.fetchone(strSQL)
+            for PCRstData in PCRstValues:
                 NewJobAdded = False
                 Counter = Counter + 1
                 CurrentNewAdded = False
                 LastJobID = 0
-                strSQL = 'Select * From TblJob Where PConfigParentID = ' + JobID + ' AND PConfigJobID = ' + PCRstData["ID"] + ' ORDER BY ID'
+                strSQL = 'Select * From TblJob Where PConfigParentID = ' + str(JobID) + ' AND PConfigJobID = ' + str(PCRstData.ID) + ' ORDER BY ID'
                 DrstData = DrstCursor.fetchone(strSQL)
 
                 if not ( DrstCursor.RecordCount > 0 ):
                     DrstCursor.AddNew()
                     NewJobAdded = True
-                DrstData["PConfigJobID"] = MdlADOFunctions.fGetRstValLong(PCRstData["ID"])
-                DrstData["PConfigParentID"] = JobID
-                DrstData["PConfigID"] = SRstData["PConfigID"]
-                DrstData["PConfigRelation"] = MdlADOFunctions.fGetRstValLong(SRstData["PConfigRelation"])
-                DrstData["PConfigPC"] = PCRstData["Weight"]
-                DrstData["PConfigLabel"] = PCRstData["LabelPrintDeafult"]
-                DrstData["PConfigUnits"] = PCRstData["UnitsToInjection"]
-                DrstData["PConfigJobCycles"] = PCRstData["PConfigJobCycles"]
-                DrstData["PConfigProductionOrder"] = PCRstData["ProductionOrder"]
-                DrstData["PConfigIsMaterialCount"] = MdlADOFunctions.fGetRstValBool(PCRstData["IsMaterialCount"], True)
-                DrstData["PConfigIsChannel100Count"] = MdlADOFunctions.fGetRstValBool(PCRstData["IsChannel100Count"], True)
-                DrstData["PConfigIsSpecialMaterialCount"] = MdlADOFunctions.fGetRstValBool(PCRstData["IsSpecialMaterialCount"], True)
-                if DrstData["LocalID"] == None and SRstData["LocalID"] != None:
-                    DrstData["LocalID"] = SRstData["LocalID"] + '-' + Counter
-                DrstData["Status"] = SRstData["Status"]
-                DrstData["CavitiesStandard"] = PCRstData["Amount"]
-                DrstData["CavitiesActual"] = PCRstData["Amount"]
+                DrstData.PConfigJobID = MdlADOFunctions.fGetRstValLong(PCRstData.ID)
+                DrstData.PConfigParentID = JobID
+                DrstData.PConfigID = SRstData.PConfigID
+                DrstData.PConfigRelation = MdlADOFunctions.fGetRstValLong(SRstData.PConfigRelation)
+                DrstData.PConfigPC = PCRstData.Weight
+                DrstData.PConfigLabel = PCRstData.LabelPrintDeafult
+                DrstData.PConfigUnits = PCRstData.UnitsToInjection
+                DrstData.PConfigJobCycles = PCRstData.PConfigJobCycles
+                DrstData.PConfigProductionOrder = PCRstData.ProductionOrder
+                DrstData.PConfigIsMaterialCount = MdlADOFunctions.fGetRstValBool(PCRstData.IsMaterialCount, True)
+                DrstData.PConfigIsChannel100Count = MdlADOFunctions.fGetRstValBool(PCRstData.IsChannel100Count, True)
+                DrstData.PConfigIsSpecialMaterialCount = MdlADOFunctions.fGetRstValBool(PCRstData.IsSpecialMaterialCount, True)
+                if DrstData.LocalID == None and SRstData.LocalID != None:
+                    DrstData.LocalID = SRstData.LocalID + '-' + Counter
+                DrstData.Status = SRstData.Status
+                DrstData.CavitiesStandard = PCRstData.Amount
+                DrstData.CavitiesActual = PCRstData.Amount
                 
                 if MdlADOFunctions.fCopyRecordByForm(SRstCursor, DrstCursor, rstFormCursor) == False:
                     raise Exception('Invalid Operation')
-                DrstData["ProductID"] = PCRstData["ProductID"]
-                if SRstData["PConfigUnits"] > 0:
-                    DrstData["UnitsTarget"] = PCRstData["UnitsToInjection"] * SRstData["UnitsTarget"] / SRstData["PConfigUnits"]
+                DrstData.ProductID = PCRstData.ProductID
+                if SRstData.PConfigUnits > 0:
+                    DrstData.UnitsTarget = PCRstData.UnitsToInjection * SRstData.UnitsTarget / SRstData.PConfigUnits
                 else:
-                    DrstData["UnitsTarget"] = PCRstData["UnitsToInjection"] * SRstData["UnitsTarget"]
-                DrstData["MoldID"] = SRstData["MoldID"]
-                DrstData["MachineID"] = SRstData["MachineID"]
-                DrstData["ControllerID"] = SRstData["ControllerID"]
-                DrstData["Status"] = SRstData["Status"]
+                    DrstData.UnitsTarget = PCRstData.UnitsToInjection * SRstData.UnitsTarget
+                DrstData.MoldID = SRstData.MoldID
+                DrstData.MachineID = SRstData.MachineID
+                DrstData.ControllerID = SRstData.ControllerID
+                DrstData.Status = SRstData.Status
                 DrstCursor.Update()
-                LastJobID = DrstData["ID"]
-                DrstCursor.Close()
+                LastJobID = DrstData.ID
+                DrstCursor.close()
                 
-                select_variable_0 = SRstData["Status"]
+                select_variable_0 = SRstData.Status
                 if (select_variable_0 == 10):
                     strSQL = 'Select * From TblJobCurrent Where ID = ' + LastJobID
                     
@@ -87,23 +87,23 @@ def fJobPConfigSubDetailsUpdate(JobID):
                     
                     if MdlADOFunctions.fCopyRecordByForm(SRstCursor, DrstCursor, rstFormCursor) == False:
                         raise Exception('Invalid Operation')
-                    DrstData["PConfigJobID"] = MdlADOFunctions.fGetRstValLong(PCRstData["ID"])
-                    DrstData["ProductID"] = PCRstData["ProductID"]
-                    DrstData["PConfigParentID"] = JobID
-                    DrstData["PConfigID"] = SRstData["PConfigID"]
-                    DrstData["PConfigRelation"] = MdlADOFunctions.fGetRstValLong(SRstData["PConfigRelation"])
-                    DrstData["PConfigPC"] = PCRstData["Weight"]
-                    DrstData["PConfigLabel"] = PCRstData["LabelPrintDeafult"]
-                    DrstData["PConfigUnits"] = PCRstData["UnitsToInjection"]
-                    DrstData["PConfigJobCycles"] = PCRstData["PConfigJobCycles"]
-                    DrstData["PConfigProductionOrder"] = PCRstData["ProductionOrder"]
-                    DrstData["PConfigIsMaterialCount"] = MdlADOFunctions.fGetRstValBool(PCRstData["IsMaterialCount"], True)
-                    DrstData["PConfigIsChannel100Count"] = MdlADOFunctions.fGetRstValBool(PCRstData["IsChannel100Count"], True)
-                    DrstData["PConfigIsSpecialMaterialCount"] = MdlADOFunctions.fGetRstValBool(PCRstData["IsSpecialMaterialCount"], True)
-                    DrstData["Status"] = SRstData["Status"]
-                    DrstData["ID"] = LastJobID
+                    DrstData.PConfigJobID = MdlADOFunctions.fGetRstValLong(PCRstData.ID)
+                    DrstData.ProductID = PCRstData.ProductID
+                    DrstData.PConfigParentID = JobID
+                    DrstData.PConfigID = SRstData.PConfigID
+                    DrstData.PConfigRelation = MdlADOFunctions.fGetRstValLong(SRstData.PConfigRelation)
+                    DrstData.PConfigPC = PCRstData.Weight
+                    DrstData.PConfigLabel = PCRstData.LabelPrintDeafult
+                    DrstData.PConfigUnits = PCRstData.UnitsToInjection
+                    DrstData.PConfigJobCycles = PCRstData.PConfigJobCycles
+                    DrstData.PConfigProductionOrder = PCRstData.ProductionOrder
+                    DrstData.PConfigIsMaterialCount = MdlADOFunctions.fGetRstValBool(PCRstData.IsMaterialCount, True)
+                    DrstData.PConfigIsChannel100Count = MdlADOFunctions.fGetRstValBool(PCRstData.IsChannel100Count, True)
+                    DrstData.PConfigIsSpecialMaterialCount = MdlADOFunctions.fGetRstValBool(PCRstData.IsSpecialMaterialCount, True)
+                    DrstData.Status = SRstData.Status
+                    DrstData.ID = LastJobID
                     DrstCursor.Update()
-                    DrstCursor.Close()
+                    DrstCursor.close()
                     if CurrentNewAdded == True and LastJobID > 0:
                         fJobCurrentTablesAdd(LastJobID, False)
                 elif (select_variable_0 == 11) or (select_variable_0 == 12) or (select_variable_0 == 20) or (select_variable_0 == 0):
@@ -128,11 +128,11 @@ def fJobPConfigSubDetailsUpdate(JobID):
         MdlGlobal.RecordError('LeaderRT:fJobPConfigSubDetailsUpdate', 0, error.args[0], str(JobID))
     
         if SRstCursor:
-            SRstCursor.Close()
+            SRstCursor.close()
         SRstCursor = None
 
         if DrstCursor:
-            DrstCursor.Close()
+            DrstCursor.close()
         DrstCursor = None
 
         if PCRst:
@@ -140,7 +140,7 @@ def fJobPConfigSubDetailsUpdate(JobID):
         PCRst = None
 
         if rstFormCursor:
-            rstFormCursor.Close()
+            rstFormCursor.close()
         rstFormCursor = None
 
     return False
@@ -198,15 +198,15 @@ def fJobCurrentTablesAdd(RID, RemoveCurrent=True, tMachine=None):
         RstTargetData["EntryTime"] = RstSourceData["EntryTime"]
         RstTargetData["EntryUser"] = RstSourceData["EntryUser"]
         RstTargetCursor.Update()
-        RstTargetCursor.Close()
-        rstFormCursor.Close()
+        RstTargetCursor.close()
+        rstFormCursor.close()
         strSQL = 'Select JobOrderNum, InjectionsCount From TblJosh  Where JobID = ' + RID + ' Order By ShiftID Desc'
         RstCursor.execute(strSQL)
         RstData = RstCursor.fetchone()
         if not RstCursor:
             if RstData["JobOrderNum"] != None:
                 JobOrderNum = RstData["JobOrderNum"]
-        RstCursor.Close()
+        RstCursor.close()
         JobOrderNum = JobOrderNum + 1
         strSQL = 'Select InjectionsCount From TblJob Where ID = ' + RID
         RstCursor.execute(strSQL)
@@ -241,7 +241,7 @@ def fJobCurrentTablesAdd(RID, RemoveCurrent=True, tMachine=None):
         
         RstTargetCursor.Update()
         JoshID = RstTargetData["ID"]
-        RstTargetCursor.Close()
+        RstTargetCursor.close()
         
         strSQL = 'Select * From TblJoshCurrent Where ID = ' + JoshID
         if RstTargetCursor:
@@ -280,19 +280,19 @@ def fJobCurrentTablesAdd(RID, RemoveCurrent=True, tMachine=None):
         MdlGlobal.RecordError('fJobCurrentTablesAdd', 0, error.args[0], "JobID: " + RID)
 
     if rstFormCursor:
-        rstFormCursor.Close()
+        rstFormCursor.close()
     rstFormCursor = None
 
     if RstSourceCursor:
-        RstSourceCursor.Close()
+        RstSourceCursor.close()
     RstSourceCursor = None
 
     if RstTargetCursor:
-        RstTargetCursor.Close()
+        RstTargetCursor.close()
     RstTargetCursor = None
 
     if RstCursor:
-        RstCursor.Close()
+        RstCursor.close()
     RstCursor = None
 
     return fn_return_value
@@ -307,9 +307,9 @@ def fRemoveCurrentTables(RID, AllData=False, DJobCurrent=True, DJobCurrentMateri
         fn_return_value = False
         MachineID = '' + MdlADOFunctions.GetSingleValue('MachineID', 'TblJob', 'ID = ' + RID, 'CN')
         if MachineID != '':
-            strCriteria = ' Where MachineID = ' + MachineID
+            strCriteria = ' Where MachineID = ' + str(MachineID)
         else:
-            strCriteria = ' Where ID = ' + RID
+            strCriteria = ' Where ID = ' + str(RID)
         
         if DJobCurrent == True:
             strSQL = 'Delete TblJobCurrent '
@@ -326,18 +326,17 @@ def fRemoveCurrentTables(RID, AllData=False, DJobCurrent=True, DJobCurrentMateri
         if DJobCurrentMaterial == True:
             strSQL = 'Delete TblJobCurrentMaterial  '
             if AllData == False:
-                
-                strSQL = strSQL + ' WHere Job = ' + RID
+                strSQL = strSQL + ' WHere Job = ' + str(RID)
             RstCursor.execute(strSQL)        
         
         if DJoshCurrentMaterial == True:
             strSQL = 'Delete TblJoshCurrentMaterial'
             if AllData == False:
-                
-                strSQL = strSQL + ' WHere JobID = ' + RID
+                strSQL = strSQL + ' WHere JobID = ' + str(RID)
             RstCursor.execute(strSQL)        
         fn_return_value = True                
         cmd = None
+    
     except BaseException as error:
         if 'nnection' in error.args[0]:
             if MdlConnection.CN:

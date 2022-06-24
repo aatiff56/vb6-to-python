@@ -26,7 +26,7 @@ class Mold:
             RstCursor.execute(strSQL)
             RstData = RstCursor.fetchone()
 
-            if RstCursor.arraysize == 1:
+            if RstData:
                 self.ID = pMoldID
                 self.Cavities = MdlADOFunctions.fGetRstValDouble(RstData.Cavities)
                 self.CavitiesCurrent = MdlADOFunctions.fGetRstValDouble(RstData.CavitiesCurrent)
@@ -63,7 +63,7 @@ class Mold:
             RstCursor.execute(strSQL)
             RstData = RstCursor.fetchone()
 
-            if RstCursor.arraysize == 1:
+            if RstData:
                 self.CavitiesCurrent = MdlADOFunctions.fGetRstValDouble(RstData.CavitiesCurrent)
             RstCursor.close()
 
