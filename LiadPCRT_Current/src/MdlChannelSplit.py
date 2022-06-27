@@ -190,7 +190,7 @@ def GetChannelSplitForecastWeight(pJobID, pForecastWeight, pChannelNum, pSplitNu
             tJobAmount = round(( tUnitsTarget / tCavitiesActual )  *  ( tProductWeight / 1000 )  *  ( tMaterialPCTarget / 100 ), 5)
         else:
             tJobAmount = round(( tUnitsTarget / tCavitiesActual )  *  ( tMaterialPCTarget ), 5)
-        tJobAmountLeft = round(tJobAmount - pForecastWeight.Parent.TotalWeight.CurrentValue(MaterialCalcObjectType.FromJob), 5)
+        tJobAmountLeft = round(tJobAmount - pForecastWeight.Parent.TotalWeight.getCurrentValue(MaterialCalcObjectType.FromJob), 5)
         pForecastWeight.JobAmount = tJobAmount
         pForecastWeight.JobAmountLeft = tJobAmountLeft
 

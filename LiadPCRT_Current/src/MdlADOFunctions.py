@@ -1,14 +1,22 @@
 import datetime
 import MdlConnection
 
-def fGetRstValLong(rstVal):
-    rstVal = str(rstVal)
+# def fGetRstValLong(rstVal):
+#     rstVal = str(rstVal)
     
+#     if rstVal == '':
+#         raise Exception("Incorrect function.")
+#     if rstVal.isnumeric():
+#         return int(rstVal)
+#     else:
+#         return 0
+
+def fGetRstValLong(rstVal):    
     if rstVal == '':
         raise Exception("Incorrect function.")
-    if rstVal.isnumeric():
+    try:
         return int(rstVal)
-    else:
+    except:
         return 0
 
 
@@ -19,19 +27,28 @@ def fGetRstValString(rstVal):
         return ''
 
 
-def fGetRstValDouble(rstVal):
-    returnVal = 0
-    rstVal = str(rstVal)
+# def fGetRstValDouble(rstVal):
+#     returnVal = 0
+#     # rstVal = str(rstVal)
 
+#     if rstVal == '':
+#         raise Exception("Incorrect function.")
+
+#     if rstVal.isnumeric():
+#         returnVal = float(rstVal)
+#         if not rstVal.isnumeric():
+#             if rstVal == True:
+#                 returnVal = 1
+#     return returnVal
+
+
+def fGetRstValDouble(rstVal):
     if rstVal == '':
         raise Exception("Incorrect function.")
-
-    if rstVal.isnumeric():
-        returnVal = float(rstVal)
-        if not rstVal.isnumeric:
-            if rstVal == True:
-                returnVal = 1
-    return returnVal
+    try:
+        return float(rstVal)
+    except:
+        return 0
 
 
 def fGetRstValBool(rstVal, DefaultVal):
@@ -44,9 +61,9 @@ def fGetRstValBool(rstVal, DefaultVal):
         returnVal = True
     if rstVal == False:
         returnVal = False
-    if rstVal == 'true' or rstVal == '1' or rstVal == '-1':
+    if rstVal.lower() == 'true' or rstVal == '1' or rstVal == '-1':
         returnVal = True
-    if rstVal == 'false' or rstVal == '0':
+    if rstVal.lower() == 'false' or rstVal == '0':
         returnVal = False
     return returnVal
 

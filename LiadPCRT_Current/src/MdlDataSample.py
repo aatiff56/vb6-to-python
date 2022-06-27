@@ -1,4 +1,5 @@
 from colorama import Fore
+from ControlParam import ControlParam
 from DataSample import DataSample
 
 import MdlConnection

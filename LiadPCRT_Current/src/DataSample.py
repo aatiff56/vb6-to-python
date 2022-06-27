@@ -1,5 +1,6 @@
 import enum
 from datetime import datetime
+from datetime import timedelta
 
 import MdlADOFunctions
 import mdl_Common
@@ -92,32 +93,33 @@ class DataSample:
         SingleKey = None
 
         try:
-            dblNow = float(mdl_Common.NowGMT())        
+            # dblNow = float(mdl_Common.NowGMT())
+            dblNow = mdl_Common.NowGMT().timestamp()
             
             if (self.__mIntervalUnit == DataSampleIntervalUnit.DS_Minute):
-                dblMinValue = float(datetime.timedelta(minutes= -1 * self.__mIntervalAmount) + mdl_Common.NowGMT())
+                dblMinValue = (timedelta(minutes= -1 * self.__mIntervalAmount) + mdl_Common.NowGMT()).timestamp()
             elif (self.__mIntervalUnit == DataSampleIntervalUnit.DS_Hour):
-                dblMinValue = float(datetime.timedelta(hours= -1 * self.__mIntervalAmount) + mdl_Common.NowGMT())
+                dblMinValue = (timedelta(hours= -1 * self.__mIntervalAmount) + mdl_Common.NowGMT()).timestamp()
             elif (self.__mIntervalUnit == DataSampleIntervalUnit.DS_Day):
-                dblMinValue = float(datetime.timedelta(days= -1 * self.__mIntervalAmount) + mdl_Common.NowGMT())
+                dblMinValue = (timedelta(days= -1 * self.__mIntervalAmount) + mdl_Common.NowGMT()).timestamp()
             elif (self.__mIntervalUnit == DataSampleIntervalUnit.DS_Week):
-                dblMinValue = float(datetime.timedelta(weeks= -1 * self.__mIntervalAmount) + mdl_Common.NowGMT())
+                dblMinValue = (timedelta(weeks= -1 * self.__mIntervalAmount) + mdl_Common.NowGMT()).timestamp()
             elif (self.__mIntervalUnit == DataSampleIntervalUnit.DS_Month):
-                dblMinValue = float(datetime.timedelta(months= -1 * self.__mIntervalAmount) + mdl_Common.NowGMT())
+                dblMinValue = (timedelta(months= -1 * self.__mIntervalAmount) + mdl_Common.NowGMT()).timestamp()
             elif (self.__mIntervalUnit == DataSampleIntervalUnit.DS_Quarter):
-                dblMinValue = float(datetime.timedelta(quaters= -4 * self.__mIntervalAmount) + mdl_Common.NowGMT())
+                dblMinValue = (timedelta(quaters= -4 * self.__mIntervalAmount) + mdl_Common.NowGMT()).timestamp()
             elif (self.__mIntervalUnit == DataSampleIntervalUnit.DS_Year):
-                dblMinValue = float(datetime.timedelta(years= -1 * self.__mIntervalAmount) + mdl_Common.NowGMT())
+                dblMinValue = (timedelta(years= -1 * self.__mIntervalAmount) + mdl_Common.NowGMT()).timestamp()
             elif (self.__mIntervalUnit == DataSampleIntervalUnit.DS_SpecificTimestamp):
-                dblMinValue = float(self.__mSpecificTimeStamp)
+                dblMinValue = (self.__mSpecificTimeStamp)
             
-            keys = self.__mDataCollection.keys
+            keys = self.__mDataCollection.keys()
             for SingleKey in keys:
                 if float(SingleKey) < dblMinValue:
                     self.RemoveValue(SingleKey)
                 else:
                     break        
-        except:
+        except BaseException as error:
             pass
 
 
@@ -132,44 +134,44 @@ class DataSample:
                     self.__mFinalValue = str(float(self.__mFinalValue) + float(SingleValue))
             elif (self.__mAggFunction == DataSampleAggFunction.DS_Max):
                 self.__mFinalValue = 0
-                for SingleValue in self.__mDataCollection.Items:
+                for SingleValue in self.__mDataCollection.values():
                     if float(SingleValue) > float(self.__mFinalValue):
                         self.__mFinalValue = str(float(SingleValue))
             elif (self.__mAggFunction == DataSampleAggFunction.DS_Min):
-                if self.__mDataCollection.Count > 0:
-                    self.__mFinalValue = self.__mDataCollection.Item(self.__mDataCollection.keys(0))
-                    for SingleValue in self.__mDataCollection.Items:
+                if len(self.__mDataCollection) > 0:
+                    self.__mFinalValue = list(self.__mDataCollection.values())[0]
+                    for SingleValue in self.__mDataCollection.values():
                         if float(SingleValue) < float(self.__mFinalValue):
                             self.__mFinalValue = str(float(SingleValue))
                 else:
                     self.__mFinalValue = 0
             elif (self.__mAggFunction == DataSampleAggFunction.DS_Count):
-                self.__mFinalValue = self.__mDataCollection.Count
+                self.__mFinalValue = len(self.__mDataCollection)
             elif (self.__mAggFunction == DataSampleAggFunction.DS_Diff):
-                if self.__mDataCollection.Count == 0:
+                if len(self.__mDataCollection) == 0:
                     self.__mFinalValue = 0
-                elif self.__mDataCollection.Count == 1:
-                    self.__mFinalValue = self.__mDataCollection.Items(0)
+                elif len(self.__mDataCollection) == 1:
+                    self.__mFinalValue = list(self.__mDataCollection.values())[0]
                 else:
                     
-                    if float(self.__mDataCollection.Items(self.__mDataCollection.Count - 1)) - float(self.__mDataCollection.Items(0)) < 0:
-                        self.__mFinalValue = self.__mDataCollection.Items(0)
+                    if float(list(self.__mDataCollection.values())[len(self.__mDataCollection) - 1]) - float(list(self.__mDataCollection.values())[0]) < 0:
+                        self.__mFinalValue = list(self.__mDataCollection.values())[0]
                     else:
-                        self.__mFinalValue = str(float(self.__mDataCollection.Items(self.__mDataCollection.Count - 1)) - float(self.__mDataCollection.Items(0)))
+                        self.__mFinalValue = str(float(list(self.__mDataCollection.values())[len(self.__mDataCollection) - 1]) - float(list(self.__mDataCollection.values())[0]))
             elif (self.__mAggFunction == DataSampleAggFunction.DS_Avg):
-                if self.__mDataCollection.Count == 0:
+                if len(self.__mDataCollection) == 0:
                     self.__mFinalValue = 0
                 else:
                     self.__mFinalValue = 0
-                    for SingleValue in self.__mDataCollection.Items:
+                    for SingleValue in self.__mDataCollection.values():
                         self.__mFinalValue = str(float(self.__mFinalValue) + float(SingleValue))
-                    self.__mFinalValue = str(float(self.__mFinalValue) / self.__mDataCollection.Count)
+                    self.__mFinalValue = str(float(self.__mFinalValue) / len(self.__mDataCollection))
             
-            if not ( self.__mDestinationControlParam is None ) :
-                self.__mDestinationControlParam.LastValue = self.__mFinalValue
+            if not ( self.__mDestinationControlParam[0] is None ) :
+                self.__mDestinationControlParam[0].LastValue = self.__mFinalValue
             
             if self.__mDestinationTableName and self.__mDestinationFieldName and self.__mDestinationCriteria:
-                strSQL = 'UPDATE ' + self.__mDestinationTableName + ' SET ' + self.__mDestinationFieldName + ' = ' + self.__mFinalValue + ' WHERE ' + self.__mDestinationCriteria
+                strSQL = 'UPDATE ' + self.__mDestinationTableName + ' SET ' + self.__mDestinationFieldName + ' = ' + str(self.__mFinalValue) + ' WHERE ' + str(self.__mDestinationCriteria)
                 MdlConnection.CN.execute(strSQL)
 
         except BaseException as error:

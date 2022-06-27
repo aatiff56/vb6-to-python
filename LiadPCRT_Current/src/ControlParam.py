@@ -1,11 +1,13 @@
 from datetime import datetime
+from DataSample import DataSample
+
+import numbers
 import ValidateValue
 import MdlADOFunctions
 import mdl_Common
 import MdlConnection
 import MdlGlobal
 import MdlStatistics
-import DataSample
 
 class ControlParam:
 
@@ -1192,15 +1194,15 @@ class ControlParam:
         strValue = ''
         strStatus = ''
         GrpValIndex = 0
-        tDataSample = DataSample.DataSample()
+        tDataSample = None
 
         try:        
-            if str(self.__mLastValue).isnumeric():
+            if isinstance(self.__mLastValue, numbers.Number):
                 strValue = round(float(self.__mLastValue), self.__mPrecision)
-                if str(self.__mPUCL).isnumeric():
+                if isinstance(self.__mPUCL, numbers.Number):
                     if float(self.__mLastValue) > float(self.__mPUCL):
                         strStatus = 'High'
-                if str(self.__mPLCL).isnumeric():
+                if isinstance(self.__mPLCL, numbers.Number):
                     if float(self.__mLastValue) < float(self.__mPLCL):
                         strStatus = 'Low'
                 if strStatus == '':
@@ -1228,8 +1230,8 @@ class ControlParam:
                 strXML = strXML + '<' + str(self.__mFName) + 'AlarmPerminentAcknowledge' + '>' + str(self.__mAlarmPerminentAcknowledge) + '</' + str(self.__mFName) + 'AlarmPerminentAcknowledge' + '>' + '\n'
             
             if self.__mDataSamples:
-                if self.__mDataSamples.Count > 0:
-                    for tDataSample in self.__mDataSamples:
+                if len(self.__mDataSamples) > 0:
+                    for tDataSample in self.__mDataSamples.values():
                         tDataSample.CheckRelevantData()
                         tDataSample.Calc()
                         strXML = strXML + '<' + str(self.__mFName) + 'DataSampleInterval' + str(tDataSample.Interval) + '>' + str(tDataSample.FinalValue) + ' </' + str(self.__mFName) + 'DataSampleInterval' + str(tDataSample.Interval) + '>' + '\n'
@@ -2843,7 +2845,7 @@ class ControlParam:
                         if temp == '':
                             temp = the_mLastValue
                     SourceDataType = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('DATA_TYPE', 'INFORMATION_SCHEMA.COLUMNS', 'TABLE_NAME = \'' + str(self.__mSourceTableName) + '\' AND COLUMN_NAME = \'' + str(self.__mSourceFieldName) + '\'', 'CN'))
-                    if str(temp).isnumeric() and SourceDataType != 'nvarchar':
+                    if isinstance(temp, numbers.Number) and SourceDataType != 'nvarchar':
                         
                         self.__mLastValue = MdlStatistics.fRoundNum(temp, self.__mPrecision, self.__mRoundType)
                     else:
@@ -2852,7 +2854,7 @@ class ControlParam:
                     if self.__mFieldDataType == 5:
                         temp = '' + MdlADOFunctions.GetSingleValue('CurrentValue', 'TblControllerFields', 'MachineID = ' + str(self.pMachine.ID) + ' AND FieldName=\'' + str(self.FName) + '\'', 'CN')
                         if temp != '':
-                            if str(temp).isnumeric():
+                            if isinstance(temp, numbers.Number):
                                 if self.__mCalcByDiff == True:
                                     
                                     if round(MdlADOFunctions.fGetRstValDouble(self.__mdReadValue), 10) != round(MdlADOFunctions.fGetRstValDouble(self.__mdPrevValue), 10):
@@ -2867,7 +2869,7 @@ class ControlParam:
                             else:
                                 self.__mLastValue = temp
                     else:
-                        if str(the_mLastValue).isnumeric():
+                        if isinstance(the_mLastValue, numbers.Number):
                             
                             self.__mLastValue = MdlStatistics.fRoundNum(the_mLastValue, self.__mPrecision, self.__mRoundType)
                         else:
@@ -3175,9 +3177,7 @@ class ControlParam:
         self.__mDataSamples = the_mDataSamples
 
     def getDataSamples(self):
-        returnVal = None
-        returnVal = self.__mDataSamples
-        return returnVal
+        return self.__mDataSamples
     DataSamples = property(fset=setDataSamples, fget=getDataSamples)
 
 

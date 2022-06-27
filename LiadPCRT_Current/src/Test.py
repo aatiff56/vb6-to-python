@@ -1,42 +1,31 @@
+import numbers
+
 obj = {}
 n = 'Name'
 a = 'age'
 
+val0 = ''
+val1 = '123'
+val2 = '123.1'
+val3 = None
+
 obj[n] = 'Ahmed'
 obj[a] = 27
 
-print(obj)
+print(type(''))
 
+print("Value 0 is: ", isinstance(val0, numbers.Number))
+print("Value 0 is: ", isinstance(val0, numbers.Number))
+print("Value 0 is: ", isinstance(val0, numbers.Number))
 
+print("Value 1 is: ", isinstance(val1, numbers.Number))
+print("Value 1 is: ", isinstance(val1, numbers.Number))
+print("Value 1 is: ", isinstance(val1, numbers.Number))
 
+print("Value 2 is: ", isinstance(val2, numbers.Number))
+print("Value 2 is: ", isinstance(val2, numbers.Number))
+print("Value 2 is: ", isinstance(val2, numbers.Number))
 
-
-def GetInventoryItemFromGlobalCollection(pCollection, pInventoryID):
-    returnVal = None
-    tMaterialBatch = None
-
-    try:
-        if pCollection.Count > 0:
-            if not ( pCollection[str(pInventoryID)] is None ) :
-                tMaterialBatch = pCollection[str(pInventoryID)]
-                returnVal = tMaterialBatch
-            else:
-                returnVal = None
-        else:
-            returnVal = None
-
-    except BaseException as error:
-        MdlGlobal.RecordError('GetInventoryItemFromGlobalCollection', str(0), error.args[0], 'InventoryID: ' + str(pInventoryID))
-        returnVal = None
-    return returnVal
-
-def AddInventoryItemToGlobalCollection(pMaterialBatch):
-    returnVal = False
-    try:
-        if MdlGlobal.gServer.ActiveInventoryItems[str(pMaterialBatch.ID)] is None:
-            MdlGlobal.gServer.ActiveInventoryItems[str(pMaterialBatch.ID)] = pMaterialBatch
-        returnVal = True
-
-    except BaseException as error:
-        MdlGlobal.RecordError('AddInventoryItemToGlobalCollection', str(0), error.args[0], 'InventoryID: ' + str(pMaterialBatch.ID))
-    return returnVal
+print("Value 3 is: ", isinstance(val3, numbers.Number))
+print("Value 3 is: ", isinstance(val3, numbers.Number))
+print("Value 3 is: ", isinstance(val3, numbers.Number))

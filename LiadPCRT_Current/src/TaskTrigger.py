@@ -3,6 +3,8 @@ import mdl_Common
 import MdlADOFunctions
 import MdlGlobal
 import MdlConnection
+import MdlUtilsH
+import MdlOnlineTasks
 
 class TaskTriggerIntervalType(enum.Enum):
     Timeinterval = 1
@@ -75,12 +77,12 @@ class TaskTrigger:
             else:
                 if MdlADOFunctions.fGetRstValBool(TriggerRstData.ResetOnNewJob, False) == False:
                     if TriggerRstData.LastFireTime:
-                        self.__LastFireTime = ShortDate(CDate(TriggerRstData.LastFireTime), False, True)
+                        self.__LastFireTime = MdlUtilsH.ShortDate(CDate(TriggerRstData.LastFireTime), False, True)
                     if TriggerRstData.LastFireValue:
                         self.__LastFireValue = '' + TriggerRstData.LastFireValue
                 else:
                     if TriggerRstData.LastFireTime:
-                        self.__LastFireTime = ShortDate(CDate(TriggerRstData.LastFireTime), False, True)
+                        self.__LastFireTime = MdlUtilsH.ShortDate(CDate(TriggerRstData.LastFireTime), False, True)
                     if TriggerRstData.LastFireValue:
                         self.__LastFireValue = '' + TriggerRstData.LastFireValue
             TriggerRstData.TaskTriggerDefID = TaskTriggerDefID
@@ -118,7 +120,7 @@ class TaskTrigger:
             if self.__IntervalType == TaskTriggerIntervalType.SpecificDay:
                 self.__SpecificWeekDay = RstCursor.SpecificWeekDay
                 self.__SpecificTime = RstCursor.SpecificTime
-                self.__NextFireTime = fGetNextTriggerDate(self.__SpecificWeekDay, self.__SpecificTime)
+                self.__NextFireTime = MdlOnlineTasks.fGetNextTriggerDate(self.__SpecificWeekDay, self.__SpecificTime)
             self.__IntervalRelation = RstCursor.IntervalRelation
             if MdlADOFunctions.fGetRstValString(RstCursor.IntervalRelationTarget) != '':
                 self.__IntervalRelationTarget = RstCursor.IntervalRelationTarget
@@ -216,7 +218,7 @@ class TaskTrigger:
         elif (self.__IntervalType == TaskTriggerIntervalType.SpecificDay):
             if mdl_Common.NowGMT() >= self.__NextFireTime:
                 returnVal = True
-                self.__NextFireTime = fGetNextTriggerDate(self.__SpecificWeekDay, self.__SpecificTime)
+                self.__NextFireTime = MdlOnlineTasks.fGetNextTriggerDate(self.__SpecificWeekDay, self.__SpecificTime)
             else:
                 returnVal = False
         
@@ -319,7 +321,7 @@ class TaskTrigger:
         if RstCursor.rowCount == 0 or tOpenNewTask == True:
             
             strSQL = 'Insert TblUserTasks (TaskDefID, PriorityLevel, StandardDuration, ShiftID, ShiftDef, Status, TaskType, Descr, MachineID, ProductID, InvokeTime, JobID, JoshID) '
-            strSQL = strSQL + ' VALUES(' + TaskDefID + ', ' + BasicPriority + ', ' + StandardDuration + ', ' + CurrentShiftID + ', ' + ShiftDefID + ', 1, ' + TaskType + ', \'' + Descr + '\', ' + tmpMachineID + ', ' + tmpProductID + ', \'' + ShortDate(mdl_Common.NowGMT(), True, True) + '\', ' + self.__pMachine.ActiveJobID + ', ' + self.__pMachine.ActiveJoshID + ')'
+            strSQL = strSQL + ' VALUES(' + TaskDefID + ', ' + BasicPriority + ', ' + StandardDuration + ', ' + CurrentShiftID + ', ' + ShiftDefID + ', 1, ' + TaskType + ', \'' + Descr + '\', ' + tmpMachineID + ', ' + tmpProductID + ', \'' + MdlUtilsH.ShortDate(mdl_Common.NowGMT(), True, True) + '\', ' + self.__pMachine.ActiveJobID + ', ' + self.__pMachine.ActiveJoshID + ')'
             CN.Execute(strSQL)
             
             UserTaskID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ID', 'TblUserTasks', 'TaskDefID=' + TaskDefID + ' ORDER BY ID DESC', 'CN'))
@@ -332,11 +334,11 @@ class TaskTrigger:
                 SkillRst.MoveNext()
             SkillRst.Close()
         RstCursor.close()
-        strSQL = 'Update TblTaskTrigger Set LastFireTime = \'' + ShortDate(mdl_Common.NowGMT(), True, True) + '\', LastFireValue=\'' + self.__LastFireValue + '\''
+        strSQL = 'Update TblTaskTrigger Set LastFireTime = \'' + MdlUtilsH.ShortDate(mdl_Common.NowGMT(), True, True) + '\', LastFireValue=\'' + self.__LastFireValue + '\''
         strSQL = strSQL + ' Where (MachineID = ' + self.__pMachine.ID + ' OR ProductID = ' + self.__pMachine.ActiveProductID + ') AND TaskDef = ' + TaskDefID + ' AND TaskTriggerDefID=' + self.__TriggerDefID
         
         CN.Execute(strSQL)
-        self.__LastFireTime = ShortDate(mdl_Common.NowGMT(), False, True)
+        self.__LastFireTime = MdlUtilsH.ShortDate(mdl_Common.NowGMT(), False, True)
         returnVal = True
         if Err.Number != 0:
             if InStr(Err.Description, 'nnection') > 0:

@@ -5,6 +5,7 @@ from Channel import Channel
 from MachineType import PConfigSonsRefRecipeSourceOption
 from RTEvent import RTEvent
 from RTEngineEvent import RTEngineEvent
+from RTWorkingEvent import RTWorkingEvent
 
 import MdlADOFunctions
 import MdlConnection
@@ -458,7 +459,7 @@ class Job:
             for RstData in RstValues:
                 tControllerChannel = Channel()
                 tControllerChannel.Init(self.Machine, MdlADOFunctions.fGetRstValLong(RstData.ID), self, pJoshID, pFromActivateJob)
-                self.ControllerChannels.Add(tControllerChannel, MdlADOFunctions.fGetRstValString(RstData.ChannelNum))
+                self.ControllerChannels[MdlADOFunctions.fGetRstValString(RstData.ChannelNum)] = tControllerChannel
             RstCursor.close()
 
         except BaseException as error:
@@ -3051,27 +3052,7 @@ class Job:
         tVariant2 = None
 
     def __del__(self):
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
         if Err.Number != 0:
             Err.Clear()
             
@@ -3214,7 +3195,7 @@ class Job:
             if self.PConfigID > 0 and self.IsPConfigMain == True:
                 for tVariant in self.PConfigJobs:
                     tJob = tVariant
-                    tJob.Refresh
+                    tJob.Refresh()
             
             self.ValidationLog = MdlADOFunctions.fGetRstValString(RstCursor.ValidationLog)
             
@@ -3223,8 +3204,8 @@ class Job:
         RstCursor.close()
         
         if self.Status == 10 and  ( self.PConfigID == 0 or  ( self.PConfigID != 0 and self.IsPConfigMain == True ) ) :
-            self.InitMachineControlParams
-            self.InitMoldChangeDetails
+            self.InitMachineControlParams()
+            self.InitMoldChangeDetails()
         if Err.Number != 0:
             if InStr(Err.Description, 'nnection') > 0:
                 if CN.State == 1:

@@ -1,9 +1,12 @@
+from datetime import datetime
+from datetime import timedelta
+from TaskTrigger import TaskTrigger
+
 import MdlADOFunctions
 import MdlGlobal
 import mdl_Common
 import MdlConnection
 
-from TaskTrigger import TaskTrigger
 
 def fInitMachineTriggers(pMachine, JobID=0, FromINITMachine=False):
     returnVal = False
@@ -69,7 +72,7 @@ def fInitMachineTriggers(pMachine, JobID=0, FromINITMachine=False):
             if TriggerFound == False:
                 tmpTaskTrigger = TaskTrigger()
                 if tmpTaskTrigger.Init(RstData.TaskDefID, RstData.ID, pMachine) == True:
-                    pMachine.mTaskTriggers.Add(tmpTaskTrigger)
+                    pMachine.mTaskTriggers.append(tmpTaskTrigger)
         RstCursor.close()
         returnVal = True
 
@@ -136,24 +139,26 @@ def fCheckMachineTriggers(pMachine):
 
 def fGetNextTriggerDate(pSpecificWeekDay, pSpecificTime):
     returnVal = None
+    tDate = None
     i = 0
-    tDate = Date()
 
-    for i in range(0, 7):
-        tDate = DateAdd('d', i, mdl_Common.NowGMT())
-        if Weekday(tDate, vbSunday) == pSpecificWeekDay:
-            if TimeGMT >= TimeValue(pSpecificTime):
-                if DateValue(tDate) == DateValue(mdl_Common.NowGMT()):
-                    tDate = DateAdd('ww', 1, tDate)
-                tDate = CDate(DateValue(tDate) + ' ' + TimeValue(pSpecificTime))
-                returnVal = tDate
-                break
-            else:
-                tDate = CDate(DateValue(tDate) + ' ' + TimeValue(pSpecificTime))
-                returnVal = tDate
-                break
-    if Err.Number != 0:
-        Err.Clear()
+    try:
+        for i in range(0, 7):
+            tDate = timedelta(days=i) + mdl_Common.NowGMT()
+
+            if Weekday(tDate, vbSunday) == pSpecificWeekDay:
+                if TimeGMT >= TimeValue(pSpecificTime):
+                    if DateValue(tDate) == DateValue(mdl_Common.NowGMT()):
+                        tDate = DateAdd('ww', 1, tDate)
+                    tDate = CDate(DateValue(tDate) + ' ' + TimeValue(pSpecificTime))
+                    returnVal = tDate
+                    break
+                else:
+                    tDate = CDate(DateValue(tDate) + ' ' + TimeValue(pSpecificTime))
+                    returnVal = tDate
+                    break
+    except BaseException as error:
+        pass
     return returnVal
 
 

@@ -464,9 +464,9 @@ class Machine:
                 
                             
             if self.__mActiveJobID > 0:
-                fInitMachineTriggers(self, self.__mActiveJobID, True)
+                MdlOnlineTasks.fInitMachineTriggers(self, self.__mActiveJobID, True)
             else:
-                fInitMachineTriggers(self, VBGetMissingArgument(fInitMachineTriggers, 1), True)
+                MdlOnlineTasks.fInitMachineTriggers(self, VBGetMissingArgument(MdlOnlineTasks.fInitMachineTriggers, 1), True)
             
             LoadMachineValidations(self)
             
@@ -3477,7 +3477,7 @@ class Machine:
                 
                 MdlOnlineTasks.fResetMachineTriggers(self)
                 if JobID > 0:
-                    MdlOnlineTasks.fInitMachineTriggers(self, JobID, FromINITMachine)
+                    MdlOnlineTasks.MdlOnlineTasks.fInitMachineTriggers(self, JobID, FromINITMachine)
                 
                 self.fResetDataSamples()
                 self.fRemoveDynamicDataSamples()
@@ -3597,7 +3597,7 @@ class Machine:
                         tJob.ActiveJosh = tJosh
                         tJob.InitControllerChannels(tJoshID, pFromActivateJob)
             self.TotalCycles = self.ActiveJob.InjectionsCount
-            print(Fore.GREEN + 'MachineID=' + str(self.ID) + ' ActiveJob.TotalCycles = ' + str(self.ActiveJob.InjectionsCount) + ' | ' + mdl_Common.NowGMT())
+            print(Fore.GREEN + 'MachineID=' + str(self.ID) + ' ActiveJob.TotalCycles = ' + str(self.ActiveJob.InjectionsCount) + ' | ' + str(mdl_Common.NowGMT()))
             if FromINITMachine == True:
                 self.TotalCyclesLast = self.ActiveJob.InjectionsCount
             else:
@@ -3609,7 +3609,7 @@ class Machine:
             UnitsTarget = self.ActiveJob.UnitsTarget
             self.SetFieldValue('UnitsTarget', UnitsTarget)
             
-            temp = '' + MdlADOFunctions.GetSingleValue('MoldEndTime', 'TblMachines', 'ID=' + str(self.__mID))
+            temp = MdlADOFunctions.GetSingleValue('MoldEndTime', 'TblMachines', 'ID=' + str(self.__mID))
             if temp != '':
                 self.__mMoldEndTime = int(temp)
             strSQL = 'Select * From TblControllerFields Where ControllerID = ' + str(self.__mControllerID)
@@ -3846,21 +3846,18 @@ class Machine:
 
     def SetFieldValue(self, FieldName, strValue):        
         try:
-            self.__mCParams.Item[FieldName].LastValue = strValue
+            self.__mCParams[FieldName].LastValue = strValue
             return True
 
         except:
             return False
 
-    def SetFieldLValue(self, FieldName, pValue):
-        returnVal = None
-        
-        returnVal = False
-        self.__mCParams.Item[FieldName].PLCL = pValue
-        returnVal = True
-        if Err.Number != 0:
-            Err.Clear()
-        return returnVal
+    def SetFieldLValue(self, FieldName, pValue):        
+        try:
+            self.__mCParams.Item[FieldName].PLCL = pValue
+            return True
+        except:
+            return False
 
     def SetFieldHValue(self, FieldName, pValue):
         returnVal = None

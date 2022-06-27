@@ -667,10 +667,10 @@ class ChannelSplit:
             Err.Clear()
 
     def StartMaterialFlowForNextJob(self):
-        
-        self.MaterialFlowForNextJob = True
-        if Err.Number != 0:
-            Err.Clear()
+        try:
+            self.MaterialFlowForNextJob = True
+        except:
+            pass
 
     def CheckMaterialRecipeAndLocationMatch(self):
         returnVal = None

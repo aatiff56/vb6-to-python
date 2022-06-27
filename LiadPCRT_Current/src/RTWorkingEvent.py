@@ -77,7 +77,7 @@ class RTWorkingEvent:
         RstCursor = None
         tNewEventID = 0
         tChildJob = self.Job()
-        tVariant = Variant()
+        tVariant = None
         tEvent = RTWorkingEvent()
         
         strSQL = 'INSERT INTO TblWorkingEvents '
@@ -143,15 +143,6 @@ class RTWorkingEvent:
         RstCursor.Close()
         self.Init(pJob, tNewEventID)
         
-        
-        
-        
-        
-        
-        
-        
-        
-        
         if not pFromNewShift:
             if pJob.PConfigID != 0 and pJob.IsPConfigMain == True:
                 for tVariant in self.Job.PConfigJobs:
@@ -169,8 +160,6 @@ class RTWorkingEvent:
                 
             if not pJob is None:
                 MdlGlobal.RecordError(type(self).__name__ + '.Create:', str(0), error.args[0], 'JobID: ' + str(pJob.ID))
-            
-
             
         RstCursor = None
         tChildJob = None
@@ -216,19 +205,6 @@ class RTWorkingEvent:
         
         self.Create(tEvent.Machine, tEvent.EventDistributionID, tEvent.Descr, self.Job, True)
         
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
         if Err.Number != 0:
             MdlGlobal.RecordError(type(self).__name__ + '.CloseAndCreateForNewShift:', str(0), error.args[0], 'EventID: ' + self.ID + '. New ShiftID: ' + pNewShiftID)
 
@@ -265,25 +241,18 @@ class RTWorkingEvent:
 
     def Refresh(self, pEventDistributionID=0):
         
-        
-        if not ( IsMissing(pEventDistributionID) ) :
-            self.EventDistributionID = pEventDistributionID
-            
-            
-            
-            
-            
-            
-            
-            
-        if Err.Number != 0:
+        try:
+            if pEventDistributionID:
+                self.EventDistributionID = pEventDistributionID
+        except:
+            pass
 
 
     def GetAlarmsParamsIDs(self, pAlarms):
         returnVal = None
         tAlarm = Alarm()
 
-        tVariant = Variant()
+        tVariant = None
 
         tParamsIDs = ''
 
@@ -307,7 +276,7 @@ class RTWorkingEvent:
         returnVal = None
         tAlarm = Alarm()
 
-        tVariant = Variant()
+        tVariant = None
 
         tParamsNames = ''
 
