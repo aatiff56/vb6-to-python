@@ -138,7 +138,7 @@ def GetRefMachineIDForRefControllerField(FieldName):
 
     try:
         tArray = FieldName.split('.')
-        tArray[0] = tArray[0].replace( 'M', '')
+        tArray[0] = tArray[0].replace('M', '')
         tMachineID = int(tArray[0])
         returnVal = tMachineID
     except:
@@ -152,11 +152,14 @@ def GetRefFieldNameForRefControllerField(FieldName):
     tArray = []
     tFieldName = ''
 
-    tArray = FieldName.split('.')
-    tFieldName = tArray[1]
-    returnVal = tFieldName
-    if Err.Number != 0:
-        Err.Clear()
+    try:
+        tArray = FieldName.split('.')
+        tFieldName = tArray[1]
+        returnVal = tFieldName
+
+    except:
+        pass
+
     return returnVal
 
 

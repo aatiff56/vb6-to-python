@@ -4,6 +4,7 @@ from ControlParam import ControlParam
 from Job import Job
 from Josh import Josh
 from RTEvent import RTEvent
+from DataSample import DataSampleIntervalUnit
 
 import mdl_Common
 import MdlADOFunctions
@@ -14,6 +15,8 @@ import MdlDataSample
 import MdlRTControllerFieldActions
 import MdlOnlineTasks
 import MdlRTWorkOrder
+import MdlRTInventory
+import MdlValidation
 
 class Machine:
     __mID = 0
@@ -190,7 +193,7 @@ class Machine:
     __mCalcDelayPassed = False
     __mStartCalcAfterDelayInSeconds = 0
     __mUnitsInCycleType = 0
-    __mValidations = []
+    __mValidations = {}
     __mLocationBatchChangeSetupModeID = 0
     __mLocationBatchChangeSetupValue = 0
     __mActivePalletInventoryID = 0
@@ -230,7 +233,7 @@ class Machine:
     def INITMachine(self, MachineID, vOpcServer):
         returnVal = None
         strSQL = ''
-        Rst = None
+        RstCursor = None
         rVal = 0
         strGroupName = ''
         ChannelSplits = 0
@@ -458,19 +461,20 @@ class Machine:
             rVal = self.__ControllerFieldsLoad(self.__mControllerID)
 
             if self.ActiveJobID > 0:
+                print(Fore.GREEN + 'Loading Job.')
                 self.JobLoad(self.ActiveJobID, False, False, True)
-                strSQL = 'Delete TblJobCurrent Where MachineID = ' + str(self.__mID) + ' AND ID <> ' + self.__mActiveJobID + ' AND PConfigParentID <> ' + self.__mActiveJobID
+                strSQL = 'Delete TblJobCurrent Where MachineID = ' + str(self.__mID) + ' AND ID <> ' + str(self.__mActiveJobID) + ' AND PConfigParentID <> ' + str(self.__mActiveJobID)
                 MdlConnection.CN.execute(strSQL)
                 
                             
             if self.__mActiveJobID > 0:
                 MdlOnlineTasks.fInitMachineTriggers(self, self.__mActiveJobID, True)
             else:
-                MdlOnlineTasks.fInitMachineTriggers(self, VBGetMissingArgument(MdlOnlineTasks.fInitMachineTriggers, 1), True)
+                MdlOnlineTasks.fInitMachineTriggers(self, 0, True)
             
-            LoadMachineValidations(self)
+            MdlValidation.LoadMachineValidations(self)
             
-            CheckIfDosingSystem
+            self.CheckIfDosingSystem()
             self.__mUPDController = True
             self.__mIgnoreCycleTimeFilter = False
             returnVal = True
@@ -485,15 +489,15 @@ class Machine:
                     MdlConnection.Close(MdlConnection.MetaCn)
                 MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
 
-        if RstCursor:
-            RstCursor.close()
-        RstCursor = None
+        # if RstCursor:
+        #     RstCursor.close()
+        # RstCursor = None
 
-        if validateRstCursor:
-            validateRstCursor.close()
-        validateRstCursor = None
-        tControllerChannel = None
+        # if validateRstCursor:
+        #     validateRstCursor.close()
+        # validateRstCursor = None
         
+        tControllerChannel = None
         return returnVal
         
 
@@ -540,9 +544,9 @@ class Machine:
         temp = ''
         strItemID = ''
         strGroupName = ''
-        Rst = None
+        RstCursor = None
         tControlParam = None
-        vParam = [None]
+        vParam = None
         ParamFound = False
         rVal = 0
         Counter = 0
@@ -967,8 +971,9 @@ class Machine:
             for RstData in RstValues:
                 temp = RstData.FieldName
                 ParamFound = False
-                if self.GetParam(temp, vParam) == True:
-                    self.__mMainList[vParam[0].FName] = vParam[0]
+                vParam = self.GetParam(temp)
+                if vParam:
+                    self.__mMainList[vParam.FName] = vParam
             RstCursor.close()
             
             strSQL = 'Select * From TblControllerFields Where ControllerID = ' + str(self.__mControllerID) + ' AND  AssertOnControllerPage > 0 Order BY AssertOnControllerPage'
@@ -979,8 +984,9 @@ class Machine:
             for RstData in RstValues:
                 temp = RstData.FieldName
                 ParamFound = False
-                if self.GetParam(temp, vParam) == True:
-                    self.__mControllerList[vParam[0].FName] = vParam[0]
+                vParam = self.GetParam(temp)
+                if vParam:
+                    self.__mControllerList[vParam.FName] = vParam
             RstCursor.close()
             
             strSQL = 'Select * From TblControllerFields Where ControllerID = ' + str(self.__mControllerID) + ' AND  AssertOnChannelPage > 0 Order BY AssertOnChannelPage'
@@ -991,8 +997,9 @@ class Machine:
             for RstData in RstValues:
                 temp = RstData.FieldName
                 ParamFound = False
-                if self.GetParam(temp, vParam) == True:
-                    self.__mChannelList[vParam[0].FName] = vParam[0]
+                vParam = self.GetParam(temp)
+                if vParam:
+                    self.__mChannelList[vParam.FName] = vParam
             RstCursor.close()
             
             print(Fore.GREEN + "Loading Conditional Controller Fields.")
@@ -1211,7 +1218,7 @@ class Machine:
         fCheckMachineTriggers(self)
         returnVal = True
         if Err.Number != 0:
-            RecordError('Machine:fReadMainData', '' + Err.Number, '' + Err.Description, 'MID = ' + self.str(__mID))
+            MdlGlobal.RecordError('Machine:fReadMainData', '' + Err.Number, '' + Err.Description, 'MID = ' + self.str(__mID))
             Err.Clear()
             
         
@@ -1332,7 +1339,7 @@ class Machine:
                 MetaCn.Open()
                 Err.Clear()
                 
-            RecordError('Machine:fWriteMainData', '' + Err.Number, '' + Err.Description, 'MID = ' + self.str(__mID))
+            MdlGlobal.RecordError('Machine:fWriteMainData', '' + Err.Number, '' + Err.Description, 'MID = ' + self.str(__mID))
             Err.Clear()
             
         tParam = None
@@ -1350,7 +1357,7 @@ class Machine:
             if tParam.RejectReasonID > 0:
                 LDStat = self.__mCParams.Item(tCounter).CalcRejectsRead()
         if Err.Number != 0:
-            RecordError('Machine:CalcAutomaticRejects', '' + Err.Number, '' + Err.Description, 'MachineID = ' + self.ID)
+            MdlGlobal.RecordError('Machine:CalcAutomaticRejects', '' + Err.Number, '' + Err.Description, 'MachineID = ' + self.ID)
             Err.Clear()
 
     def UpdateMachineStatus(self):
@@ -1376,7 +1383,7 @@ class Machine:
                 MetaCn.Open()
                 Err.Clear()
                 
-            RecordError('Machine:UpdateMachineStatus', '' + Err.Number, '' + Err.Description, 'MachineID = ' + self.ID)
+            MdlGlobal.RecordError('Machine:UpdateMachineStatus', '' + Err.Number, '' + Err.Description, 'MachineID = ' + self.ID)
             Err.Clear()
 
     def UpdateParamLimits(self, FName, dMean, dPUCL, dPLCL, dQUCL, dQLCL, UpdateRecipe=False):
@@ -1438,7 +1445,7 @@ class Machine:
 
         tWorkingEvent = None
 
-        Rst = None
+        RstCursor = None
 
         tEngineEvent = RTEngineEvent()
 
@@ -1586,7 +1593,7 @@ class Machine:
                             strSQL = strSQL + 'SELECT TOP 1 EventGroupID, EventReasonID' + vbCrLf
                             strSQL = strSQL + 'FROM ViewNotificationsOpenCalls' + vbCrLf
                             strSQL = strSQL + 'WHERE SentTime >= DateAdd(d, -7, CONVERT(VarChar(10), GETDATE(), 121))' + vbCrLf
-                            strSQL = strSQL + 'AND SourceMachineID = ' + self.ID + ' AND EventReasonID > 0' + vbCrLf
+                            strSQL = strSQL + 'AND SourceMachineID = ' + str(self.ID) + ' AND EventReasonID > 0' + vbCrLf
                             strSQL = strSQL + 'ORDER BY SentTime DESC'
                             Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
                             Rst.ActiveConnection = None
@@ -1597,7 +1604,7 @@ class Machine:
                             RstCursor.close()
                         if self.GetParam('LastEventID', tParam) == True and self.ProductionModeID < 2 and not ActiveServiceCall:
                             if MdlADOFunctions.fGetRstValLong(tParam.LastValue) != 0 and tParam.IOStatus == 1:
-                                EventID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('EventID', 'STblEventDesrControllerValues', 'MachineID = ' + self.ID + ' AND ControllerValue = ' + MdlADOFunctions.fGetRstValLong(tParam.LastValue), 'CN'))
+                                EventID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('EventID', 'STblEventDesrControllerValues', 'MachineID = ' + str(self.ID) + ' AND ControllerValue = ' + MdlADOFunctions.fGetRstValLong(tParam.LastValue), 'CN'))
                                 if EventID != 0:
                                     EventGroupID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('EventGroupID', 'STblEventDesr', 'ID = ' + EventID, 'CN'))
                                     if self.ActiveJob.OpenEvent is None:
@@ -1655,7 +1662,7 @@ class Machine:
                 else:
                     if self.GetParam('LastEventID', tParam) == True and self.NewJob == False and self.ProductionModeID < 2:
                         if MdlADOFunctions.fGetRstValLong(tParam.LastValue) != 0 and tParam.IOStatus == 1:
-                            EventID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('EventID', 'STblEventDesrControllerValues', 'MachineID = ' + self.ID + ' AND ControllerValue = ' + MdlADOFunctions.fGetRstValLong(tParam.LastValue), 'CN'))
+                            EventID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('EventID', 'STblEventDesrControllerValues', 'MachineID = ' + str(self.ID) + ' AND ControllerValue = ' + MdlADOFunctions.fGetRstValLong(tParam.LastValue), 'CN'))
                             if EventID != 0:
                                 EventGroupID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('EventGroupID', 'STblEventDesr', 'ID = ' + EventID, 'CN'))
                                 if not self.ActiveJob.OpenEvent is None:
@@ -1749,7 +1756,7 @@ class Machine:
                 MetaCn.Open()
                 Err.Clear()
                 
-            RecordError('Machine:CalculateStatus', '' + Err.Number, '' + Err.Description, 'MachineID = ' + self.str(__mID))
+            MdlGlobal.RecordError('Machine:CalculateStatus', '' + Err.Number, '' + Err.Description, 'MachineID = ' + self.str(__mID))
             Err.Clear()
             
             
@@ -1759,7 +1766,7 @@ class Machine:
         tChildJob = None
         if Rst.State == 1:
             RstCursor.close()
-        Rst = None
+        RstCursor = None
         return returnVal
 
 
@@ -3227,7 +3234,7 @@ class Machine:
         self.__mMainListXML = '<Machine' + str(self.__mID) + '>' + vbCrLf + strSpecial + strXML + '</Machine' + str(self.__mID) + '>' + vbCrLf
         strSpecial = ''
         if Err.Number != 0:
-            RecordError('Machine:XMLMainCalc', str(Err.Number), Err.Description, '')
+            MdlGlobal.RecordError('Machine:XMLMainCalc', str(Err.Number), Err.Description, '')
             Err.Clear()
             
         return returnVal
@@ -3261,7 +3268,7 @@ class Machine:
 
         tParam = None
 
-        Rst = None
+        RstCursor = None
         
         for Counter in range(0, self.__mControllerList.Count):
             tParam = self.__mControllerList.Item(Counter)
@@ -3291,12 +3298,12 @@ class Machine:
                 MetaCn.Open()
                 Err.Clear()
                 
-            RecordError('Machine:XMLControllerCalc', str(Err.Number), Err.Description, '')
+            MdlGlobal.RecordError('Machine:XMLControllerCalc', str(Err.Number), Err.Description, '')
             Err.Clear()
             
         if Rst.State != 0:
             RstCursor.close()
-        Rst = None
+        RstCursor = None
         return returnVal
 
     def XMLController(self):
@@ -3315,7 +3322,7 @@ class Machine:
 
         tParam = None
 
-        Rst = None
+        RstCursor = None
         
         for Counter in range(0, self.__mChannelList.Count):
             tParam = self.__mChannelList.Item(Counter)
@@ -3337,12 +3344,12 @@ class Machine:
                 MetaCn.Open()
                 Err.Clear()
                 
-            RecordError('Machine:XMLChannelCalc', str(Err.Number), Err.Description, '')
+            MdlGlobal.RecordError('Machine:XMLChannelCalc', str(Err.Number), Err.Description, '')
             Err.Clear()
             
         if Rst.State != 0:
             RstCursor.close()
-        Rst = None
+        RstCursor = None
         return returnVal
 
     def XMLChannel(self):
@@ -3361,7 +3368,7 @@ class Machine:
 
         tParam = None
 
-        Rst = None
+        RstCursor = None
 
         temp = ''
 
@@ -3376,8 +3383,8 @@ class Machine:
         for Counter in range(0, self.__mAlarmsOnCount):
             if self.__mAlarmsParamCount(Counter) > 0:
                 temp = self.__mAlarmsParams(Counter)
-                if self.GetParam(temp, tParam) == True:
-                    
+                tParam = self.GetParam(temp)
+                if tParam:
                     strXML = strXML + tParam.AlarmXML()
         
         AlarmsXML = XmlHeader + vbCrLf + '<Alarms>' + vbCrLf + strSpecial + strXML + '</Alarms>' + vbCrLf
@@ -3399,18 +3406,18 @@ class Machine:
                 MetaCn.Open()
                 Err.Clear()
                 
-            RecordError('Machine:XMLAlarmCalc', str(Err.Number), Err.Description, '')
+            MdlGlobal.RecordError('Machine:XMLAlarmCalc', str(Err.Number), Err.Description, '')
             Err.Clear()
             
         if Rst.State != 0:
             RstCursor.close()
-        Rst = None
+        RstCursor = None
         return returnVal
 
     def JobLoad(self, JobID, ResetTotals, UpdateController=True, FromINITMachine=False, pFromActivateJob=True):
         returnVal = None
         TRst = None
-        Rst = None
+        RstCursor = None
         strSQL = ''
         strTemp = ''
         temp = ''
@@ -3442,7 +3449,6 @@ class Machine:
         tChildJob = None
         Counter2 = None
         tBatchParam = None
-        ErrCounter = 0
 
         try:
             if self.ID == 38:
@@ -3566,26 +3572,31 @@ class Machine:
                         self.SetFieldValue('Cnl1IsActive', '1')
                     else:
                         self.SetFieldValue('Cnl1IsActive', '0')
-                print('Exit Function JobLoad: JobID=' + str(JobID) + ' | ' + mdl_Common.NowGMT())
+                print(Fore.GREEN + 'Exit Function JobLoad: JobID=' + str(JobID) + ' | ' + mdl_Common.NowGMT())
                 return returnVal
             returnVal = False
             
             if pFromActivateJob or FromINITMachine:
                 tJob = Job()
+                print(Fore.GREEN + 'Initializing Job.')
                 tJob.Init(self, JobID, True, FromINITMachine)                
             else:
                 tJob = self.ActiveJob                
+                print(Fore.GREEN + 'Refreshing Job.')
                 tJob.Refresh()
                 
             self.ActiveJob = tJob
             self.ActiveJoshID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ID', 'TblJoshCurrent', 'JobID = ' + str(JobID) + ' AND ShiftID = ' + str(self.Server.CurrentShiftID), 'CN'))
             tJosh = Josh()
+            print(Fore.GREEN + 'Initializing Josh.')
             tJosh.Init(tJob, self.ActiveJoshID)
 
             self.ActiveJob.ActiveJosh = tJosh
             self.ActiveJobID = self.ActiveJob.ID
             self.ActiveJosh = tJosh
             self.ActiveJoshID = self.ActiveJosh.ID
+
+            print(Fore.GREEN + 'Initializing Controller Channels.')
             self.ActiveJob.InitControllerChannels(self.ActiveJosh.ID, pFromActivateJob)
             if self.ActiveJob.PConfigID != 0:
                 for tVariant in self.ActiveJob.PConfigJobs:
@@ -3620,7 +3631,8 @@ class Machine:
 
             for TRstData in TRstValues:
                 temp = TRstData.FieldName
-                if self.GetParam(temp, tParam) == True:
+                tParam = self.GetParam(temp)
+                if tParam:
                     if not FromINITMachine and pFromActivateJob:
                         tParam.FirstReadInCurrentJob = True
                     
@@ -3637,14 +3649,13 @@ class Machine:
                         self.__mCycleTimeStandard = MdlADOFunctions.fGetRstValDouble(TRstData.TargetValue)
                         
                     elif (temp == 'UnitsTarget'):
-                        
                         tParam.LastValue = UnitsTarget
                     
-                    strUCL = '' + MdlADOFunctions.fGetRstValDouble(TRstData.HValue)
-                    strLCL = '' + MdlADOFunctions.fGetRstValDouble(TRstData.LValue)
-                    strQUCL = '' + MdlADOFunctions.fGetRstValDouble(TRstData.HHValue)
-                    strQLCL = '' + MdlADOFunctions.fGetRstValDouble(TRstData.LLValue)
-                    strMean = '' + TRstData.TargetValue
+                    strUCL = str(MdlADOFunctions.fGetRstValDouble(TRstData.HValue))
+                    strLCL = str(MdlADOFunctions.fGetRstValDouble(TRstData.LValue))
+                    strQUCL = str(MdlADOFunctions.fGetRstValDouble(TRstData.HHValue))
+                    strQLCL = str(MdlADOFunctions.fGetRstValDouble(TRstData.LLValue))
+                    strMean = str(TRstData.TargetValue)
                     if tParam.FName == 'TotalCycles':
                         tParam.FName = tParam.FName
                     
@@ -3685,7 +3696,7 @@ class Machine:
                         tParam.RejectsALast = tParam.RejectsA
 
             TRstCursor.close()
-            if ResetTotals() == True:
+            if ResetTotals == True:
                 if UpdateController == True:
                     for i in range(0, self.__mResetTotals.Count):
                         rParam = self.__mResetTotals.Item(i)
@@ -3716,8 +3727,9 @@ class Machine:
                 self.SetFieldValue('Cnl1IsActive', '0')
             temp = 'MachineID'
 
-            if self.GetParam(temp, tParam) == True:
-                tParam = self.__mCParams.Item(temp)
+            tParam = self.GetParam(temp)
+            if tParam:
+                tParam = self.__mCParams[temp]
                 tParam.LastValue = self.__mID
 
             if self.UpdateAddressOnJobActive == True:
@@ -3731,7 +3743,7 @@ class Machine:
             RstCursor.execute(strSQL)
             RstData = RstCursor.fetchone()
 
-            if JobID > 0 and ResetTotals() == True:
+            if JobID > 0 and ResetTotals == True:
                 if RstData.SetUpEnd:
                     self.__mNewJob = False
                 else:                    
@@ -3760,10 +3772,15 @@ class Machine:
             
             self.FireEventTriggeredTasks(1)
             if FromINITMachine == False and pFromActivateJob:
-                
                 self.CreateActivePallet(2, self.ActiveJob.MachineType.ActivePalletCreationBy)
 
             returnVal = True
+
+            # if TRstCursor:
+            #     TRstCursor.close()
+
+            # if RstCursor:
+            #     RstCursor.close()
 
         except BaseException as error:
             if 'nnection' in error.args[0]:
@@ -3782,21 +3799,17 @@ class Machine:
             else:
                 ErrCounter = ErrCounter + 1
                 
-        if TRst.State != 0:
-            TRst.close()
-        TRst = None
-        if Rst.State != 0:
-            RstCursor.close()
+            TRstCursor = None
+            RstCursor = None
+            tParam = None
+            rParam = None
+            tBatchParam = None
+            tJob = None
+            tJosh = None
+            tEvent = None
+            tChannel = None
+            tChildJob = None
 
-        Rst = None
-        tParam = None
-        rParam = None
-        tBatchParam = None
-        tJob = None
-        tJosh = None
-        tEvent = None
-        tChannel = None
-        tChildJob = None
         return returnVal
 
     def GetFieldValue(self, FieldName, ValType='LastValue'):
@@ -3879,10 +3892,7 @@ class Machine:
             Err.Clear()
         return returnVal
 
-    def GetParam(self, FieldName, vParam):
-        returnVal = False
-        tParam = None
-        bParam = None
+    def GetParam(self, FieldName):
         Counter = 0
         BCounter = 0
         BatchCount = 0
@@ -3890,23 +3900,17 @@ class Machine:
         try:
             for tParam in self.__mCParams.values():
                 if tParam.FName == FieldName:
-                    vParam[0] = tParam
-                    returnVal = True
-                    return returnVal
+                    return tParam
 
-                if not ( tParam.BatchParams is None ):
-                    BatchCount = len(tParam.BatchParams)
-                    if BatchCount > 0:
-                        for bParam in self.__mCParams.values():
+                if tParam.BatchParams:
+                    if len(tParam.BatchParams) > 0:
+                        for bParam in tParam.BatchParams.values():
                             if bParam.FName == FieldName:
-                                vParam[0] = bParam
-                                returnVal = True
-                                return returnVal
+                                return bParam
+        
         except BaseException as error:
-            tParam = None
-            bParam = None
+            return None
 
-        return returnVal
 
     def ShrinkData(self, IgnoreInterval):
         returnVal = None
@@ -3935,7 +3939,7 @@ class Machine:
                     self.__mBatchTrigerP.BatchParams.Item(Counter).ShrinkData(self.ActiveJob.ID, str(self.__mActiveLocalID), self.__mID, int(self.ActiveJob.Mold.ID), self.ActiveJob.Product.ID, StartTime, EndTime, self.__mStatus)
         self.__mLastShrinkTime = mdl_Common.NowGMT()
         if Err.Number != 0:
-            RecordError('Machine:ShrinkData', '' + Err.Number, '' + Err.Description, 'MID = ' + self.str(__mID))
+            MdlGlobal.RecordError('Machine:ShrinkData', '' + Err.Number, '' + Err.Description, 'MID = ' + self.str(__mID))
             Err.Clear()
             
         return returnVal
@@ -4078,7 +4082,7 @@ class Machine:
 
     def fClearControllerFields(self):
         returnVal = None
-        Rst = None
+        RstCursor = None
 
         strSQL = ''
         
@@ -4108,7 +4112,7 @@ class Machine:
                 
         if Rst.State != 0:
             RstCursor.close()
-        Rst = None
+        RstCursor = None
         return returnVal
 
     def TotalWeightChannelLet(self, the_mTotalWeightChannel, ChannelNum, UpdateTable, UpdateLast):
@@ -4152,7 +4156,7 @@ class Machine:
 
         strGroupName = ''
 
-        Rst = None
+        RstCursor = None
 
         tControlParam = None
 
@@ -4204,12 +4208,12 @@ class Machine:
                 MetaCn.Open()
                 Err.Clear()
                 
-            RecordError('Machine:UpdateControllerFieldsParam', str(Err.Number), Err.Description, 'ControllerID = ' + CsID)
+            MdlGlobal.RecordError('Machine:UpdateControllerFieldsParam', str(Err.Number), Err.Description, 'ControllerID = ' + CsID)
             Err.Clear()
             
         if Rst.State != 0:
             RstCursor.close()
-        Rst = None
+        RstCursor = None
         return returnVal
 
     def ResetMachineTotalFields(self):
@@ -4221,7 +4225,7 @@ class Machine:
             tmp.LastValue = 1
         returnVal = True
         if Err.Number != 0:
-            RecordError('ResetMachineTotalFields', Err.Number, Err.Description, 'Machine = ' + self.ID)
+            MdlGlobal.RecordError('ResetMachineTotalFields', str(0), error.args[0], 'Machine = ' + self.ID)
         return returnVal
 
     def SaveJobsQueue(self):
@@ -4248,7 +4252,7 @@ class Machine:
         
         JobsToQueue = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('MachineQueueJobsNum', 'TblMachines', 'ID = ' + self.ID, 'CN'))
         if JobsToQueue > 0:
-            strSQL = 'Select TOP ' + JobsToQueue + ' ID, ProductID From TblJob Where MachineID = ' + self.ID + ' ORDER BY MachineJobOrder'
+            strSQL = 'Select TOP ' + JobsToQueue + ' ID, ProductID From TblJob Where MachineID = ' + str(self.ID) + ' ORDER BY MachineJobOrder'
             JRst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
             JRst.ActiveConnection = None
             while not JRst.EOF:
@@ -4382,7 +4386,7 @@ class Machine:
     def UpdateAlarmsFromDB(self):
         strSQL = ''
 
-        Rst = None
+        RstCursor = None
 
         tParam = None
         
@@ -4416,13 +4420,13 @@ class Machine:
                 Err.Clear()
                 
             Err.Clear()
-        Rst = None
+        RstCursor = None
         tParam = None
 
     def StartMaterialFlow(self, pJob):
         strSQL = ''
 
-        Rst = None
+        RstCursor = None
 
         tDataSample = DataSample()
 
@@ -4434,7 +4438,7 @@ class Machine:
 
         tInitialValue = 0
         
-        strSQL = 'SELECT ID, ChannelNum, SplitNum, InitialValue, JobID FROM TblMachineMaterialFlow WHERE MachineID = ' + self.ID + ' ORDER BY ChannelNum'
+        strSQL = 'SELECT ID, ChannelNum, SplitNum, InitialValue, JobID FROM TblMachineMaterialFlow WHERE MachineID = ' + str(self.ID) + ' ORDER BY ChannelNum'
         Rst.Open(strSQL, CN, adOpenDynamic, adLockOptimistic)
         while not Rst.EOF:
             tChannel = pJob.ControllerChannels.Item(str(RstData.ChannelNum))
@@ -4444,7 +4448,7 @@ class Machine:
                         if not tChannel.TotalWeight.ControllerField is None:
                             if tChannel.TotalWeight.ControllerField.CitectDeviceType == 1:
                                 tDataSample = DataSample()
-                                tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tChannel.TotalWeight.ControllerField.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), mdl_Common.NowGMT(), 'TblMachineMaterialFlow', 'Values', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
+                                tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tChannel.TotalWeight.ControllerField.FName, DataSampleIntervalUnit.DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), mdl_Common.NowGMT(), 'TblMachineMaterialFlow', 'Values', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
                                 tChannel.TotalWeight.ControllerField.DataSamples.Add(tDataSample, str(tDataSample.ID))
                                 tInitialValue = tChannel.TotalWeight.ControllerField.LastValidValue
                                 RstData.JobID = pJob.ID
@@ -4456,7 +4460,7 @@ class Machine:
                                 if self.GetParam('TotalCycles', tControlParam) == True:
                                     tDataSample = DataSample()
                                     
-                                    tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), mdl_Common.NowGMT(), 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
+                                    tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DataSampleIntervalUnit.DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), mdl_Common.NowGMT(), 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
                                     tControlParam.DataSamples.Add(tDataSample, str(tDataSample.ID))
                                     tInitialValue = tControlParam.LastValidValue
                                     RstData.JobID = pJob.ID
@@ -4468,7 +4472,7 @@ class Machine:
                             if self.GetParam('TotalCycles', tControlParam) == True:
                                 tDataSample = DataSample()
                                 
-                                tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), mdl_Common.NowGMT(), 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
+                                tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DataSampleIntervalUnit.DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), mdl_Common.NowGMT(), 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
                                 tControlParam.DataSamples.Add(tDataSample, str(tDataSample.ID))
                                 tInitialValue = tControlParam.LastValidValue
                                 RstData.JobID = pJob.ID
@@ -4482,7 +4486,7 @@ class Machine:
                                 if tSplit.TotalWeight.ControllerField.CitectDeviceType == 1:
                                     tDataSample = DataSample()
                                     
-                                    tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tSplit.TotalWeight.ControllerField.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), mdl_Common.NowGMT(), 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
+                                    tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tSplit.TotalWeight.ControllerField.FName, DataSampleIntervalUnit.DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), mdl_Common.NowGMT(), 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
                                     tSplit.TotalWeight.ControllerField.DataSamples.Add(tDataSample, str(tDataSample.ID))
                                     tInitialValue = tSplit.TotalWeight.ControllerField.LastValidValue
                                     RstData.JobID = pJob.ID
@@ -4494,7 +4498,7 @@ class Machine:
                                     if self.GetParam('TotalCycles', tControlParam) == True:
                                         tDataSample = DataSample()
                                         
-                                        tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), mdl_Common.NowGMT(), 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
+                                        tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DataSampleIntervalUnit.DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), mdl_Common.NowGMT(), 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
                                         tControlParam.DataSamples.Add(tDataSample, str(tDataSample.ID))
                                         tInitialValue = tControlParam.LastValidValue
                                         RstData.JobID = pJob.ID
@@ -4506,7 +4510,7 @@ class Machine:
                                 if self.GetParam('TotalCycles', tControlParam) == True:
                                     tDataSample = DataSample()
                                     
-                                    tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), mdl_Common.NowGMT(), 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
+                                    tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DataSampleIntervalUnit.DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), mdl_Common.NowGMT(), 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
                                     tControlParam.DataSamples.Add(tDataSample, str(tDataSample.ID))
                                     tInitialValue = tControlParam.LastValidValue
                                     RstData.JobID = pJob.ID
@@ -4526,101 +4530,98 @@ class Machine:
                 Err.Clear()
                 
             Err.Clear()
-        Rst = None
+        RstCursor = None
 
     def InitMachineMaterialFlowAfterStartup(self, pJob):
         strSQL = ''
-
-        Rst = None
-
-        tChannel = Channel()
-
-        tSplit = ChannelSplit()
-
+        RstCursor = None
+        tChannel = None
+        tSplit = None
         tControlParam = None
+        tDataSample = None
 
-        tDataSample = DataSample()
-        
-        strSQL = 'SELECT ID, ChannelNum, SplitNum, InitialValue FROM TblMachineMaterialFlow WHERE MachineID = ' + self.ID + ' ORDER BY ChannelNum'
-        Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-        Rst.ActiveConnection = None
-        while not Rst.EOF:
-            tChannel = pJob.ControllerChannels.Item(str(RstData.ChannelNum))
-            if not tChannel is None:
-                if ( MdlADOFunctions.fGetRstValLong(RstData.SplitNum) == 0 and tChannel.SplitsCounter == 0 ) or ( MdlADOFunctions.fGetRstValLong(RstData.SplitNum) > 0 and tChannel.SplitsCounter > 0 ) :
-                    if tChannel.SplitsCounter == 0:
-                        tControlParam = None
-                        if not tChannel.TotalWeight.ControllerField is None:
-                            tControlParam = tChannel.TotalWeight.ControllerField
-                            if tControlParam.CitectDeviceType == 1:
-                                tDataSample = DataSample()
-                                
-                                tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), pJob.NextJobMaterialFlowStart, 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
-                                tDataSample.AddValue(RstData.InitialValue, pJob.NextJobMaterialFlowStart)
-                                tControlParam.DataSamples.Add(tDataSample, str(tDataSample.ID))
-                                tChannel.MaterialFlowForNextJob = True
+        try:
+            strSQL = 'SELECT ID, ChannelNum, SplitNum, InitialValue FROM TblMachineMaterialFlow WHERE MachineID = ' + str(self.ID) + ' ORDER BY ChannelNum'
+            RstCursor = MdlConnection.CN.cursor()
+            RstCursor.execute(strSQL)
+            RstValues = RstCursor.fetchall()
+
+            for RstData in RstValues:
+                tChannel = pJob.ControllerChannels[str(RstData.ChannelNum)]
+                if not tChannel is None:
+                    if ( MdlADOFunctions.fGetRstValLong(RstData.SplitNum) == 0 and tChannel.SplitsCounter == 0 ) or ( MdlADOFunctions.fGetRstValLong(RstData.SplitNum) > 0 and tChannel.SplitsCounter > 0 ) :
+                        if tChannel.SplitsCounter == 0:
+                            tControlParam = None
+                            if not tChannel.TotalWeight.ControllerField is None:
+                                tControlParam = tChannel.TotalWeight.ControllerField
+                                if tControlParam.CitectDeviceType == 1:
+                                    tDataSample = DataSample()
+                                    
+                                    tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DataSampleIntervalUnit.DS_SpecificTimestamp, DS_Diff, None, None, pJob.NextJobMaterialFlowStart, 'TblMachineMaterialFlow', 'Value', 'ID = ' + str(MdlADOFunctions.fGetRstValLong(RstData.ID)))
+                                    tDataSample.AddValue(RstData.InitialValue, pJob.NextJobMaterialFlowStart)
+                                    tControlParam.DataSamples[str(tDataSample.ID)] = tDataSample
+                                    tChannel.MaterialFlowForNextJob = True
+                                else:
+                                    tControlParam = None
+                                    if self.GetParam('TotalCycles', tControlParam) == True:
+                                        tDataSample = DataSample()
+                                        
+                                        tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DataSampleIntervalUnit.DS_SpecificTimestamp, DS_Diff, None, None, pJob.NextJobMaterialFlowStart, 'TblMachineMaterialFlow', 'Value', 'ID = ' + str(MdlADOFunctions.fGetRstValLong(RstData.ID)))
+                                        tDataSample.AddValue(RstData.InitialValue, pJob.NextJobMaterialFlowStart)
+                                        tControlParam.DataSamples[str(tDataSample.ID)] = tDataSample
+                                        tChannel.MaterialFlowForNextJob = True
                             else:
                                 tControlParam = None
                                 if self.GetParam('TotalCycles', tControlParam) == True:
                                     tDataSample = DataSample()
                                     
-                                    tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), pJob.NextJobMaterialFlowStart, 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
+                                    tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DataSampleIntervalUnit.DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), pJob.NextJobMaterialFlowStart, 'TblMachineMaterialFlow', 'Value', 'ID = ' + str(MdlADOFunctions.fGetRstValLong(RstData.ID)))
                                     tDataSample.AddValue(RstData.InitialValue, pJob.NextJobMaterialFlowStart)
-                                    tControlParam.DataSamples.Add(tDataSample, str(tDataSample.ID))
+                                    tControlParam.DataSamples[str(tDataSample.ID)] = tDataSample
                                     tChannel.MaterialFlowForNextJob = True
                         else:
-                            tControlParam = None
-                            if self.GetParam('TotalCycles', tControlParam) == True:
-                                tDataSample = DataSample()
-                                
-                                tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), pJob.NextJobMaterialFlowStart, 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
-                                tDataSample.AddValue(RstData.InitialValue, pJob.NextJobMaterialFlowStart)
-                                tControlParam.DataSamples.Add(tDataSample, str(tDataSample.ID))
-                                tChannel.MaterialFlowForNextJob = True
-                    else:
-                        tSplit = tChannel.Splits(str(RstData.SplitNum))
-                        if not tSplit.TotalWeight.ControllerField is None:
-                            tControlParam = None
-                            tControlParam = tSplit.TotalWeight.ControllerField
-                            if tControlParam.CitectDeviceType == 1:
-                                tDataSample = DataSample()
-                                
-                                tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), pJob.NextJobMaterialFlowStart, 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
-                                tDataSample.AddValue(RstData.InitialValue, pJob.NextJobMaterialFlowStart)
-                                tControlParam.DataSamples.Add(tDataSample, str(tDataSample.ID))
-                                tSplit.MaterialFlowForNextJob = True
+                            tSplit = tChannel.Splits(str(RstData.SplitNum))
+                            if not tSplit.TotalWeight.ControllerField is None:
+                                tControlParam = None
+                                tControlParam = tSplit.TotalWeight.ControllerField
+                                if tControlParam.CitectDeviceType == 1:
+                                    tDataSample = DataSample()
+                                    
+                                    tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DataSampleIntervalUnit.DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), pJob.NextJobMaterialFlowStart, 'TblMachineMaterialFlow', 'Value', 'ID = ' + str(MdlADOFunctions.fGetRstValLong(RstData.ID)))
+                                    tDataSample.AddValue(RstData.InitialValue, pJob.NextJobMaterialFlowStart)
+                                    tControlParam.DataSamples[str(tDataSample.ID)] = tDataSample
+                                    tSplit.MaterialFlowForNextJob = True
+                                else:
+                                    tControlParam = None
+                                    if self.GetParam('TotalCycles', tControlParam) == True:
+                                        tDataSample = DataSample()
+                                        
+                                        tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DataSampleIntervalUnit.DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), pJob.NextJobMaterialFlowStart, 'TblMachineMaterialFlow', 'Value', 'ID = ' + str(MdlADOFunctions.fGetRstValLong(RstData.ID)))
+                                        tDataSample.AddValue(RstData.InitialValue, pJob.NextJobMaterialFlowStart)
+                                        tControlParam.DataSamples[str(tDataSample.ID)] = tDataSample
+                                        tSplit.MaterialFlowForNextJob = True
                             else:
                                 tControlParam = None
                                 if self.GetParam('TotalCycles', tControlParam) == True:
                                     tDataSample = DataSample()
                                     
-                                    tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), pJob.NextJobMaterialFlowStart, 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
+                                    tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DataSampleIntervalUnit.DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), pJob.NextJobMaterialFlowStart, 'TblMachineMaterialFlow', 'Value', 'ID = ' + str(MdlADOFunctions.fGetRstValLong(RstData.ID)))
                                     tDataSample.AddValue(RstData.InitialValue, pJob.NextJobMaterialFlowStart)
-                                    tControlParam.DataSamples.Add(tDataSample, str(tDataSample.ID))
+                                    tControlParam.DataSamples[str(tDataSample.ID)] = tDataSample
                                     tSplit.MaterialFlowForNextJob = True
-                        else:
-                            tControlParam = None
-                            if self.GetParam('TotalCycles', tControlParam) == True:
-                                tDataSample = DataSample()
-                                
-                                tDataSample.InitDynamic(self, MdlADOFunctions.fGetRstValLong(( RstData.ID )  * - 1), tControlParam.FName, DS_SpecificTimestamp, DS_Diff, VBGetMissingArgument(tDataSample.InitDynamic, 5), VBGetMissingArgument(tDataSample.InitDynamic, 6), pJob.NextJobMaterialFlowStart, 'TblMachineMaterialFlow', 'Value', 'ID = ' + MdlADOFunctions.fGetRstValLong(RstData.ID))
-                                tDataSample.AddValue(RstData.InitialValue, pJob.NextJobMaterialFlowStart)
-                                tControlParam.DataSamples.Add(tDataSample, str(tDataSample.ID))
-                                tSplit.MaterialFlowForNextJob = True
-            Rst.MoveNext()
-        RstCursor.close()
-        if Err.Number != 0:
-            if InStr(Err.Description, 'nnection') > 0:
-                if CN.State == 1:
-                    CN.close()
-                CN.Open()
-                if MetaCn.State == 1:
-                    MetaCn.close()
-                MetaCn.Open()
-                Err.Clear()
-                
-            Err.Clear()
-        Rst = None
+            RstCursor.close()
+
+        except BaseException as error:
+            if 'nnection' in error.args[0]:
+                if MdlConnection.CN:
+                    MdlConnection.Close(MdlConnection.CN)
+                MdlConnection.Open(MdlConnection.CN, MdlConnection.strCon)
+
+                if MdlConnection.MetaCn:
+                    MdlConnection.Close(MdlConnection.MetaCn)
+                MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
+
+        RstCursor = None
 
     def fRemoveDynamicDataSamples(self):
         returnVal = None
@@ -4643,7 +4644,7 @@ class Machine:
 
     def LoadConditionalControllerFields(self):
         strSQL = ''
-        Rst = None
+        RstCursor = None
         tControlParam = [None]
         tConditionalControlParam = [None]
         
@@ -4681,64 +4682,66 @@ class Machine:
 
 
     def FireEventTriggeredTasks(self, PEventTypeID):
-        tTaskTrigger = TaskTrigger()
-
-        tVariant = Variant()
+        tTaskTrigger = None
+        tVariant = None
         
-        for tVariant in self.mTaskTriggers:
-            tTaskTrigger = tVariant
-            if tTaskTrigger.PEventTypeID == PEventTypeID:
-                if tTaskTrigger.CheckInterval == True:
-                    tTaskTrigger.FireTrigger()
-        if Err.Number != 0:
-            RecordError(TypeName(self) + '.FireEventTriggeredTasks:', Err.Number, Err.Description, 'MachineID: ' + self.ID + '. EventTypeID: ' + PEventTypeID)
-            Err.Clear()
+        try:
+            for tVariant in self.mTaskTriggers:
+                tTaskTrigger = tVariant
+                if tTaskTrigger.PEventTypeID == PEventTypeID:
+                    if tTaskTrigger.CheckInterval == True:
+                        tTaskTrigger.FireTrigger()
+
+        except BaseException as error:
+            MdlGlobal.RecordError(type(self).__name__ + '.FireEventTriggeredTasks:', str(0), error.args[0], 'MachineID: ' + str(self.ID) + '. EventTypeID: ' + str(PEventTypeID))
 
     def CheckIfDosingSystem(self):
+        RstCursor = None
         strSQL = ''
 
-        Rst = None
-        
-        strSQL = 'SELECT ID FROM TblDS WHERE MachineID = ' + self.ID
-        Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-        Rst.ActiveConnection = None
-        if Rst.RecordCount > 0:
-            self.IsDosingSystem = True
-        RstCursor.close()
-        if Err.Number != 0:
-            if InStr(Err.Description, 'nnection') > 0:
-                if CN.State == 1:
-                    CN.close()
-                CN.Open()
-                if MetaCn.State == 1:
-                    MetaCn.close()
-                MetaCn.Open()
-                Err.Clear()
+        try:
+            strSQL = 'SELECT ID FROM TblDS WHERE MachineID = ' + str(self.ID)
+            RstCursor = MdlConnection.CN.cursor()
+            RstCursor.execute(strSQL)
+            RstData = RstCursor.fetchone()
+
+            if RstData:
+                self.IsDosingSystem = True
+            RstCursor.close()
+
+        except BaseException as error:
+            if 'nnection' in error.args[0]:
+                if MdlConnection.CN:
+                    MdlConnection.Close(MdlConnection.CN)
+                MdlConnection.Open(MdlConnection.CN, MdlConnection.strCon)
+
+                if MdlConnection.MetaCn:
+                    MdlConnection.Close(MdlConnection.MetaCn)
+                MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
                 
-            RecordError(TypeName(self) + '.CheckIfDosingSystem:', Err.Number, Err.Description, 'MachineID: ' + self.ID)
-            Err.Clear()
-        Rst = None
+            MdlGlobal.RecordError(type(self).__name__ + '.CheckIfDosingSystem:', str(0), error.args[0], 'MachineID: ' + str(self.ID))
+
+        RstCursor = None
 
     def CreateActivePallet(self, pActivePalletCreationModeID, pActivePalletCreationBy):
         tNewInventoryID = 0
-        
-        if (pActivePalletCreationBy == 1):
-            if self.ActivePalletCreationModeID == pActivePalletCreationModeID:
-                
-                if self.ActivePalletInventoryID != 0:
-                    CloseActivePalletInventoryItem(self)
-                CreateActivePalletInventortyItem(self)
-        elif (pActivePalletCreationBy == 2):
-            if self.ActiveJob.Product.ActivePalletCreationModeID == pActivePalletCreationModeID:
-                
-                if self.ActivePalletInventoryID != 0:
-                    CloseActivePalletInventoryItem(self)
-                CreateActivePalletInventortyItem(self)
-        
-        self.FireEventTriggeredTasks(5)
-        if Err.Number != 0:
-            RecordError(TypeName(self) + '.CreateActivePallet:', Err.Number, Err.Description, 'MachineID: ' + self.ID)
-            Err.Clear()
+        try:
+            if (pActivePalletCreationBy == 1):
+                if self.ActivePalletCreationModeID == pActivePalletCreationModeID:
+                    
+                    if self.ActivePalletInventoryID != 0:
+                        MdlRTInventory.CloseActivePalletInventoryItem(self)
+                    MdlRTInventory.CreateActivePalletInventortyItem(self)
+            elif (pActivePalletCreationBy == 2):
+                if self.ActiveJob.Product.ActivePalletCreationModeID == pActivePalletCreationModeID:
+                    
+                    if self.ActivePalletInventoryID != 0:
+                        MdlRTInventory.CloseActivePalletInventoryItem(self)
+                    MdlRTInventory.CreateActivePalletInventortyItem(self)        
+            self.FireEventTriggeredTasks(5)
+
+        except BaseException as error:
+            MdlGlobal.RecordError(type(self).__name__ + '.CreateActivePallet:', str(0), error.args[0], 'MachineID: ' + self.ID)
 
     def WriteProdutionParametersToHistory(self):
         returnVal = None
@@ -4768,7 +4771,7 @@ class Machine:
 
         BatchParams = Dictionary()
 
-        Rst = None
+        RstCursor = None
 
         SourceFieldName = ''
 
@@ -4845,12 +4848,6 @@ class Machine:
         strINSERT = strINSERT + ', \'' + ShortDate(self.Server.CurrentShift.StartTime, True, True, True) + '\''
         if not BatchParams is None:
             for tVariant in BatchParams.keys:
-                
-                
-                
-                
-                
-                
                 if BatchParams.Item(tVariant) != '':
                     if (tVariant == 'PEE') or (tVariant == 'EfficiencyTotal'):
                         if IsDoubleNull(self.ActiveJosh.CycleTimeEfficiency) or IsDoubleNull(self.ActiveJosh.RejectsEfficiency) or IsDoubleNull(self.ActiveJosh.CavitiesEfficiency) or IsDoubleNull(self.ActiveJosh.DownTimeEfficiency) or IsDoubleNull(self.ActiveJosh.DownTimeEfficiencyOEE):
@@ -4886,7 +4883,7 @@ class Machine:
                 MetaCn.Open()
                 Err.Clear()
                 
-            RecordError('LeaderRT:WriteProdutionParametersToHistory', str(Err.Number), Err.Description, '')
+            MdlGlobal.RecordError('LeaderRT:WriteProdutionParametersToHistory', str(Err.Number), Err.Description, '')
             Err.Clear()
         tParam = None
         tVariant = None
@@ -4923,16 +4920,6 @@ class Machine:
         RepeatEveryShift = False
         
         returnVal = False
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
         
         MachineName = self.EName
         tSQL = 'SELECT * FROM ViewShiftMachineProductionDetailsFixed WHERE MachineID = ' + self.ID
@@ -5009,7 +4996,7 @@ class Machine:
         returnVal = None
         strSQL = ''
 
-        Rst = None
+        RstCursor = None
 
         AlarmExists = False
         
@@ -5017,9 +5004,9 @@ class Machine:
         AlarmExists = False
         if ControllerFieldID == 0:
             if RepeatEveryShift:
-                strSQL = 'SELECT * FROM TblSystemAlarms WHERE TemplateID = ' + TemplateID + ' AND MachineID = ' + self.ID + ' AND ShiftID = ' + self.Server.CurrentShiftID + ' AND SystemAlarmID = ' + SystemAlarmID
+                strSQL = 'SELECT * FROM TblSystemAlarms WHERE TemplateID = ' + TemplateID + ' AND MachineID = ' + str(self.ID) + ' AND ShiftID = ' + self.Server.CurrentShiftID + ' AND SystemAlarmID = ' + SystemAlarmID
             else:
-                strSQL = 'SELECT * FROM TblSystemAlarms WHERE TemplateID = ' + TemplateID + ' AND MachineID = ' + self.ID + ' AND SystemAlarmID = ' + SystemAlarmID
+                strSQL = 'SELECT * FROM TblSystemAlarms WHERE TemplateID = ' + TemplateID + ' AND MachineID = ' + str(self.ID) + ' AND SystemAlarmID = ' + SystemAlarmID
             Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
             Rst.ActiveConnection = None
             if Rst.RecordCount != 0:
@@ -5073,7 +5060,7 @@ class Machine:
             Err.Clear()
         if Rst.State != 0:
             RstCursor.close()
-        Rst = None
+        RstCursor = None
         return returnVal
 
     def CalculateEventDistributionID(self):
@@ -5259,7 +5246,7 @@ class Machine:
                 MetaCn.Open()
                 Err.Clear()
                 
-            RecordError('Machine:UpdateMachineStatusTime', '' + Err.Number, '' + Err.Description, 'MachineID = ' + self.ID)
+            MdlGlobal.RecordError('Machine:UpdateMachineStatusTime', '' + Err.Number, '' + Err.Description, 'MachineID = ' + self.ID)
             Err.Clear()
 
     def UpdateShiftMachineCycleTime(self, ShiftID, FirstCycle=False, LastCycle=False):
@@ -5286,7 +5273,7 @@ class Machine:
                     strSQL = strSQL + ',LastCycleTime' + vbCrLf
                 strSQL = strSQL + ') VALUES (' + vbCrLf
                 strSQL = strSQL + ShiftID + vbCrLf
-                strSQL = strSQL + ',' + self.ID + vbCrLf
+                strSQL = strSQL + ',' + str(self.ID) + vbCrLf
                 if FirstCycle:
                     strSQL = strSQL + ',\'' + Format(mdl_Common.NowGMT()(), 'yyyy-mm-dd HH:nn:ss') + '\'' + vbCrLf
                 if LastCycle:
@@ -5319,7 +5306,7 @@ class Machine:
                 MetaCn.Open()
                 Err.Clear()
                 
-            RecordError('Machine:UpdateShiftMachineCycleTime', '' + Err.Number, '' + Err.Description, 'MachineID = ' + self.ID + ', ShiftID = ' + ShiftID)
+            MdlGlobal.RecordError('Machine:UpdateShiftMachineCycleTime', '' + Err.Number, '' + Err.Description, 'MachineID = ' + str(self.ID) + ', ShiftID = ' + ShiftID)
             Err.Clear()
             
 
@@ -5328,7 +5315,7 @@ class Machine:
 
         tEvent = RTEvent()
 
-        Rst = None
+        RstCursor = None
 
         EventID = 0
 
@@ -5350,7 +5337,7 @@ class Machine:
                 strSQL = strSQL + 'SELECT TOP 1 EventGroupID, EventReasonID' + vbCrLf
                 strSQL = strSQL + 'FROM ViewNotificationsOpenCalls' + vbCrLf
                 strSQL = strSQL + 'WHERE SentTime >= DateAdd(d, -7, CONVERT(VarChar(10), GETDATE(), 121))' + vbCrLf
-                strSQL = strSQL + 'AND SourceMachineID = ' + self.ID + ' AND EventReasonID > 0' + vbCrLf
+                strSQL = strSQL + 'AND SourceMachineID = ' + str(self.ID) + ' AND EventReasonID > 0' + vbCrLf
                 strSQL = strSQL + 'ORDER BY SentTime DESC'
                 Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
                 Rst.ActiveConnection = None
@@ -5415,13 +5402,13 @@ class Machine:
                 MetaCn.Open()
                 Err.Clear()
                 
-            RecordError('Machine:GetStopReasonAndCreateEvent', '' + Err.Number, '' + Err.Description, 'MachineID = ' + self.ID + ', JobID = ' + self.ActiveJob.ID)
+            MdlGlobal.RecordError('Machine:GetStopReasonAndCreateEvent', '' + Err.Number, '' + Err.Description, 'MachineID = ' + str(self.ID) + ', JobID = ' + self.ActiveJob.ID)
             Err.Clear()
             
             if Rst.State == 1:
                 RstCursor.close()
         tEvent = None
-        Rst = None
+        RstCursor = None
 
 
     def setReportStopReasonByOpenCall(self, value):

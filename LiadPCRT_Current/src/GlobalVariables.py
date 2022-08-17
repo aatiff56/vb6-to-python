@@ -1,6 +1,7 @@
 
 from dateutil.parser import parse
 import enum
+import numbers
 
 LeaderSVR = None
 
@@ -29,3 +30,10 @@ def IsDate(string, fuzzy=False):
 
     except BaseException as error:
         return False
+
+def IsNumeric(value):
+    if type(value) == str:
+        value = value.replace('.', '')
+        return value.isnumeric() or value.isdigit() or value.isdecimal()
+    else:
+        return isinstance(value, numbers.Number)

@@ -100,6 +100,7 @@ class Channel:
                 elif (select_0 == 1):
                     self.MaterialCalcStandardOption = MaterialCalcStandardOption.FromUnitsProducedOK
 
+                print(Fore.GREEN + 'Initializing Channel Splits.')
                 if self.SplitsCounter > 0:
                     if self.SplitDefinitionsFromTable == True:
                         strSQL = 'SELECT *' + '\n'
@@ -115,7 +116,7 @@ class Channel:
                             self.Splits[MdlADOFunctions.fGetRstValString(splitsRstData.SplitNum)] = tSplit
                         splitsRstCursor.close()
                     else:
-                        for i in range(1, self.SplitsCounter):
+                        for i in range(0, self.SplitsCounter):
                             tSplit = ChannelSplit()
                             tSplit.Init(self, int(i), self.WorkingWithBatchTracking, MdlADOFunctions.fGetRstValLong(RstData.MaterialStandardCalcOption), pJoshID, 0, True, WareHouseLocationConsumptionMethod.FIFO, False, BatchAutoSubtractModeOption.off, 0, False, pFromActivateJob)
                             self.Splits[str(i)] = tSplit
@@ -156,7 +157,7 @@ class Channel:
 
 
     def Reset(self, pJoshID):
-        tVariant = Variant()
+        tVariant = None
 
         tSplit = ChannelSplit()
         
@@ -177,7 +178,7 @@ class Channel:
 
 
     def ResetJoshCounters(self):
-        tVariant = Variant()
+        tVariant = None
 
         tSplit = None
         
@@ -213,7 +214,7 @@ class Channel:
     
     def Calc(self, pMaterialCalcObjectType, pJob, pJosh):
         tSplit = None
-        tVariant = Variant()
+        tVariant = None
         tProductWeightLast = 0
         tProductWeightStandard = 0
         tNextInventoryID = 0
@@ -513,7 +514,7 @@ class Channel:
         returnVal = None
         tTotalWeight = 0
 
-        tVariant = Variant()
+        tVariant = None
 
         tSplit = None
         
@@ -537,7 +538,7 @@ class Channel:
         returnVal = None
         tMaterialPCTarget = 0
 
-        tVariant = Variant()
+        tVariant = None
 
         tSplit = None
         
@@ -559,7 +560,7 @@ class Channel:
         returnVal = None
         tTotalWeightStandard = 0
 
-        tVariant = Variant()
+        tVariant = None
 
         tSplit = ChannelSplit()
         
@@ -583,7 +584,7 @@ class Channel:
         returnVal = None
         tMaterialActualIndex = 0
 
-        tVariant = Variant()
+        tVariant = None
 
         tSplit = ChannelSplit()
         
@@ -645,7 +646,7 @@ class Channel:
         returnVal = None
         tMaterialStandardIndex = 0
 
-        tVariant = Variant()
+        tVariant = None
 
         tSplit = ChannelSplit()
         
@@ -669,7 +670,7 @@ class Channel:
         returnVal = None
         tTotalWeight = 0
 
-        tVariant = Variant()
+        tVariant = None
 
         tSplit = ChannelSplit()
         
@@ -693,7 +694,7 @@ class Channel:
         returnVal = None
         tTotalWeight = 0
 
-        tVariant = Variant()
+        tVariant = None
 
         tSplit = ChannelSplit()
         
@@ -717,7 +718,7 @@ class Channel:
         returnVal = None
         tTotalWeight = 0
 
-        tVariant = Variant()
+        tVariant = None
 
         tSplit = ChannelSplit()
         
@@ -741,7 +742,7 @@ class Channel:
         returnVal = None
         tTotalWeight = 0
 
-        tVariant = Variant()
+        tVariant = None
 
         tSplit = ChannelSplit()
         
@@ -765,7 +766,7 @@ class Channel:
         returnVal = None
         tTotalWeight = 0
 
-        tVariant = Variant()
+        tVariant = None
 
         tSplit = ChannelSplit()
         
@@ -789,7 +790,7 @@ class Channel:
         returnVal = None
         tTotalWeight = 0
 
-        tVariant = Variant()
+        tVariant = None
 
         tSplit = ChannelSplit()
         
@@ -813,7 +814,7 @@ class Channel:
         returnVal = None
         tMaterialPCTarget = 0
 
-        tVariant = Variant()
+        tVariant = None
 
         tSplit = ChannelSplit()
         
@@ -837,7 +838,7 @@ class Channel:
         returnVal = None
         tMaterialPCTarget = 0
 
-        tVariant = Variant()
+        tVariant = None
 
         tSplit = ChannelSplit()
         
@@ -861,7 +862,7 @@ class Channel:
         returnVal = None
         tMaterialPCTarget = 0
 
-        tVariant = Variant()
+        tVariant = None
 
         tSplit = ChannelSplit()
         
@@ -888,7 +889,7 @@ class Channel:
 
         strTitle = ""
 
-        tVariant = Variant()
+        tVariant = None
 
         tChannelSplit = ChannelSplit()
         
@@ -948,7 +949,7 @@ class Channel:
         tChannelSplit = None
 
     def CalcMaterialActualIndex(self, pMaterialCalcObjectType):
-        tVariant = Variant()
+        tVariant = None
 
         tSplit = ChannelSplit()
         
@@ -1329,9 +1330,8 @@ class Channel:
     def __del__(self):
         Counter = 0
         
-        for Counter in range(1, self.__mSplits.Count):
-            self.__mSplits.Item[Counter] = None
-            self.__mSplits.Remove(Counter)
+        for Counter in range(0, len(self.__mSplits)):
+            del self.__mSplits[str(Counter)]
         self.__mSplits = None
         self.__mMachine = None
         self.__mMaterialID = None

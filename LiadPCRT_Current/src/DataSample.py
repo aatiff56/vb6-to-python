@@ -1,12 +1,11 @@
-import enum
 from datetime import datetime
 from datetime import timedelta
 
+import enum
 import MdlADOFunctions
 import mdl_Common
 import MdlConnection
 import MdlGlobal
-import ControlParam
 
 
 class DataSampleIntervalUnit(enum.Enum):
@@ -53,34 +52,34 @@ class DataSample:
                 if self.CheckLimits:
                     if ( MdlADOFunctions.fGetRstValDouble(value) >=  ( self.ControlParam.Mean * self.MinLimitFactor ) )  and  ( MdlADOFunctions.fGetRstValDouble(value) <=  ( self.ControlParam.Mean * self.MaxLimitFactor ) ) :
                         if TimeStamp is None or TimeStamp == 0:
-                            self.__mDataCollection.Add(float(mdl_Common.NowGMT()), value)
+                            self.__mDataCollection[str(mdl_Common.NowGMT().timestamp())] = value
                         else:
-                            self.__mDataCollection.Add(float(TimeStamp), value)
+                            self.__mDataCollection[str(TimeStamp.timestamp())] = value
                 else:
                     if TimeStamp is None or TimeStamp == 0:
-                        self.__mDataCollection.Add(float(mdl_Common.NowGMT()), value)
+                        self.__mDataCollection[str(mdl_Common.NowGMT().timestamp())] = value
                     else:
-                        self.__mDataCollection.Add(float(TimeStamp), value)
+                        self.__mDataCollection[str(TimeStamp.timestamp())] = value
             else:
                 if self.ControlParam.pMachine.MachineStop == False:
                     if self.CheckLimits:
                         if ( MdlADOFunctions.fGetRstValDouble(value) >=  ( self.ControlParam.Mean * self.MinLimitFactor ) )  and  ( MdlADOFunctions.fGetRstValDouble(value) <=  ( self.ControlParam.Mean * self.MaxLimitFactor ) ) :
                             if TimeStamp is None or TimeStamp == 0:
-                                self.__mDataCollection.Add(float(mdl_Common.NowGMT()), value)
+                                self.__mDataCollection[str(mdl_Common.NowGMT().timestamp())] = value
                             else:
-                                self.__mDataCollection.Add(float(TimeStamp), value)
+                                self.__mDataCollection[str(TimeStamp.timestamp())] = value
                     else:
                         if TimeStamp is None or TimeStamp == 0:
-                            self.__mDataCollection.Add(float(mdl_Common.NowGMT()), value)
+                            self.__mDataCollection[str(mdl_Common.NowGMT().timestamp())] = value
                         else:
-                            self.__mDataCollection.Add(float(TimeStamp), value)
+                            self.__mDataCollection[str(TimeStamp.timestamp())] = value
         except:
             pass
 
 
     def RemoveValue(self, key):
         try:
-            self.__mDataCollection.Remove(key)
+            del self.__mDataCollection[key]
         except:
             pass
 
@@ -167,13 +166,13 @@ class DataSample:
                         self.__mFinalValue = str(float(self.__mFinalValue) + float(SingleValue))
                     self.__mFinalValue = str(float(self.__mFinalValue) / len(self.__mDataCollection))
             
-            if not ( self.__mDestinationControlParam[0] is None ) :
+            if self.__mDestinationControlParam[0]:
                 self.__mDestinationControlParam[0].LastValue = self.__mFinalValue
-            
+
             if self.__mDestinationTableName and self.__mDestinationFieldName and self.__mDestinationCriteria:
                 strSQL = 'UPDATE ' + self.__mDestinationTableName + ' SET ' + self.__mDestinationFieldName + ' = ' + str(self.__mFinalValue) + ' WHERE ' + str(self.__mDestinationCriteria)
                 MdlConnection.CN.execute(strSQL)
-
+            
         except BaseException as error:
             if 'nnection' in error.args[0]:
                 if MdlConnection.CN:
@@ -189,7 +188,7 @@ class DataSample:
         returnVal = None
         strSQL = ''
         RstCursor = None
-        vParam = [None]
+        vParam = None
         ControllerFieldName = ''
         DestinationControllerFieldName = ''
 
@@ -249,10 +248,12 @@ class DataSample:
                 raise Exception("No data found.")
             RstCursor.close()
     
-            if pMachine.GetParam(ControllerFieldName, vParam) == True:
+            vParam = pMachine.GetParam(ControllerFieldName)
+            if vParam:
                 self.__mControlParam = vParam
             if DestinationControllerFieldName != '':
-                if pMachine.GetParam(DestinationControllerFieldName, vParam) == True:
+                vParam = pMachine.GetParam(DestinationControllerFieldName)
+                if vParam:
                     self.__mDestinationControlParam = vParam
 
         except BaseException as error:        
@@ -271,37 +272,42 @@ class DataSample:
         return returnVal
 
     def Reset(self):
-        
-        self.__mFinalValue = ''
-        self.__mDataCollection.removeAll
-        if Err.Number != 0:
-            Err.Clear()
+        try:
+            self.__mFinalValue = ''
+            self.__mDataCollection.clear()
+        except:
+            pass
 
     def InitDynamic(self, pMachine, pid, pControllerFieldName, pIntervalUnit, pAggFunction, pDestinationControllerFieldName=None, pIntervalAmount=None, pSpecificTimeStamp=None, pDestinationTableName=None, pDestinationFieldName=None, pDestinationCriteria=None):
-        vParam = self.ControlParam.ControlParam()
+        vParam = None
         
-        self.__mID = pid
-        self.__mIntervalUnit = pIntervalUnit
-        self.__mAggFunction = pAggFunction
-        self.__mInterval = 'Since' + str(Format(pSpecificTimeStamp, 'yyyymmddHHnn'))
-        if pMachine.GetParam(pControllerFieldName, vParam) == True:
-            self.__mControlParam = vParam
-        if not pSpecificTimeStamp is None:
-            self.__mSpecificTimeStamp = pSpecificTimeStamp
-        if not pIntervalAmount is None:
-            self.__mIntervalAmount = pIntervalAmount
-        if not pDestinationTableName is None:
-            self.__mDestinationTableName = pDestinationTableName
-        if not pDestinationFieldName is None:
-            self.__mDestinationFieldName = pDestinationFieldName
-        if not pDestinationCriteria is None:
-            self.__mDestinationCriteria = pDestinationCriteria
-        if not pDestinationControllerFieldName is None:
-            if pMachine.GetParam(pDestinationControllerFieldName, vParam) == True:
-                self.__mDestinationControlParam = vParam
-        if Err.Number != 0:
-            Err.Clear()
+        try:
+            self.__mID = pid
+            self.__mIntervalUnit = pIntervalUnit
+            self.__mAggFunction = pAggFunction
+            self.__mInterval = 'Since' + str(Format(pSpecificTimeStamp, 'yyyymmddHHnn'))
 
+            vParam = pMachine.GetParam(pControllerFieldName)
+            if vParam:
+                self.__mControlParam = vParam
+
+            if not pSpecificTimeStamp is None:
+                self.__mSpecificTimeStamp = pSpecificTimeStamp
+            if not pIntervalAmount is None:
+                self.__mIntervalAmount = pIntervalAmount
+            if not pDestinationTableName is None:
+                self.__mDestinationTableName = pDestinationTableName
+            if not pDestinationFieldName is None:
+                self.__mDestinationFieldName = pDestinationFieldName
+            if not pDestinationCriteria is None:
+                self.__mDestinationCriteria = pDestinationCriteria
+            if not pDestinationControllerFieldName is None:
+                vParam = pMachine.GetParam(pDestinationControllerFieldName)
+                if vParam:
+                    self.__mDestinationControlParam = vParam
+        
+        except BaseException as error:
+            pass
 
     def __del__(self):
         self.__mControlParam = None

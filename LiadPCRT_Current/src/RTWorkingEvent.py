@@ -302,17 +302,18 @@ class RTWorkingEvent:
 
     def __del__(self):
         
-        self.__mMachineType = None
-        self.__mMachine = None
-        self.__mJob = None
-        self.__mDepartment = None
-        self.__mShift = None
-        self.__mMold = None
-        self.__mProduct = None
-        self.__mJosh = None
+        try:
+            self.__mMachineType = None
+            self.__mMachine = None
+            self.__mJob = None
+            self.__mDepartment = None
+            self.__mShift = None
+            self.__mMold = None
+            self.__mProduct = None
+            self.__mJosh = None
         
-        if Err.Number != 0:
-            MdlGlobal.RecordError('RTWorkingEvent Destroy ' + self.__mID, Err.Number, 'Error terminating class RTWorkingEvent', '')
+        except BaseException as error:
+            MdlGlobal.RecordError('RTWorkingEvent Destroy ' + str(self.__mID), error.args[0], 'Error terminating class RTWorkingEvent', '')
 
 
     def setDurationSec(self, value):

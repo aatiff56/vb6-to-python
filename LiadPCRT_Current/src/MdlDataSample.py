@@ -7,7 +7,7 @@ import MdlConnection
 def fInitMachineDataSamples(pMachine):
     strSQL = ''
     mDataSample = None
-    mControlParam = [None]
+    mControlParam = None
     RstCursor = None
     returnVal = False
 
@@ -23,8 +23,9 @@ def fInitMachineDataSamples(pMachine):
             print(Fore.GREEN + "Loading Machine Controller Field Actions.")
             mDataSample.Init(pMachine, RstData.ID)
             
-            if pMachine.GetParam(RstData.ControllerFieldName, mControlParam):                    
-                mControlParam[0].DataSamples[str(mDataSample.ID)] = mDataSample
+            mControlParam = pMachine.GetParam(RstData.ControllerFieldName)
+            if mControlParam:
+                mControlParam.DataSamples[str(mDataSample.ID)] = mDataSample
         RstCursor.close()
 
         returnVal = True

@@ -1,19 +1,18 @@
-from Common import MdlADOFunctions as adoFunc
-from LiadPCUnite.DataAccess import QueryExecutor as qe
-from LiadPCUnite.BusinessLogic import SqlConnector as sc
-from LiadPCUnite.Global import Logs
 from datetime import datetime
 
-class Validation:
-    sqlCntr = sc.SqlConnector()
-    logger = Logs.Logger()
+import enum
+import MdlADOFunctions
+import MdlGlobal
+import MdlConnection
 
+class ValidationObjectOption(enum.Enum):
     Non = 0
     Josh = 1
     Job = 2
     MachineObj = 3
     ControlParam = 4
 
+class ValidationTypeOption(enum.Enum):
     Min = 1
     Max = 2
     Sum = 3
@@ -23,87 +22,91 @@ class Validation:
     Equals = 7
     NonEquals = 8
 
+class ValidationTiming(enum.Enum):
     EndOfJosh = 1
     EndOfJob = 2
     StartOfJosh = 3
     StartOfJob = 4
+
+
+class Validation:
     mID = 0
     mSourceObject = None
-    mSourceObjectType = ValidationObjectOption()
+    mSourceObjectType = ValidationObjectOption
     mSourceFieldName = ''
     mSourceDefaultValue = ''
-    mValidationType = ValidationTypeOption()
-    mValidationObjectType = ValidationObjectOption()
+    mValidationType = ValidationTypeOption
+    mValidationObjectType = ValidationObjectOption
     mValidationObject = None
     mValidationFieldName = ''
     mValidationConstantValue = ''
     mDestinationObject = None
-    mDestinationObjectType = ValidationObjectOption()
+    mDestinationObjectType = ValidationObjectOption
     mDestinationFieldName = ''
     mDestinationDefaultValue = ''
     mIsCritical = False
-    mMachine = Machine()
-    mValidationTiming = ValidationTiming()
+    mMachine = None
+    mValidationTiming = ValidationTiming
     mSequence = 0
 
     def Init(self, pMachine, pid):
-        try:
-            strSQL = ''
-            Rst = qe.QueryExecutor(self.sqlCntr.GetConnection())
-            tDestinationObject = None
-            tSourceObject = None
+        strSQL = ''
+        RstCursor = None
+        tDestinationObject = None
+        tSourceObject = None
 
+        try:
             self.Machine = pMachine
-            strSQL = 'SELECT * FROM TblValidations WHERE ID = ' + pid
-            self.sqlCntr.OpenConnection()
-            Rst.ActiveConnection = self.Non
-            if Rst.RecordCount == 1:
+            strSQL = 'SELECT * FROM TblValidations WHERE ID = ' + str(pid)
+
+            RstCursor = MdlConnection.CN.cursor()
+            RstCursor.execute(strSQL)
+            RstData = RstCursor.fetchone()
+
+            if RstData:
                 self.ID = pid
-                self.Sequence = adoFunc.fGetRstValLong(
-                    Rst.Fields("Sequence").Value)
-                self.SourceObjectType = adoFunc.fGetRstValLong(
-                    Rst.Fields("SourceObjectType").Value)
-                self.SourceFieldName = adoFunc.fGetRstValString(
-                    Rst.Fields("SourceFieldName").Value)
-                self.SourceDefaultValue = adoFunc.fGetRstValString(
-                    Rst.Fields("SourceDefaultValue").Value)
-                self.ValidationTiming = adoFunc.fGetRstValLong(
-                    Rst.Fields("ValidationTiming").Value)
-                self.ValidationType = adoFunc.fGetRstValLong(
-                    Rst.Fields("ValidationType").Value)
-                self.ValidationObjectType = adoFunc.fGetRstValLong(
-                    Rst.Fields("ValidationObjectType").Value)
-                self.ValidationFieldName = adoFunc.fGetRstValString(
-                    Rst.Fields("ValidationFieldName").Value)
-                self.ValidationConstantValue = adoFunc.fGetRstValString(
-                    Rst.Fields("ValidationConstantValue").Value)
-                self.DestinationObjectType = adoFunc.fGetRstValLong(
-                    Rst.Fields("DestinationObjectType").Value)
-                self.DestinationFieldName = adoFunc.fGetRstValString(
-                    Rst.Fields("DestinationFieldName").Value)
-                self.DestinationDefaultValue = adoFunc.fGetRstValString(
-                    Rst.Fields("DestinationDefaultValue").Value)
-                self.IsCritical = adoFunc.fGetRstValBool(
-                    Rst.Fields("IsCritical").Value, False)
-            Rst.Close()
-            Rst = self.Non
+                self.Sequence = MdlADOFunctions.fGetRstValLong(RstData.Sequence)
+                self.SourceObjectType = MdlADOFunctions.fGetRstValLong(RstData.SourceObjectType)
+                self.SourceFieldName = MdlADOFunctions.fGetRstValString(RstData.SourceFieldName)
+                self.SourceDefaultValue = MdlADOFunctions.fGetRstValString(RstData.SourceDefaultValue)
+                self.ValidationTiming = MdlADOFunctions.fGetRstValLong(RstData.ValidationTiming)
+                self.ValidationType = MdlADOFunctions.fGetRstValLong(RstData.ValidationType)
+                self.ValidationObjectType = MdlADOFunctions.fGetRstValLong(RstData.ValidationObjectType)
+                self.ValidationFieldName = MdlADOFunctions.fGetRstValString(RstData.ValidationFieldName)
+                self.ValidationConstantValue = MdlADOFunctions.fGetRstValString(RstData.ValidationConstantValue)
+                self.DestinationObjectType = MdlADOFunctions.fGetRstValLong(RstData.DestinationObjectType)
+                self.DestinationFieldName = MdlADOFunctions.fGetRstValString(RstData.DestinationFieldName)
+                self.DestinationDefaultValue = MdlADOFunctions.fGetRstValString(RstData.DestinationDefaultValue)
+                self.IsCritical = MdlADOFunctions.fGetRstValBool(RstData.IsCritical, False)
+
+            RstCursor.close()
+            RstCursor = None
+
         except BaseException as error:
-            self.sqlCntr.CloseConnection()
-            self.logger.Error(error)
+            if 'nnection' in error.args[0]:
+                if MdlConnection.CN:
+                    MdlConnection.Close(MdlConnection.CN)
+                MdlConnection.Open(MdlConnection.CN, MdlConnection.strCon)
 
-    def PrepareObjects(self, pJob=Non, pJosh=Non):
+                if MdlConnection.MetaCn:
+                    MdlConnection.Close(MdlConnection.MetaCn)
+                MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
+
+            MdlGlobal.RecordError(type(self) + ".Init:", str(0), error.args[0], "ValidationID:" + str(pid) + ". Machine: " + str(pMachine.ID))
+
+    def PrepareObjects(self, pJob=None, pJosh=None):
+        tJob = None
+        tJosh = None
+        tMachine = None
+
         try:
-            tJob = Job()
-            tJosh = Josh()
-            tMachine = self.Machine()
-
             if (self.SourceObjectType == ValidationObjectOption.Job):
-                if IsMissing(pJob):
+                if pJob is None:
                     self.SourceObject = self.Machine.ActiveJob
                 else:
                     self.SourceObject = pJob
             elif (self.SourceObjectType == ValidationObjectOption.Josh):
-                if IsMissing(pJosh):
+                if pJosh is None:
                     self.SourceObject = self.Machine.ActiveJob.ActiveJosh
                 else:
                     self.SourceObject = pJosh
@@ -127,6 +130,7 @@ class Validation:
                         self.ValidationObject = self.SourceObject.Machine
                     elif (self.SourceObjectType == ValidationObjectOption.Josh):
                         self.ValidationObject = self.SourceObject.Machine
+
             if self.DestinationObjectType == None or self.DestinationObjectType == self.SourceObjectType:
                 if not self.SourceObject is None:
                     self.DestinationObject = self.SourceObject
@@ -143,6 +147,8 @@ class Validation:
                         tJob = self.SourceObject
                         self.DestinationObject = tJob.ActiveJosh
                     elif (self.SourceObjectType == ValidationObjectOption.MachineObj):
+                        pass
+
                 elif (self.DestinationObjectType == ValidationObjectOption.MachineObj):
                     if (self.SourceObjectType == ValidationObjectOption.Job):
                         tJob = self.SourceObject
@@ -150,11 +156,11 @@ class Validation:
                     elif (self.SourceObjectType == ValidationObjectOption.Josh):
                         tJosh = self.SourceObject
                         self.DestinationObject = tJosh.Machine
-        except BaseException as error:
-            self.sqlCntr.CloseConnection()
-            self.logger.Error(error)
 
-    def Validate(self, pJob=Non, pJosh=Non):
+        except BaseException as error:
+            MdlGlobal.RecordError(type(self) + ".PrepareObjects:", str(0), error.args[0], "ValidationID:" + str(self.ID) + ". Machine: " + str(self.Machine.ID))
+
+    def Validate(self, pJob=None, pJosh=None):
         try:
             tSourceValue = 0
             tValidationValue = 0
@@ -170,14 +176,14 @@ class Validation:
             self.PrepareObjects(pJob, pJosh)
             fn_return_value = False
 
-            tSourceValue = adoFunc.fGetRstValDouble(CallByName(
+            tSourceValue = MdlADOFunctions.fGetRstValDouble(CallByName(
                 self.SourceObject, self.SourceFieldName, VbGet))
 
             if self.ValidationObjectType != None:
-                tValidationValue = adoFunc.fGetRstValDouble(CallByName(
+                tValidationValue = MdlADOFunctions.fGetRstValDouble(CallByName(
                     self.ValidationObject, self.ValidationFieldName, VbGet))
             else:
-                tValidationValue = adoFunc.fGetRstValDouble(
+                tValidationValue = MdlADOFunctions.fGetRstValDouble(
                     self.ValidationConstantValue)
             if (self.ValidationType == ValidationTypeOption.Min):
                 if tSourceValue >= tValidationValue:
@@ -186,9 +192,13 @@ class Validation:
                 if tSourceValue <= tValidationValue:
                     fn_return_value = True
             elif (self.ValidationType == ValidationTypeOption.Sum):
+                pass
             elif (self.ValidationType == ValidationTypeOption.Avg):
+                pass
             elif (self.ValidationType == ValidationTypeOption.Count):
+                pass
             elif (self.ValidationType == ValidationTypeOption.Between):
+                pass
             elif (self.ValidationType == ValidationTypeOption.Equals):
                 if tSourceValue == tValidationValue:
                     fn_return_value = True
@@ -197,26 +207,26 @@ class Validation:
                     fn_return_value = True
             if self.Validate() == False:
                 if self.SourceDefaultValue != '':
-                    tSourcePreviousValue = adoFunc.fGetRstValString(
+                    tSourcePreviousValue = MdlADOFunctions.fGetRstValString(
                         CallByName(self.SourceObject, self.SourceFieldName, VbGet))
                     tArgs = vbObjectInitialize((0,), Variant)
                     if UCase(self.SourceDefaultValue) == 'NULL':
                         tArgs[0] = int(- 999999999)
                     else:
                         tArgs[0] = int(self.SourceDefaultValue)
-                    tSourceNewValue = adoFunc.fGetRstValString(tArgs(0))
+                    tSourceNewValue = MdlADOFunctions.fGetRstValString(tArgs(0))
                     CallByName(self.SourceObject,
                                self.SourceFieldName, VbLet, int(tArgs(0)))
                 if self.DestinationObjectType != None:
                     if self.DestinationDefaultValue != '':
-                        tDestinationPreviousValue = adoFunc.fGetRstValString(
+                        tDestinationPreviousValue = MdlADOFunctions.fGetRstValString(
                             CallByName(self.DestinationObject, self.DestinationFieldName, VbGet))
                         tArgs = vbObjectInitialize((0,), Variant)
                         if UCase(self.DestinationDefaultValue) == 'NULL':
                             tArgs[0] = int(- 999999999)
                         else:
                             tArgs[0] = int(self.DestinationDefaultValue)
-                        tDestinationNewValue = adoFunc.fGetRstValString(CallByName(
+                        tDestinationNewValue = MdlADOFunctions.fGetRstValString(CallByName(
                             self.DestinationObject, self.DestinationFieldName, VbGet))
                         CallByName(self.DestinationObject,
                                    self.DestinationFieldName, VbLet, int(tArgs(0)))
@@ -282,8 +292,7 @@ class Validation:
             self.mMachine = self.Non
             self.logger.Debug('Validation Destory ' + self.mID)
         except BaseException as error:
-            self.sqlCntr.CloseConnection()
-            self.logger.Error(error)
+            pass
 
     def setID(self, value):
         self.mID = value

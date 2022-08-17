@@ -1,3 +1,4 @@
+from distutils.log import error
 from colorama import Fore
 from datetime import datetime
 
@@ -6,6 +7,7 @@ from MachineType import PConfigSonsRefRecipeSourceOption
 from RTEvent import RTEvent
 from RTEngineEvent import RTEngineEvent
 from RTWorkingEvent import RTWorkingEvent
+from Josh import Josh
 
 import MdlADOFunctions
 import MdlConnection
@@ -190,7 +192,7 @@ class Job:
         strSQL = ''
         RstCursor = None
         PConfigRstCursor = None
-        tJob = Job()
+        tJob = None
         tControllerChannel = Channel()
         jdRstCursor = None
 
@@ -231,7 +233,10 @@ class Job:
                 self.GetUnitsInCycle(RstData)
                 self.MachineID = MdlADOFunctions.fGetRstValLong(RstData.MachineID)
                 self.DepartmentID = MdlADOFunctions.fGetRstValLong(RstData.Department)
+
+                print(Fore.GREEN + 'Getting or Creating Department.')
                 self.Department = MdlServer.GetOrCreateDepartment(self.Machine.Server, self.DepartmentID)
+                print(Fore.GREEN + 'Getting or Creating Machine Type.')
                 self.MachineType = MdlServer.GetOrCreateMachineType(self.Machine.Server, MdlADOFunctions.fGetRstValLong(RstData.MachineType))
                 
                 if pFromActivateJob and not pFromINITMachine:
@@ -291,7 +296,9 @@ class Job:
                 self.RecipeRefType = MdlADOFunctions.fGetRstValLong(RstData.RecipeRefType)
                 self.RecipeRefJob = MdlADOFunctions.fGetRstValLong(RstData.RecipeRefJob)
                 self.RecipeRefStandardID = MdlADOFunctions.fGetRstValLong(RstData.RecipeRefStandardID)
+                print(Fore.GREEN + 'Geting Recipe Product Weight')
                 self.GetRefRecipeProductWeight()
+                print(Fore.GREEN + 'Geting Recipe Unit Weight')
                 self.GetRefRecipeUnitWeight()
                 if self.RecipeRefStandardID != 0:
                     self.ProductStandardRecipeWeight = MdlADOFunctions.fGetRstValDouble(MdlUtils.MdlUtils.fGetRecipeValueStandard(self.RecipeRefStandardID, 'ProductWeight', 0, 0, self.Product.ID))
@@ -324,14 +331,18 @@ class Job:
                     jdRstCursor.close()
 
                 self.UnitsReportedOK = MdlADOFunctions.fGetRstValDouble(RstData.UnitsReportedOK)                
+                print(Fore.GREEN + 'Geting Open Event')
                 self.GetOpenEvent()
                 
                 if self.OpenEvent is None:
+                    print(Fore.GREEN + 'Geting Open Working Event')
                     self.GetOpenWorkingEvent()
+                print(Fore.GREEN + 'Geting Open Engine Event')
                 self.GetOpenEngineEvent()
                 
                 if self.Status == 10:
                     self.__mOpenAlarms = {}                    
+                    print(Fore.GREEN + 'Loading Alarms')
                     self.LoadAlarms()
                 else:
                     self.DurationMin = MdlADOFunctions.fGetRstValLong(RstData.DurationMin)
@@ -421,7 +432,9 @@ class Job:
             RstCursor.close()
             
             if self.Status == 10 and ( self.PConfigID == 0 or ( self.PConfigID != 0 and self.IsPConfigMain == True )):
+                print(Fore.GREEN + 'Initializing Machine Control Params')
                 self.InitMachineControlParams()
+                print(Fore.GREEN + 'Initializing Mold Change Details')
                 self.InitMoldChangeDetails()
 
         except BaseException as error:
@@ -458,6 +471,7 @@ class Job:
 
             for RstData in RstValues:
                 tControllerChannel = Channel()
+                print(Fore.GREEN + 'Initializing Controller Channel.')
                 tControllerChannel.Init(self.Machine, MdlADOFunctions.fGetRstValLong(RstData.ID), self, pJoshID, pFromActivateJob)
                 self.ControllerChannels[MdlADOFunctions.fGetRstValString(RstData.ChannelNum)] = tControllerChannel
             RstCursor.close()
@@ -710,13 +724,13 @@ class Job:
             strSQL = 'UPDATE TblJosh SET '
             strSQL = strSQL + 'SetUpEndInjectionsCount = InjectionsCount '
             strSQL = strSQL + 'WHERE JobID = ' + str(self.ID) + ' AND ID < ' + self.ActiveJosh.ID
-            CN.Execute(strSQL)
+            MdlConnection.CN.execute(strSQL)
         
         if self.PConfigParentJob is None:
             strSQL = 'INSERT INTO TblProductSetupHistory'
             strSQL = strSQL + ' (CurrentJobID,LastJobID,SetupDuration)'
             strSQL = strSQL + ' VALUES (' + str(self.ID) + ',' + self.LastJobID + ',' + self.SetupDuration + ')'
-            CN.Execute(strSQL)
+            MdlConnection.CN.execute(strSQL)
         
         if self.Machine.AddRejectsOnSetupEnd == True:
             IncludeInRejectsTotal = MdlADOFunctions.fGetRstValBool(MdlADOFunctions.GetSingleValue('IncludeInRejectsTotal', 'STbDefectReasons', 'ID = 100', 'CN'), True)
@@ -827,8 +841,8 @@ class Job:
         if pUpdateExistingRecord == False:
             strSQL = 'INSERT INTO TblRejects'
             strSQL = strSQL + ' (ReasonID, JobID, MachineID, ProductID, MoldID, ReportTime, ShiftID, Amount, AutomaticRejectUpdate, Weight, JoshID, Waste, IncludeInRejectsTotal)'
-            strSQL = strSQL + ' VALUES (' + pReasonID + ',' + str(self.ID) + ',' + self.Machine.ID + ',' + str(self.Product.ID) + ',' + self.Mold.ID + ',\'' + ShortDate(mdl_Common.NowGMT(), True, True) + '\',' + tShiftID + ',' + tAmount + ',' + IIf(pAutomaticRejectUpdate == True, 1, 0) + ',' + tWeight + ',' + tJoshID + ',' + tWaste + ',' + IIf(pIncludeInRejectsTotal == True, 1, 0) + ')'
-            CN.Execute(strSQL)
+            strSQL = strSQL + ' VALUES (' + pReasonID + ',' + str(self.ID) + ',' + self.Machine.ID + ',' + str(self.Product.ID) + ',' + self.Mold.ID + ',\'' + MdlUtilsH.ShortDate(mdl_Common.NowGMT(), True, True) + '\',' + tShiftID + ',' + tAmount + ',' + IIf(pAutomaticRejectUpdate == True, 1, 0) + ',' + tWeight + ',' + tJoshID + ',' + tWaste + ',' + IIf(pIncludeInRejectsTotal == True, 1, 0) + ')'
+            MdlConnection.CN.execute(strSQL)
         else:
             tRecordCriteria = 'JobID = ' + str(self.ID) + ' AND ReasonID = ' + pReasonID
             if pRejectReasonOption == 2:
@@ -837,8 +851,8 @@ class Job:
             if tExistingRecordID == 0:
                 strSQL = 'INSERT INTO TblRejects'
                 strSQL = strSQL + ' (ReasonID, JobID, MachineID, ProductID, MoldID, ReportTime, ShiftID, Amount, AutomaticRejectUpdate, Weight, JoshID, Waste, IncludeInRejectsTotal)'
-                strSQL = strSQL + ' VALUES (' + pReasonID + ',' + str(self.ID) + ',' + self.Machine.ID + ',' + str(self.Product.ID) + ',' + self.Mold.ID + ',\'' + ShortDate(mdl_Common.NowGMT(), True, True) + '\',' + tShiftID + ',' + tAmount + ',' + IIf(pAutomaticRejectUpdate == True, 1, 0) + ',' + round(tWeight, 5) + ',' + tJoshID + ',' + round(tWaste, 5) + ',' + IIf(pIncludeInRejectsTotal == True, 1, 0) + ')'
-                CN.Execute(strSQL)
+                strSQL = strSQL + ' VALUES (' + pReasonID + ',' + str(self.ID) + ',' + self.Machine.ID + ',' + str(self.Product.ID) + ',' + self.Mold.ID + ',\'' + MdlUtilsH.ShortDate(mdl_Common.NowGMT(), True, True) + '\',' + tShiftID + ',' + tAmount + ',' + IIf(pAutomaticRejectUpdate == True, 1, 0) + ',' + round(tWeight, 5) + ',' + tJoshID + ',' + round(tWaste, 5) + ',' + IIf(pIncludeInRejectsTotal == True, 1, 0) + ')'
+                MdlConnection.CN.execute(strSQL)
             else:
                 if pAddAmountOrWeightToCurrentRecord == True:
                     RstCursor = None
@@ -854,9 +868,9 @@ class Job:
                 tWaste = tWeight
                 
                 strSQL = 'UPDATE TblRejects'
-                strSQL = strSQL + ' SET Amount = ' + tAmount + ', Weight = ' + round(tWeight, 5) + ', Waste = ' + round(tWaste, 5) + ', ReportTime = \'' + ShortDate(mdl_Common.NowGMT(), True, True) + '\', IncludeInRejectsTotal = ' + IIf(pAutomaticRejectUpdate == True, 1, 0)
+                strSQL = strSQL + ' SET Amount = ' + tAmount + ', Weight = ' + round(tWeight, 5) + ', Waste = ' + round(tWaste, 5) + ', ReportTime = \'' + MdlUtilsH.ShortDate(mdl_Common.NowGMT(), True, True) + '\', IncludeInRejectsTotal = ' + IIf(pAutomaticRejectUpdate == True, 1, 0)
                 strSQL = strSQL + ' WHERE ID = ' + tExistingRecordID
-                CN.Execute(strSQL)
+                MdlConnection.CN.execute(strSQL)
         if Err.Number != 0:
             if InStr(Err.Description, 'nnection') > 0:
                 if CN.State == 1:
@@ -1592,20 +1606,20 @@ class Job:
         strSQL = strSQL + ' ,MaterialStandardIndex= ' + self.MaterialStandardIndex
         strSQL = strSQL + ' ,ValidationLog = \'' + self.ValidationLog + '\''
         strSQL = strSQL + ' ,SetupMaterialTotal = ' + self.SetupMaterialTotal
-        strSQL = strSQL + ' ,StartTime = \'' + ShortDate(self.StartTime, True, True, True) + '\''
+        strSQL = strSQL + ' ,StartTime = \'' + MdlUtilsH.ShortDate(self.StartTime, True, True, True) + '\''
         if GlobalVariables.IsDate(self.SetUpEnd) and self.SetUpEnd != 0:
-            strSQL = strSQL + ' ,SetUpEnd = \'' + ShortDate(self.SetUpEnd, True, True, True) + '\''
+            strSQL = strSQL + ' ,SetUpEnd = \'' + MdlUtilsH.ShortDate(self.SetUpEnd, True, True, True) + '\''
             strSQL = strSQL + ' ,SetupDuration= ' + self.SetupDuration
         if self.NextJobMaterialFlowStart != 0:
-            strSQL = strSQL + ' ,NextJobMaterialFlowStart = \'' + ShortDate(self.NextJobMaterialFlowStart, True, True, True) + '\''
+            strSQL = strSQL + ' ,NextJobMaterialFlowStart = \'' + MdlUtilsH.ShortDate(self.NextJobMaterialFlowStart, True, True, True) + '\''
         strSQL = strSQL + ' WHERE ID = ' + str(self.ID)
-        CN.Execute(strTitle + strSQL)
+        MdlConnection.CN.execute(strTitle + strSQL)
         if self.Status == 10:
             strTitle = 'UPDATE TblJobCurrent '
-            CN.Execute(strTitle + strSQL)
+            MdlConnection.CN.execute(strTitle + strSQL)
             
             strSQL = 'UPDATE TblMachines SET MoldEndTime = ' + self.Machine.MoldEndTime + ' WHERE ID = ' + self.Machine.ID
-            CN.Execute(strSQL)
+            MdlConnection.CN.execute(strSQL)
         if Err.Number != 0:
             if InStr(Err.Description, 'nnection') > 0:
                 if CN.State == 1:
@@ -1686,281 +1700,284 @@ class Job:
 
     def CreateJoshForNewShift(self):
         strSQL = ''
-
         RstCursor = None
-
-        tJosh = Josh()
-
+        tJosh = None
         tNewJoshID = 0
-
         strTitle = ''
-
         tNow = None
-
         tMaterialID = 0
-
         tRecipeMaterialID = 0
-
-        tChannel = Channel()
-
+        tChannel = None
         tVariant = None
+        tMachine = None
+        
+        try:
+            tNow = mdl_Common.NowGMT()
+            strSQL = 'SELECT * FROM TblJosh WHERE ID = 0'
 
-        tMachine = self.Machine()
-        
-        tNow = mdl_Common.NowGMT()
-        
-        
-        strSQL = 'SELECT * FROM TblJosh WHERE ID = 0'
-        RstCursor.Open(strSQL, CN, adOpenDynamic, adLockOptimistic)
-        RstCursor.AddNew()
-        RstCursor.JobID = self.ID
-        RstCursor.ShiftID = self.Machine.Server.CurrentShiftID
-        RstCursor.ShiftDefID = self.Machine.Server.CurrentShift.ShiftDefID
-        RstCursor.ShiftManagerID = self.Machine.Server.CurrentShift.ManagerID
-        RstCursor.StartTime = tNow
-        RstCursor.Department = self.Department.ID
-        RstCursor.ControllerID = self.Machine.ControllerID
-        RstCursor.UnitsTargetJob = self.UnitsTarget
-        RstCursor.MachineID = self.Machine.ID
-        RstCursor.MachineType = self.Machine.TypeId
-        RstCursor.ProductID = self.Product.ID
-        RstCursor.MoldID = self.Mold.ID
-        RstCursor.OrderID = self.ActiveJosh.OrderID
-        RstCursor.UnitsProducedJob = self.UnitsProduced
-        RstCursor.UnitsProducedOK = 0
-        RstCursor.UnitsProducedPCJob = self.UnitsProducedPC
-        RstCursor.JoshStartUnits = self.UnitsProduced
-        RstCursor.TotalUnitsJosh = 0
-        RstCursor.InjectionsCount = 0
-        RstCursor.InjectionsCountLast = 0
-        RstCursor.InjectionsCountStart = self.InjectionsCount
-        RstCursor.InjectionsCountDiff = 0
-        if self.CavitiesStandard > 0 and self.CavitiesActual > 0:
-            RstCursor.CavitiesStandard = self.CavitiesStandard
-            RstCursor.CavitiesActual = self.CavitiesActual
-        else:
-            self.GetUnitsInCycle
-            RstCursor.CavitiesStandard = self.CavitiesStandard
-            RstCursor.CavitiesActual = self.CavitiesActual
-        if self.CavitiesStandard > 0:
-            RstCursor.CavitiesPC = self.CavitiesActual / self.CavitiesStandard * 100
-        else:
-            RstCursor.CavitiesPC = 100
-        RstCursor.Status = 10
-        if not self.Machine.DisconnectWorkerOnShiftChange and not self.ActiveJosh is None:
-            RstCursor.WorkerID = self.ActiveJosh.WorkerID
-        RstCursor.JoshStartUnitsProducedLeft = self.UnitsProducedLeft
-        if not self.ActiveJosh is None:
-            RstCursor.EndOfLine = MdlADOFunctions.fGetRstValBool(MdlADOFunctions.GetSingleValue('TOP 1 EndOfLine', 'TblJosh WITH (NOLOCK)', 'JobID = ' + str(self.ID) + ' ORDER BY ID DESC', 'CN'), False)
-        RstCursor.UpNone
-        tNewJoshID = RstCursor.ID
-        RstCursor.close()
-        
-        strSQL = 'SELECT * FROM TblJoshCurrent WHERE ID = ' + tNewJoshID
-        RstCursor.Open(strSQL, CN, adOpenForwardOnly, adLockOptimistic)
-        if RstData:
-            RstCursor.AddNew()
-            RstCursor.ID = tNewJoshID
-        RstCursor.JobID = self.ID
-        RstCursor.ShiftID = self.Machine.Server.CurrentShiftID
-        RstCursor.ShiftDefID = self.Machine.Server.CurrentShift.ShiftDefID
-        RstCursor.ShiftManagerID = self.Machine.Server.CurrentShift.ManagerID
-        RstCursor.StartTime = ShortDate(tNow, True, True, True)
-        RstCursor.Department = self.Department.ID
-        RstCursor.ControllerID = self.Machine.ControllerID
-        RstCursor.UnitsTargetJob = self.UnitsTarget
-        RstCursor.MachineID = self.Machine.ID
-        RstCursor.MachineType = self.Machine.TypeId
-        RstCursor.ProductID = self.Product.ID
-        RstCursor.MoldID = self.Mold.ID
-        RstCursor.OrderID = self.ActiveJosh.OrderID
-        RstCursor.UnitsProducedJob = self.UnitsProduced
-        RstCursor.UnitsProducedOK = 0
-        RstCursor.UnitsProducedPCJob = self.UnitsProducedPC
-        RstCursor.JoshStartUnits = self.UnitsProduced
-        RstCursor.TotalUnitsJosh = 0
-        RstCursor.InjectionsCount = 0
-        RstCursor.InjectionsCountLast = 0
-        RstCursor.InjectionsCountStart = self.InjectionsCount
-        RstCursor.InjectionsCountDiff = 0
-        RstCursor.CavitiesStandard = self.CavitiesStandard
-        RstCursor.CavitiesActual = self.CavitiesActual
-        RstCursor.CavitiesPC = self.CavitiesActual / self.CavitiesStandard * 100
-        RstCursor.Status = 10
-        if not self.Machine.DisconnectWorkerOnShiftChange:
-            RstCursor.WorkerID = self.ActiveJosh.WorkerID
-        RstCursor.JoshStartUnitsProducedLeft = self.UnitsProducedLeft
-        RstCursor.UpNone
-        RstCursor.close()
-        
-        
-        if not self.ActiveJosh is None and not self.Machine.DisconnectWorkerOnShiftChange:
-            if self.ActiveJosh.ID == 0:
-                GoTo(JoshWorkersWhile)
-            strSQL = 'SELECT * FROM TblJoshWorkers Where JoshID = ' + self.ActiveJosh.ID
+            RstCursor = MdlConnection.CN.cursor()
+            RstCursor.execute(strSQL)
+            RstData = RstCursor.fetchone()
+
+            # RstCursor.AddNew()
+            if RstData:
+                RstData.JobID = self.ID
+                RstData.ShiftID = self.Machine.Server.CurrentShiftID
+                RstData.ShiftDefID = self.Machine.Server.CurrentShift.ShiftDefID
+                RstData.ShiftManagerID = self.Machine.Server.CurrentShift.ManagerID
+                RstData.StartTime = tNow
+                RstData.Department = self.Department.ID
+                RstData.ControllerID = self.Machine.ControllerID
+                RstData.UnitsTargetJob = self.UnitsTarget
+                RstData.MachineID = self.Machine.ID
+                RstData.MachineType = self.Machine.TypeId
+                RstData.ProductID = self.Product.ID
+                RstData.MoldID = self.Mold.ID
+                RstData.OrderID = self.ActiveJosh.OrderID
+                RstData.UnitsProducedJob = self.UnitsProduced
+                RstData.UnitsProducedOK = 0
+                RstData.UnitsProducedPCJob = self.UnitsProducedPC
+                RstData.JoshStartUnits = self.UnitsProduced
+                RstData.TotalUnitsJosh = 0
+                RstData.InjectionsCount = 0
+                RstData.InjectionsCountLast = 0
+                RstData.InjectionsCountStart = self.InjectionsCount
+                RstData.InjectionsCountDiff = 0
+                if self.CavitiesStandard > 0 and self.CavitiesActual > 0:
+                    RstData.CavitiesStandard = self.CavitiesStandard
+                    RstData.CavitiesActual = self.CavitiesActual
+                else:
+                    self.GetUnitsInCycle()
+                    RstData.CavitiesStandard = self.CavitiesStandard
+                    RstData.CavitiesActual = self.CavitiesActual
+                if self.CavitiesStandard > 0:
+                    RstData.CavitiesPC = self.CavitiesActual / self.CavitiesStandard * 100
+                else:
+                    RstData.CavitiesPC = 100
+                RstData.Status = 10
+                if not self.Machine.DisconnectWorkerOnShiftChange and not self.ActiveJosh is None:
+                    RstData.WorkerID = self.ActiveJosh.WorkerID
+                RstData.JoshStartUnitsProducedLeft = self.UnitsProducedLeft
+                if not self.ActiveJosh is None:
+                    RstData.EndOfLine = MdlADOFunctions.fGetRstValBool(MdlADOFunctions.GetSingleValue('TOP 1 EndOfLine', 'TblJosh WITH (NOLOCK)', 'JobID = ' + str(self.ID) + ' ORDER BY ID DESC', 'CN'), False)
+                # RstData.Update()
+                tNewJoshID = RstData.ID
+            RstCursor.close()
             
-            RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-            RstCursor.ActiveConnection = None
-            while not RstCursor.EOF:
-                if RstCursor.State == 0:
-                    
-                    pass
-                strSQL = 'INSERT INTO TblJoshWorkers'
-                strSQL = strSQL + '('
-                strSQL = strSQL + 'JoshID'
-                strSQL = strSQL + ',MachineID'
-                strSQL = strSQL + ',JobID'
-                strSQL = strSQL + ',UserID'
-                strSQL = strSQL + ',WorkerID'
-                strSQL = strSQL + ',HeadJoshWorker'
-                strSQL = strSQL + ',WorkerName'
-                strSQL = strSQL + ')'
-                strSQL = strSQL + ' VALUES '
-                strSQL = strSQL + '('
-                strSQL = strSQL + tNewJoshID
-                strSQL = strSQL + ',' + self.Machine.ID
-                strSQL = strSQL + ',' + str(self.ID)
-                strSQL = strSQL + ',' + RstCursor.UserID
-                strSQL = strSQL + ',\'' + RstCursor.WorkerID + '\''
-                strSQL = strSQL + ',' + IIf(MdlADOFunctions.fGetRstValBool(RstCursor.HeadJoshWorker, False) == False, 0, 1)
-                strSQL = strSQL + ',\'' + RstCursor.WorkerName + '\''
-                strSQL = strSQL + ')'
-                CN.Execute(strSQL)
-                RstCursor.MoveNext()
+            strSQL = 'SELECT * FROM TblJoshCurrent WHERE ID = ' + str(tNewJoshID)
+            RstCursor = MdlConnection.CN.cursor()
+            RstCursor.execute(strSQL)
+            RstData = RstCursor.fetchone()
+
+            if RstData:
+                # RstCursor.AddNew()
+                RstCursor.ID = tNewJoshID
+            RstCursor.JobID = self.ID
+            RstCursor.ShiftID = self.Machine.Server.CurrentShiftID
+            RstCursor.ShiftDefID = self.Machine.Server.CurrentShift.ShiftDefID
+            RstCursor.ShiftManagerID = self.Machine.Server.CurrentShift.ManagerID
+            RstCursor.StartTime = MdlUtilsH.ShortDate(tNow, True, True, True)
+            RstCursor.Department = self.Department.ID
+            RstCursor.ControllerID = self.Machine.ControllerID
+            RstCursor.UnitsTargetJob = self.UnitsTarget
+            RstCursor.MachineID = self.Machine.ID
+            RstCursor.MachineType = self.Machine.TypeId
+            RstCursor.ProductID = self.Product.ID
+            RstCursor.MoldID = self.Mold.ID
+            RstCursor.OrderID = self.ActiveJosh.OrderID
+            RstCursor.UnitsProducedJob = self.UnitsProduced
+            RstCursor.UnitsProducedOK = 0
+            RstCursor.UnitsProducedPCJob = self.UnitsProducedPC
+            RstCursor.JoshStartUnits = self.UnitsProduced
+            RstCursor.TotalUnitsJosh = 0
+            RstCursor.InjectionsCount = 0
+            RstCursor.InjectionsCountLast = 0
+            RstCursor.InjectionsCountStart = self.InjectionsCount
+            RstCursor.InjectionsCountDiff = 0
+            RstCursor.CavitiesStandard = self.CavitiesStandard
+            RstCursor.CavitiesActual = self.CavitiesActual
+            RstCursor.CavitiesPC = self.CavitiesActual / self.CavitiesStandard * 100
+            RstCursor.Status = 10
+            if not self.Machine.DisconnectWorkerOnShiftChange:
+                RstCursor.WorkerID = self.ActiveJosh.WorkerID
+            RstCursor.JoshStartUnitsProducedLeft = self.UnitsProducedLeft
+            # RstCursor.UpNone
             RstCursor.close()
-        
-        if not self.ActiveJosh is None:
-            if self.ActiveJosh.ID == 0:
-                GoTo(TblJoshMaterialsWhile)
-            strSQL = 'SELECT * FROM TblJoshMaterial Where JoshID = ' + self.ActiveJosh.ID
-            RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-            RstCursor.ActiveConnection = None
-            while not RstCursor.EOF:
-                if RstCursor.State == 0:
+            
+            
+            if not self.ActiveJosh is None and not self.Machine.DisconnectWorkerOnShiftChange:
+                if self.ActiveJosh.ID > 0:
+                    strSQL = 'SELECT * FROM TblJoshWorkers Where JoshID = ' + self.ActiveJosh.ID
                     
-                    pass
-                
-                tMaterialID = MdlADOFunctions.fGetRstValLong(RstCursor.Material)
-                tRecipeMaterialID = MdlADOFunctions.fGetRstValDouble(MdlUtilsH.fGetRecipeValueJob(self.ID, 'Material ID', MdlADOFunctions.fGetRstValLong(RstCursor.ChannelNum), MdlADOFunctions.fGetRstValLong(RstCursor.SplitNum)))
-                if tMaterialID == tRecipeMaterialID and tMaterialID != 0 and tRecipeMaterialID != 0:
-                    strTitle = 'INSERT INTO TblJoshMaterial '
-                    strSQL = '('
-                    strSQL = strSQL + 'JobID'
-                    strSQL = strSQL + ',ChannelNum'
-                    strSQL = strSQL + ',SplitNum'
-                    strSQL = strSQL + ',ShiftID'
-                    strSQL = strSQL + ',ShiftDefID'
-                    strSQL = strSQL + ',JoshID'
-                    strSQL = strSQL + ',JoshStart'
-                    strSQL = strSQL + ',Material'
-                    strSQL = strSQL + ',JoshAmountStart'
-                    strSQL = strSQL + ',MaterialPC'
-                    strSQL = strSQL + ',MaterialPCStandad'
-                    strSQL = strSQL + ',MaterialTypeID'
-                    strSQL = strSQL + ',MachineID'
-                    strSQL = strSQL + ',UnitWeight'
-                    strSQL = strSQL + ',ProductID'
-                    strSQL = strSQL + ',MaterialClassID'
-                    strSQL = strSQL + ',MaterialBatch'
-                    strSQL = strSQL + ',InventoryID'
-                    strSQL = strSQL + ')'
-                    strSQL = strSQL + ' VALUES '
-                    strSQL = strSQL + '('
-                    strSQL = strSQL + str(self.ID)
-                    strSQL = strSQL + ',' + RstCursor.ChannelNum
-                    strSQL = strSQL + ',' + RstCursor.SplitNum
-                    strSQL = strSQL + ',' + self.Machine.Server.CurrentShift.ID
-                    strSQL = strSQL + ',' + self.Machine.Server.CurrentShift.ShiftDefID
-                    strSQL = strSQL + ',' + tNewJoshID
-                    strSQL = strSQL + ',\'' + ShortDate(tNow, True, True, True) + '\''
-                    strSQL = strSQL + ',' + MdlADOFunctions.fGetRstValLong(RstCursor.Material)
-                    strSQL = strSQL + ',' + MdlADOFunctions.fGetRstValDouble(RstCursor.JobAmount)
-                    strSQL = strSQL + ',' + MdlADOFunctions.fGetRstValDouble(RstCursor.MaterialPC)
-                    strSQL = strSQL + ',' + MdlADOFunctions.fGetRstValDouble(RstCursor.MaterialPCStandad)
-                    strSQL = strSQL + ',' + MdlADOFunctions.fGetRstValLong(RstCursor.MaterialTypeID)
-                    strSQL = strSQL + ',' + self.Machine.ID
-                    strSQL = strSQL + ',' + self.GetUnitWeight
-                    strSQL = strSQL + ',' + self.Product.ID
-                    strSQL = strSQL + ',' + MdlADOFunctions.fGetRstValLong(RstCursor.MaterialClassID)
-                    strSQL = strSQL + ',\'' + MdlADOFunctions.fGetRstValString(RstCursor.MaterialBatch) + '\''
-                    strSQL = strSQL + ',' + MdlADOFunctions.fGetRstValLong(RstCursor.InventoryID)
-                    strSQL = strSQL + ')'
-                    CN.Execute(strTitle + strSQL)
-                    
-                    strTitle = 'INSERT INTO TblJoshCurrentMaterial '
-                    CN.Execute(strTitle + strSQL)
-                RstCursor.MoveNext()
-            RstCursor.close()
-        
-        if not self.OpenEvent is None:
-            if self.OpenEvent.RootEventID == 0:
-                if self.Machine.NewJob:
-                    if self.Machine.SetupEventIDOnShiftEnd == 1:
-                        self.OpenEvent.CloseAndCreateForNewShift(self.Machine.Server.CurrentShiftID, False, 0, True)
+                    RstCursor = MdlConnection.CN.cursor()
+                    RstCursor.execute(strSQL)
+                    RstValues = RstCursor.fetchall()
+                    for RstData in RstValues:
+                        if not RstData:                        
+                            break
+                        strSQL = 'INSERT INTO TblJoshWorkers'
+                        strSQL = strSQL + '('
+                        strSQL = strSQL + 'JoshID'
+                        strSQL = strSQL + ',MachineID'
+                        strSQL = strSQL + ',JobID'
+                        strSQL = strSQL + ',UserID'
+                        strSQL = strSQL + ',WorkerID'
+                        strSQL = strSQL + ',HeadJoshWorker'
+                        strSQL = strSQL + ',WorkerName'
+                        strSQL = strSQL + ')'
+                        strSQL = strSQL + ' VALUES '
+                        strSQL = strSQL + '('
+                        strSQL = strSQL + str(tNewJoshID)
+                        strSQL = strSQL + ',' + str(self.Machine.ID)
+                        strSQL = strSQL + ',' + str(self.ID)
+                        strSQL = strSQL + ',' + str(RstData.UserID)
+                        strSQL = strSQL + ',\'' + str(RstData.WorkerID) + '\''
+
+                        strSQL = strSQL + ',' 
+                        
+                        if MdlADOFunctions.fGetRstValBool(RstData.HeadJoshWorker, False) == False:
+                            strSQL = strSQL + str(0)
+                        else:
+                            strSQL = strSQL + str(1)
+                        
+                        strSQL = strSQL + ',\'' + RstData.WorkerName + '\''
+                        strSQL = strSQL + ')'
+                        MdlConnection.CN.execute(strSQL)
+                    RstCursor.close()
+            
+            if not self.ActiveJosh is None:
+                if self.ActiveJosh.ID > 0:
+                    strSQL = 'SELECT * FROM TblJoshMaterial Where JoshID = ' + self.ActiveJosh.ID
+
+                    RstCursor = MdlConnection.CN.cursor()
+                    RstCursor.execute(strSQL)
+                    RstValues = RstCursor.fetchall()
+
+                    for RstData in RstValues:
+                        if not RstCursor:
+                            break
+
+                        tMaterialID = MdlADOFunctions.fGetRstValLong(RstData.Material)
+                        tRecipeMaterialID = MdlADOFunctions.fGetRstValDouble(MdlUtilsH.fGetRecipeValueJob(self.ID, 'Material ID', MdlADOFunctions.fGetRstValLong(RstData.ChannelNum), MdlADOFunctions.fGetRstValLong(RstData.SplitNum)))
+                        if tMaterialID == tRecipeMaterialID and tMaterialID != 0 and tRecipeMaterialID != 0:
+                            strTitle = 'INSERT INTO TblJoshMaterial '
+                            strSQL = '('
+                            strSQL = strSQL + 'JobID'
+                            strSQL = strSQL + ',ChannelNum'
+                            strSQL = strSQL + ',SplitNum'
+                            strSQL = strSQL + ',ShiftID'
+                            strSQL = strSQL + ',ShiftDefID'
+                            strSQL = strSQL + ',JoshID'
+                            strSQL = strSQL + ',JoshStart'
+                            strSQL = strSQL + ',Material'
+                            strSQL = strSQL + ',JoshAmountStart'
+                            strSQL = strSQL + ',MaterialPC'
+                            strSQL = strSQL + ',MaterialPCStandad'
+                            strSQL = strSQL + ',MaterialTypeID'
+                            strSQL = strSQL + ',MachineID'
+                            strSQL = strSQL + ',UnitWeight'
+                            strSQL = strSQL + ',ProductID'
+                            strSQL = strSQL + ',MaterialClassID'
+                            strSQL = strSQL + ',MaterialBatch'
+                            strSQL = strSQL + ',InventoryID'
+                            strSQL = strSQL + ')'
+                            strSQL = strSQL + ' VALUES '
+                            strSQL = strSQL + '('
+                            strSQL = strSQL + str(self.ID)
+                            strSQL = strSQL + ',' + str(RstData.ChannelNum)
+                            strSQL = strSQL + ',' + str(RstData.SplitNum)
+                            strSQL = strSQL + ',' + str(self.Machine.Server.CurrentShift.ID)
+                            strSQL = strSQL + ',' + str(self.Machine.Server.CurrentShift.ShiftDefID)
+                            strSQL = strSQL + ',' + tNewJoshID
+                            strSQL = strSQL + ',\'' + MdlUtilsH.ShortDate(tNow, True, True, True) + '\''
+                            strSQL = strSQL + ',' + str(MdlADOFunctions.fGetRstValLong(RstData.Material))
+                            strSQL = strSQL + ',' + str(MdlADOFunctions.fGetRstValDouble(RstData.JobAmount))
+                            strSQL = strSQL + ',' + str(MdlADOFunctions.fGetRstValDouble(RstData.MaterialPC))
+                            strSQL = strSQL + ',' + str(MdlADOFunctions.fGetRstValDouble(RstData.MaterialPCStandad))
+                            strSQL = strSQL + ',' + str(MdlADOFunctions.fGetRstValLong(RstData.MaterialTypeID))
+                            strSQL = strSQL + ',' + str(self.Machine.ID)
+                            strSQL = strSQL + ',' + str(self.GetUnitWeight)
+                            strSQL = strSQL + ',' + str(self.Product.ID)
+                            strSQL = strSQL + ',' + str(MdlADOFunctions.fGetRstValLong(RstData.MaterialClassID))
+                            strSQL = strSQL + ',\'' + str(MdlADOFunctions.fGetRstValString(RstData.MaterialBatch)) + '\''
+                            strSQL = strSQL + ',' + str(MdlADOFunctions.fGetRstValLong(RstData.InventoryID))
+                            strSQL = strSQL + ')'
+                            MdlConnection.CN.execute(strTitle + strSQL)
+                            
+                            strTitle = 'INSERT INTO TblJoshCurrentMaterial '
+                            MdlConnection.CN.execute(strTitle + strSQL)
+                    RstCursor.close()
+            
+            if not self.OpenEvent is None:
+                if self.OpenEvent.RootEventID == 0:
+                    if self.Machine.NewJob:
+                        if self.Machine.SetupEventIDOnShiftEnd == 1:
+                            self.OpenEvent.CloseAndCreateForNewShift(self.Machine.Server.CurrentShiftID, False, 0, True)
+                        else:
+                            self.OpenEvent.CloseAndCreateForNewShift(self.Machine.Server.CurrentShiftID, True, 0, True)
                     else:
                         self.OpenEvent.CloseAndCreateForNewShift(self.Machine.Server.CurrentShiftID, True, 0, True)
                 else:
-                    self.OpenEvent.CloseAndCreateForNewShift(self.Machine.Server.CurrentShiftID, True, 0, True)
-            else:
-                
-                strSQL = 'SELECT MachineID, EndTime FROM TblEvent WITH (NOLOCK) WHERE ID = ' + self.OpenEvent.RootEventID
-                RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-                RstCursor.ActiveConnection = None
-                if RstData:
-                    tMachine = self.Machine.Server.Machines.Item(str(RstCursor.MachineID))
-                    if tMachine.ActiveJob.OpenEvent is None and IsEmptyOrNull(RstCursor.EndTime):
-                        if self.Machine.NewJob:
-                            if self.Machine.SetupEventIDOnShiftEnd == 1:
-                                self.OpenEvent.CloseAndCreateForNewShift(self.Machine.Server.CurrentShiftID, False, self.OpenEvent.RootEventID, True)
+                    
+                    strSQL = 'SELECT MachineID, EndTime FROM TblEvent WITH (NOLOCK) WHERE ID = ' + self.OpenEvent.RootEventID
+                    RstCursor = MdlConnection.CN.cursor()
+                    RstCursor.execute(strSQL)
+                    RstData = RstCursor.fetchone()
+
+                    if RstData:
+                        tMachine = self.Machine.Server.Machines.Item(str(RstData.MachineID))
+                        if tMachine.ActiveJob.OpenEvent is None and (RstData.EndTime == None or RstData.EndTime == ''):
+                            if self.Machine.NewJob:
+                                if self.Machine.SetupEventIDOnShiftEnd == 1:
+                                    self.OpenEvent.CloseAndCreateForNewShift(self.Machine.Server.CurrentShiftID, False, self.OpenEvent.RootEventID, True)
+                                else:
+                                    self.OpenEvent.CloseAndCreateForNewShift(self.Machine.Server.CurrentShiftID, True, self.OpenEvent.RootEventID, True)
                             else:
                                 self.OpenEvent.CloseAndCreateForNewShift(self.Machine.Server.CurrentShiftID, True, self.OpenEvent.RootEventID, True)
-                        else:
-                            self.OpenEvent.CloseAndCreateForNewShift(self.Machine.Server.CurrentShiftID, True, self.OpenEvent.RootEventID, True)
-        
-        if not self.OpenWorkingEvent is None:
-            self.OpenWorkingEvent.CloseAndCreateForNewShift(self.Machine.Server.CurrentShiftID)
-        
-        if not self.OpenEngineEvent is None:
-            self.OpenEngineEvent.CloseAndCreateForNewShift(self.Machine.Server.CurrentShiftID)
-        
-        self.ActiveJosh.EndJosh
-        self.ActiveJosh = None
-        
-        for tVariant in self.ControllerChannels:
-            tChannel = tVariant
-            tChannel.ResetJoshCounters
-        tJosh = Josh()
-        tJosh.Init(self, tNewJoshID)
-        
-        self.ActiveJosh = tJosh
-        self.Machine.ActiveJosh = tJosh
-        self.Machine.ActiveJoshID = tJosh.ID
-        
-        if not self.OpenEvent is None:
-            self.OpenEvent.Josh = tJosh
-            self.OpenEvent.Update
-        
-        if not self.OpenWorkingEvent is None:
-            self.OpenWorkingEvent.Josh = tJosh
-            self.OpenWorkingEvent.Update
-        
-        if not self.OpenEngineEvent is None:
-            self.OpenEngineEvent.Josh = tJosh
-            self.OpenEngineEvent.Update
-        self.Machine.FireEventTriggeredTasks(4)
-        if Err.Number != 0:
-            if InStr(Err.Description, 'nnection') > 0:
-                if CN.State == 1:
-                    CN.Close()
-                CN.Open()
-                if MetaCn.State == 1:
-                    MetaCn.Close()
-                MetaCn.Open()
-                Err.Clear()
+            
+            if not self.OpenWorkingEvent is None:
+                self.OpenWorkingEvent.CloseAndCreateForNewShift(self.Machine.Server.CurrentShiftID)
+            
+            if not self.OpenEngineEvent is None:
+                self.OpenEngineEvent.CloseAndCreateForNewShift(self.Machine.Server.CurrentShiftID)
+            
+            self.ActiveJosh.EndJosh
+            self.ActiveJosh = None
+            
+            for tVariant in self.ControllerChannels:
+                tChannel = tVariant
+                tChannel.ResetJoshCounters()
+            tJosh = Josh()
+            tJosh.Init(self, tNewJoshID)
+            
+            self.ActiveJosh = tJosh
+            self.Machine.ActiveJosh = tJosh
+            self.Machine.ActiveJoshID = tJosh.ID
+            
+            if not self.OpenEvent is None:
+                self.OpenEvent.Josh = tJosh
+                self.OpenEvent.Update()
+            
+            if not self.OpenWorkingEvent is None:
+                self.OpenWorkingEvent.Josh = tJosh
+                self.OpenWorkingEvent.Update()
+            
+            if not self.OpenEngineEvent is None:
+                self.OpenEngineEvent.Josh = tJosh
+                self.OpenEngineEvent.Update()
+            self.Machine.FireEventTriggeredTasks(4)
+
+        except BaseException as error:
+            if 'nnection' in error.args[0]:
+                if MdlConnection.CN:
+                    MdlConnection.Close(MdlConnection.CN)
+                MdlConnection.Open(MdlConnection.CN, MdlConnection.strCon)
+
+                if MdlConnection.MetaCn:
+                    MdlConnection.Close(MdlConnection.MetaCn)
+                MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
                 
             MdlGlobal.RecordError(type(self).__name__ + '.CreateJoshForNewShift:', str(0), error.args[0], 'JobID:' + str(self.ID))
-            Err.Clear()
-            
             
         RstCursor = None
 
@@ -2141,13 +2158,13 @@ class Job:
         strSQL = strSQL + ',PreviousValue'
         strSQL = strSQL + ',CurrentValue'
         strSQL = strSQL + ')'
-        strSQL = strSQL + ' SELECT ID AS JobID, 0 AS UserID, \'' + ShortDate(mdl_Common.NowGMT, True, True, True) + '\' AS ChangeDate,'
+        strSQL = strSQL + ' SELECT ID AS JobID, 0 AS UserID, \'' + MdlUtilsH.ShortDate(mdl_Common.NowGMT, True, True, True) + '\' AS ChangeDate,'
         strSQL = strSQL + ' StartTimeTarget, EndTimeTarget, EndTimeRequest, UnitsTarget, \'' + pActionID + '\' AS ActionID, MachineID, ProductID,'
         strSQL = strSQL + ' MoldID, Department, Status, ' + self.ProductWeightStandard + ' AS ProductWeight, ' + str(self.GetUnitWeight) + ' AS UnitWeight, ERPJobDef,'
         strSQL = strSQL + ' \'' + pParameterName + '\' AS FieldName, \'' + pPreviousValue + '\' AS PreviousValue, \'' + pCurrentValue + '\' AS CurrentValue'
         strSQL = strSQL + ' FROM TblJob'
         strSQL = strSQL + ' WHERE ID = ' + str(self.ID)
-        CN.Execute(strSQL)
+        MdlConnection.CN.execute(strSQL)
         if Err.Number != 0:
             if InStr(Err.Description, 'nnection') > 0:
                 if CN.State == 1:
@@ -2421,9 +2438,9 @@ class Job:
         strSQL = strSQL + 'WHERE ID IN(' + vbCrLf
         strSQL = strSQL + 'SELECT EventID FROM TblAlarms WHERE EventID <> 0 AND JobID = ' + str(self.ID)
         strSQL = strSQL + ')'
-        CN.Execute(strSQL)
+        MdlConnection.CN.execute(strSQL)
         strSQL = 'DELETE FROM TblAlarms WHERE JobID = ' + str(self.ID)
-        CN.Execute(strSQL)
+        MdlConnection.CN.execute(strSQL)
         if not self.OpenAlarms is None:
             for Counter in vbForRange(1, self.OpenAlarms.Count):
                 tAlarm = self.OpenAlarms.Item(Counter)
@@ -2564,7 +2581,7 @@ class Job:
         RstCursor.close()
         self.PrintRecordToHistory(500, 'JobID', str(tLastJobID))
         strSQL = 'UPDATE TblMachineMaterialFlow SET Value = NULL, InitialValue = NULL, JobID = NULL WHERE MachineID = ' + self.Machine.ID
-        CN.Execute(strSQL)
+        MdlConnection.CN.execute(strSQL)
         if Err.Number != 0:
             if InStr(Err.Description, 'nnection') > 0:
                 if CN.State == 1:
@@ -2838,7 +2855,7 @@ class Job:
                 strSQL = strSQL + tWareHouseID
             strSQL = strSQL + strValues
             strSQL = strSQL + ')'
-            CN.Execute(strSQL)
+            MdlConnection.CN.execute(strSQL)
             tInventoryID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('TOP 1 ID', 'TblInventory', 'JobID = ' + tJobID + ' ORDER BY ID DESC', 'CN'))
             AddInventoryHistoryRecord(tInventoryID, 1)
             CreateInventoryTrace(tInventoryID, self.ActiveJosh.ID)
@@ -2909,7 +2926,7 @@ class Job:
                     strSQL = strSQL + '\'' + tCatalogID + '\''
                 strSQL = strSQL + strValues
                 strSQL = strSQL + ')'
-                CN.Execute(strSQL)
+                MdlConnection.CN.execute(strSQL)
             elif (tUnitsReportedOkFrom == UnitsReportedOKFromOption.Pallet):
                 tBoxUnits = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('BoxUnits', 'TblProduct', 'ID = ' + self.ProductID, 'CN'))
                 tAmountFullBoxes = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('PalletBoxes', 'TblProduct', 'ID = ' + self.ProductID, 'CN'))
@@ -2989,17 +3006,17 @@ class Job:
                     strSQL = strSQL + '\'' + tCatalogID + '\''
                 strSQL = strSQL + strValues
                 strSQL = strSQL + ')'
-                CN.Execute(strSQL)
+                MdlConnection.CN.execute(strSQL)
             if (tUnitsReportedOkFrom == UnitsReportedOKFromOption.Box):
                 strSQL = 'UPDATE TblJob SET PackageBatchNum = ' +  ( tBatchNum + 1 )  + ' WHERE ID = ' + tJobID
-                CN.Execute(strSQL)
+                MdlConnection.CN.execute(strSQL)
                 strSQL = 'UPDATE TblJobCurrent SET PackageBatchNum = ' +  ( tBatchNum + 1 )  + ' WHERE ID = ' + tJobID
-                CN.Execute(strSQL)
+                MdlConnection.CN.execute(strSQL)
             elif (tUnitsReportedOkFrom == UnitsReportedOKFromOption.Pallet):
                 strSQL = 'UPDATE TblJob SET PalletBatchNum = ' +  ( tBatchNum + 1 )  + ' WHERE ID = ' + tJobID
-                CN.Execute(strSQL)
+                MdlConnection.CN.execute(strSQL)
                 strSQL = 'UPDATE TblJobCurrent SET PalletBatchNum = ' +  ( tBatchNum + 1 )  + ' WHERE ID = ' + tJobID
-                CN.Execute(strSQL)
+                MdlConnection.CN.execute(strSQL)
             self.UnitsReportedOK = self.UnitsReportedOK + tEffectiveAmount
         if Err.Number != 0:
             if InStr(Err.Description, 'nnection') > 0:
@@ -3052,9 +3069,7 @@ class Job:
         tVariant2 = None
 
     def __del__(self):
-
-        if Err.Number != 0:
-            Err.Clear()
+        pass
             
 
     def LoadAlarms(self):

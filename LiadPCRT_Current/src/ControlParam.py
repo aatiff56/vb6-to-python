@@ -1,5 +1,6 @@
 from datetime import datetime
 from DataSample import DataSample
+from GlobalVariables import IsNumeric
 
 import numbers
 import ValidateValue
@@ -208,9 +209,9 @@ class ControlParam:
         Counter = 0
         
         if self.__mIsBatchTriger == True:
-            for Counter in range(1, self.__mBatchParams.Count):
-                self.__mBatchParams.Item[Counter] = None
-                self.__mBatchParams.Remove(( Counter ))
+            for Counter in range(0, len(self.__mBatchParams)):
+                del self.__mBatchParams[Counter]
+
         if self.__mIsBatchTriger == True:
             self.__mBatchGroup = None
 
@@ -495,12 +496,12 @@ class ControlParam:
                                 dictRequest.Add('JobID', JobID)
                                 CallAPIRequest('ActivateJobForMachine', dictRequest)
                         elif Rst.RecordCount == 0:
-                            RecordError('LeaderRT:ActivateJob', 0, 'No job was found!', 'Value: ' + self.__mLastValue)
+                            MdlGlobal.RecordError('LeaderRT:ActivateJob', 0, 'No job was found!', 'Value: ' + self.__mLastValue)
                         else:
-                            RecordError('LeaderRT:ActivateJob', 0, 'More than one job was found!', 'Value: ' + self.__mLastValue)
+                            MdlGlobal.RecordError('LeaderRT:ActivateJob', 0, 'More than one job was found!', 'Value: ' + self.__mLastValue)
                         Rst.Close()
                 else:
-                    RecordError('LeaderRT:ActivateJob', 0, 'No Communication!', 'Value: ' + self.__mLastValue)
+                    MdlGlobal.RecordError('LeaderRT:ActivateJob', 0, 'No Communication!', 'Value: ' + self.__mLastValue)
             if self.__mLastValue != self.__mPrevValue and tIOStatus != 0:
                 self.__mPrevSampleTime = self.__mLastSampleTime
                 self.__mLastSampleTime = Now()
@@ -906,7 +907,7 @@ class ControlParam:
                 MetaCn.Open()
                 Err.Clear()
                 
-            RecordError('LeaderRT:BatchReadValues', str(Err.Number), Err.Description, '')
+            MdlGlobal.RecordError('LeaderRT:BatchReadValues', str(Err.Number), Err.Description, '')
             Err.Clear()
         tParam = None
         tVariant = None
@@ -1005,7 +1006,7 @@ class ControlParam:
                 MetaCn.Open()
                 Err.Clear()
                 
-            RecordError('LeaderRT:ErrSPCValAdd', str(Err.Number), Err.Description, '')
+            MdlGlobal.RecordError('LeaderRT:ErrSPCValAdd', str(Err.Number), Err.Description, '')
             Err.Clear()
         return returnVal
 
@@ -1078,49 +1079,47 @@ class ControlParam:
         return returnVal
 
     def UpdateLimits(self, dMean, dPUCL, dPLCL, dQUCL, dQLCL, UpdateRecipe=False, pFromJobLoad=False):
-        returnVal = None
-        strSQL = ''
-        
         returnVal = False
-        if IsNumeric(dMean):
-            self.__mMean = dMean
-        if IsNumeric(dPUCL):
-            self.__mPUCL = dPUCL
-        if IsNumeric(dPLCL):
-            self.__mPLCL = dPLCL
-        if IsNumeric(dQUCL):
-            self.__mQUCL = dQUCL
-        if IsNumeric(dQLCL):
-            self.__mQLCL = dQLCL
-        
-        
-        
-        if pFromJobLoad:
+        strSQL = ''
+
+        try:            
             if IsNumeric(dMean):
-                self.__mLastValue = dMean
-        if self.__mPropertyID > 0 and UpdateRecipe == True:
-            strSQL = 'UPDATE TblProductRecipeJob SET HValue = ' + self.__mPUCL + ', LValue = ' + self.__mPLCL + ', HHValue = ' + self.__mQUCL + ', LLValue = ' + self.__mQLCL
-            if self.__mMean != 0:
-                strSQL = strSQL + ', FValue = ' + self.__mMean
-            strSQL = strSQL + ' Where PropertyID = ' + self.__mPropertyID + ' And  JobID = ' + self.__mPMachine.ActiveJobID
-            MdlConnection.CN.execute(strSQL)
+                self.__mMean = dMean
+            if IsNumeric(dPUCL):
+                self.__mPUCL = dPUCL
+            if IsNumeric(dPLCL):
+                self.__mPLCL = dPLCL
+            if IsNumeric(dQUCL):
+                self.__mQUCL = dQUCL
+            if IsNumeric(dQLCL):
+                self.__mQLCL = dQLCL
             
-            strSQL = 'Update TblControllerFields Set TargetValue = ' + self.__mMean + ', HValue = ' + self.__mPUCL + ', HHValue = ' + self.__mQUCL + ', LValue = ' + self.__mPLCL + ', LLValue = ' + self.__mQLCL + ' Where ID = ' + self.__mID
-            MdlConnection.CN.execute(strSQL)
-        self.XMLCalc()
-        returnVal = True
-        if Err.Number != 0:
-            if InStr(Err.Description, 'nnection') > 0:
-                if CN.State == 1:
-                    CN.Close()
-                CN.Open()
-                if MetaCn.State == 1:
-                    MetaCn.Close()
-                MetaCn.Open()
-                Err.Clear()
+            if pFromJobLoad:
+                if IsNumeric(dMean):
+                    self.__mLastValue = dMean
+            if self.__mPropertyID > 0 and UpdateRecipe == True:
+                strSQL = 'UPDATE TblProductRecipeJob SET HValue = ' + self.__mPUCL + ', LValue = ' + self.__mPLCL + ', HHValue = ' + self.__mQUCL + ', LLValue = ' + self.__mQLCL
+                if self.__mMean != 0:
+                    strSQL = strSQL + ', FValue = ' + self.__mMean
+                strSQL = strSQL + ' Where PropertyID = ' + str(self.__mPropertyID) + ' And  JobID = ' + str(self.__mPMachine.ActiveJobID)
+                MdlConnection.CN.execute(strSQL)
                 
-            RecordError('ControlParam:UpdateLimits', str(Err.Number), Err.Description, '')
-            Err.Clear()
+                strSQL = 'Update TblControllerFields Set TargetValue = ' + self.__mMean + ', HValue = ' + self.__mPUCL + ', HHValue = ' + self.__mQUCL + ', LValue = ' + self.__mPLCL + ', LLValue = ' + self.__mQLCL + ' Where ID = ' + str(self.__mID)
+                MdlConnection.CN.execute(strSQL)
+            self.XMLCalc()
+            returnVal = True
+
+        except BaseException as error:
+            if 'nnection' in error.args[0]:
+                if MdlConnection.CN:
+                    MdlConnection.Close(MdlConnection.CN)
+                MdlConnection.CN = MdlConnection.Open(MdlConnection.strCon)
+
+                if MdlConnection.MetaCn:
+                    MdlConnection.Close(MdlConnection.MetaCn)
+                MdlConnection.MetaCn = MdlConnection.Open(MdlConnection.strMetaCon)
+                
+            MdlGlobal.RecordError('ControlParam:UpdateLimits', str(0), error.args[0], '')
             
         return returnVal
 
@@ -1301,7 +1300,7 @@ class ControlParam:
                 MetaCn.Open()
                 Err.Clear()
                 
-            RecordError('LeaderRT:fShrinkBatchData', str(Err.Number), Err.Description, '')
+            MdlGlobal.RecordError('LeaderRT:fShrinkBatchData', str(Err.Number), Err.Description, '')
             Err.Clear()
         if Rst.State != 0:
             Rst.Close()
@@ -1349,7 +1348,7 @@ class ControlParam:
                 MetaCn.Open()
                 Err.Clear()
                 
-            RecordError('LeaderRT:fShrinkSPCData', str(Err.Number), Err.Description, '')
+            MdlGlobal.RecordError('LeaderRT:fShrinkSPCData', str(Err.Number), Err.Description, '')
             Err.Clear()
         if Rst.State != 0:
             Rst.Close()
@@ -1365,27 +1364,13 @@ class ControlParam:
         tempSqlTS = ''
         
         returnVal = False
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
         if self.__mIsSPCValue == True and CInt(MachineCurrentStatus) < 3:
             
             fMoveTableToHistory(self.__mSPCTable, 'SampleTime', 'JobID', 60, 15, MachineID, self.ID, 'TSPC')
         returnVal = True
         if Err.Number != 0:
-            RecordError('LeaderRT:ShrinkData', str(Err.Number), Err.Description, '')
+            MdlGlobal.RecordError('LeaderRT:ShrinkData', str(Err.Number), Err.Description, '')
             Err.Clear()
         return returnVal
 
@@ -1411,7 +1396,7 @@ class ControlParam:
         
         self.__mAlarmXML = strXML
         if Err.Number != 0:
-            RecordError('ControlParam:AlarmXMLCalc', str(Err.Number), Err.Description, '')
+            MdlGlobal.RecordError('ControlParam:AlarmXMLCalc', str(Err.Number), Err.Description, '')
             Err.Clear()
             
         return returnVal
@@ -1465,8 +1450,8 @@ class ControlParam:
                 returnVal = True
                 return returnVal
             else:
-                for Counter in range(1, self.__mBatchTablesCount):
-                    if self.__mBatchTables(Counter) == sTableName:
+                for Counter in range(0, self.__mBatchTablesCount):
+                    if self.__mBatchTables[Counter] == sTableName:
                         return returnVal
             
             self.__mBatchTablesCount = self.__mBatchTablesCount + 1
@@ -1507,11 +1492,6 @@ class ControlParam:
                         self.pMachine.ActiveJob.AddRejects(self.__mRejectsAReadCurrent, 0, self.__mRejectReasonID, True, True, self.__mRejectReasonOption, False, VBGetMissingArgument(self.pMachine.ActiveJob.AddRejects, 7), self.__mRejectsIncludeInRejectsTotal)
                 returnVal = True
             else:
-                
-                
-                
-                
-                
                 if MdlADOFunctions.fGetRstValBool(self.pMachine.AllowAutoRejectsOnSetup, True) == False:
                     self.__mRejectsAReadCurrent = self.__mRejectsAReadCurrent - self.pMachine.ActiveJob.SetUpEndAutoRejects
                 if self.__mRejectsAReadCurrent < self.__mRejectsAReadLast:
@@ -1556,7 +1536,7 @@ class ControlParam:
         else:
             returnVal = False
         if Err.Number != 0:
-            RecordError('LeaderRT:CalcRejectsRead', str(Err.Number), Err.Description, 'JobID:' + self.__mPMachine.ActiveJobID + ';Machine:' + self.__mPMachine.ID)
+            MdlGlobal.RecordError('LeaderRT:CalcRejectsRead', str(Err.Number), Err.Description, 'JobID:' + self.__mPMachine.ActiveJobID + ';Machine:' + self.__mPMachine.ID)
             Err.Clear()
         return returnVal
 
@@ -1608,18 +1588,10 @@ class ControlParam:
                     else:
                         self.PrevValidValue = self.LastValidValue
                 else:
-                    RecordError('ControlParam.CheckIfValid:', '0', '', 'FieldName:' + self.FName + '. MachineID:' + self.pMachine.ID + '. JobID:' + str(self.pMachine.ActiveJobID) + '. Value was not valid. Last Valid Value: ' + self.LastValidValue + '. Invalid Value:' + self.__mLastValue + '. TimeDiff(Min):' + tTimeDiff)
+                    MdlGlobal.RecordError('ControlParam.CheckIfValid:', '0', '', 'FieldName:' + self.FName + '. MachineID:' + self.pMachine.ID + '. JobID:' + str(self.pMachine.ActiveJobID) + '. Value was not valid. Last Valid Value: ' + self.LastValidValue + '. Invalid Value:' + self.__mLastValue + '. TimeDiff(Min):' + tTimeDiff)
             else:
                 self.PrevValidValue = self.LastValidValue
-            
-            
-            
-            
-            
-            
-            
-            
-            
+
         if Err.Number != 0:
             Err.Clear()
 
@@ -1839,7 +1811,7 @@ class ControlParam:
                 MetaCn.Open()
                 Err.Clear()
                 
-            RecordError('SetCalcByDiff', Err.Number, Err.Description, 'MachineID: ' + self.pMachine.ID + ', FieldName: ' + self.FName)
+            MdlGlobal.RecordError('SetCalcByDiff', Err.Number, Err.Description, 'MachineID: ' + self.pMachine.ID + ', FieldName: ' + self.FName)
             Err.Clear()
         return returnVal
 
@@ -1865,7 +1837,7 @@ class ControlParam:
                 return returnVal
         returnVal = True
         if Err.Number != 0:
-            RecordError('ControlParam:ReadValueIsValid', Err.Number, Err.Description, 'MachineID: ' + self.pMachine.ID + ', FieldName: ' + self.FName)
+            MdlGlobal.RecordError('ControlParam:ReadValueIsValid', Err.Number, Err.Description, 'MachineID: ' + self.pMachine.ID + ', FieldName: ' + self.FName)
             Err.Clear()
         return returnVal
 
@@ -1874,10 +1846,6 @@ class ControlParam:
         strRes = ''
 
         strCommand = ''
-        
-        
-        
-        
         
         if DateDiff('s', self.__mLastIOTime, mdl_Common.NowGMT) >= self.__cntDeviceDisableIntervalSec:
             self.__mIOStatus = 0

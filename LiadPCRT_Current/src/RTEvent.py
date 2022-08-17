@@ -4,6 +4,7 @@ import MdlGlobal
 import MdlConnection
 import mdl_Common
 import MdlUtilsH
+import GlobalVariables
 
 class RTEvent:
     __mID = 0
@@ -152,7 +153,7 @@ class RTEvent:
                 strSQL = strSQL + str(pJob.PConfigRelation) + ','
                 strSQL = strSQL + str(pJob.PConfigPC)
             strSQL = strSQL + ')'
-            MdlADOFunctions.CN.execute(strSQL)
+            MdlConnection.CN.execute(strSQL)
             
             strSQL = 'SELECT TOP 1 ID FROM TblEvent Where JobID = ' + str(pJob.ID) + ' AND ShiftID = ' + str(pJob.Machine.Server.CurrentShiftID) + ' AND Event = ' + str(pEventID) + ' ORDER BY ID DESC'
             RstCursor = MdlConnection.CN.cursor()
@@ -170,18 +171,18 @@ class RTEvent:
                     self.EventGroup = pEventGroupID
                     self.IsCalendarEvent = True
                     self.RootEventID = 0
-                    self.Update
+                    self.Update()
                     
                     if ActivateProductionMode and ActivateProductionModeID > 0:
                         self.Machine.ActiveCalendarEvent = True
                         self.Machine.ActiveCalendarEventProductionModeID = ActivateProductionModeID
                         strSQL = 'UPDATE TblMachines SET ActiveCalendarEvent = 1, ActiveCalendarEventProductionModeID = ' + self.Machine.ActiveCalendarEventProductionModeID + ' WHERE ID = ' + self.Machine.ID
-                        MdlADOFunctions.CN.execute(strSQL)
+                        MdlConnection.CN.execute(strSQL)
                     else:
                         self.Machine.ActiveCalendarEvent = False
                         self.Machine.ActiveCalendarEventProductionModeID = 0
                         strSQL = 'UPDATE TblMachines SET ActiveCalendarEvent = 0, ActiveCalendarEventProductionModeID = ' + self.Machine.ActiveCalendarEventProductionModeID + ' WHERE ID = ' + self.Machine.ID
-                        MdlADOFunctions.CN.execute(strSQL)
+                        MdlConnection.CN.execute(strSQL)
             if not pFromNewShift:
                 if pJob.PConfigID != 0 and pJob.IsPConfigMain == True:
                     for tVariant in self.Job.PConfigJobs:
@@ -252,7 +253,7 @@ class RTEvent:
                 strSQL = strSQL + 'IsCalendarEvent = 0,' + '\n'
                 strSQL = strSQL + 'IsShortEvent = 1'
                 strSQL = strSQL + 'WHERE ID = ' + self.ID
-                MdlADOFunctions.CN.execute(( strSQL ))
+                MdlConnection.CN.execute(( strSQL ))
 
             if ( ( self.Machine.NewJob == False or  ( self.Machine.NewJob == True and self.Machine.SetupEventIDOnSetupEnd == 2 ) )  and self.Machine.ProductionModeID == 1 ) or ( self.Machine.ProductionModeID > 1 and not self.Machine.ProductionModeOverCalendarEvent ):
                 if fCheckCalendar(self.Machine, self.EventTime, self.DurationSec, tEventID, tEventGroupID, ActivateProductionMode, ActivateProductionModeID) == True:
@@ -272,7 +273,7 @@ class RTEvent:
                             strSQL = strSQL + 'EventGroup = ' + self.Machine.ProductionModeGroupReasonID + ',' + '\n'
                             strSQL = strSQL + 'IsCalendarEvent = 0'
                             strSQL = strSQL + 'WHERE ID = ' + self.ID
-                            MdlADOFunctions.CN.execute(( strSQL ))
+                            MdlConnection.CN.execute(( strSQL ))
                         else:
                             self.EventID = 0
                             self.EventGroup = 6
@@ -283,7 +284,7 @@ class RTEvent:
                             strSQL = strSQL + 'EventGroup = 6,' + '\n'
                             strSQL = strSQL + 'IsCalendarEvent = 0'
                             strSQL = strSQL + 'WHERE ID = ' + self.ID
-                            MdlADOFunctions.CN.execute(( strSQL ))
+                            MdlConnection.CN.execute(( strSQL ))
             
             self.EffectiveDuration = self.Duration *  ( self.Job.PConfigPC / 100 )
             if self.EventID == 0 and not self.Machine.Server.SystemVariables.AllowEventReasonsWithNoDefinition:
@@ -323,7 +324,7 @@ class RTEvent:
                 self.DurationSec = 0
             if pTechnicianUserID != 0:
                 self.TechnicianUserID = pTechnicianUserID
-            self.Update
+            self.Update()
             if self.Machine.ActiveJob.ID != self.Job.ID:
                 self.Job.DetailsCalc(False, False)
 
@@ -418,19 +419,29 @@ class RTEvent:
             strSQL = strSQL + ' ,EffectiveInActiveTime = ' + str(self.EffectiveInActiveTime)
             strSQL = strSQL + ' ,TechnicianUserID = ' + str(self.TechnicianUserID)
             if not self.Josh is None:
-                strSQL = strSQL + ' ,JoshID = ' + self.Josh.ID
+                strSQL = strSQL + ' ,JoshID = ' + str(self.Josh.ID)
             strSQL = strSQL + ' ,Status = 1'
-            strSQL = strSQL + ' ,IsCalendarEvent = ' + str(1) if self.IsCalendarEvent == True else str(0)
-            if IsDate(self.EndTime) and str(self.EndTime) != '00:00:00':
+            strSQL = strSQL + ' ,IsCalendarEvent = ' 
+            if self.IsCalendarEvent == True:
+                strSQL = strSQL + str(1)
+            else:
+                strSQL = strSQL + str(0)
+             
+            if GlobalVariables.IsDate(self.EndTime) and str(self.EndTime) != '00:00:00':
                 
                 strSQL = strSQL + ' ,EndTime = \'' + MdlUtilsH.ShortDate(self.EndTime, True, True, True) + '\''
             if self.IsCalendarEvent == True:
-                strSQL = strSQL + ' ,Event = ' + self.EventID
-                strSQL = strSQL + ' ,EventGroup = ' + self.EventGroup
-            strSQL = strSQL + ' ,RootEventID = ' + self.RootEventID
-            strSQL = strSQL + ' ,IsShortEvent = ' + str(1) if self.IsShortEvent == True else str(0)
-            strSQL = strSQL + ' WHERE ID = ' + self.ID
-            MdlADOFunctions.CN.execute(strSQL)
+                strSQL = strSQL + ' ,Event = ' + str(self.EventID)
+                strSQL = strSQL + ' ,EventGroup = ' + str(self.EventGroup)
+            strSQL = strSQL + ' ,RootEventID = ' + str(self.RootEventID)
+            strSQL = strSQL + ' ,IsShortEvent = ' 
+            if self.IsShortEvent == True:
+                strSQL = strSQL + str(1)
+            else:
+                strSQL = strSQL + str(0)
+
+            strSQL = strSQL + ' WHERE ID = ' + str(self.ID)
+            MdlConnection.CN.execute(strSQL)
 
         except BaseException as error:
             if 'nnection' in error.args[0]:

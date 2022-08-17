@@ -1,3 +1,4 @@
+from colorama import Fore
 from GlobalVariables import WareHouseLocationConsumptionMethod
 from GlobalVariables import BatchAutoSubtractModeOption
 from GlobalVariables import MaterialCalcStandardOption
@@ -59,14 +60,24 @@ class ChannelSplit:
                 if pFromActivateJob:
                     self.ActivateBatchFromLocation = True
             
+            print(Fore.GREEN + 'Initializing Material ID')
             self.__InitMaterialID()
+            print(Fore.GREEN + 'Initializing Material PC')
             self.__InitMaterialPC()
+            print(Fore.GREEN + 'Initializing Material PC Target')
             self.__InitMaterialPCTarget()
+            print(Fore.GREEN + 'Initializing Material Batch')
             self.__InitMaterialBatch()
+            print(Fore.GREEN + 'Initializing Total Weight')
             self.__InitTotalWeight(pJoshID)
+            print(Fore.GREEN + 'Initializing Forecast Weight')
             self.__InitForecastWeight()
+
             if self.MaterialID.CurrentValue != 0:
+                print(Fore.GREEN + 'Checking Split Job Material Record.')
                 MdlChannelSplit.CheckSplitJobMaterialRecord(self)
+        
+                print(Fore.GREEN + 'Checking Split Josh Material Record.')
                 MdlChannelSplit.CheckSplitJoshMaterialRecord(self)
             
             if self.Parent.Job.NextJobMaterialFlowStart != 0:
@@ -295,8 +306,11 @@ class ChannelSplit:
             tMaterialID = MaterialID()
             tMaterialID.Parent = self
             tControllerFieldName = MdlChannelSplit.GetSplitControllerFieldName(self.Parent.ChannelNum, self.SplitNum,  MdlChannelSplit.ControllerFieldNameType.MaterialID)
-            if self.Parent.Machine.GetParam(tControllerFieldName, tControllerField) == True:
+            tControllerField = self.Parent.Machine.GetParam(tControllerFieldName)
+            if tControllerField:
                 tMaterialID.ControllerField = tControllerField
+
+            print(Fore.GREEN + 'Getting Channel Split Material ID.')
             MdlChannelSplit.GetChannelSplitMaterialID(self.Parent.Job.ID, tMaterialID, self.Parent.ChannelNum, self.SplitNum)
             self.MaterialID = tMaterialID
 
@@ -315,8 +329,11 @@ class ChannelSplit:
             tMaterialPC = MaterialPC()
             tMaterialPC.Parent = self
             ControllerFieldName = MdlChannelSplit.GetSplitControllerFieldName(self.Parent.ChannelNum, self.SplitNum, MdlChannelSplit.ControllerFieldNameType.MaterialPC)
-            if self.Parent.Machine.GetParam(ControllerFieldName, tParam) == True:
+            tParam = self.Parent.Machine.GetParam(ControllerFieldName)
+            if tParam:
                 tMaterialPC.ControllerField = tParam
+
+            print(Fore.GREEN + 'Getting Channel Split Material PC.')
             MdlChannelSplit.GetChannelSplitMaterialPC(self.Parent.Job.ID, tMaterialPC, self.Parent.ChannelNum, self.SplitNum)
             self.MaterialPC = tMaterialPC
 
@@ -335,8 +352,11 @@ class ChannelSplit:
             tMaterialPCTarget = MaterialPCTarget()
             tMaterialPCTarget.Parent = self
             ControllerFieldName = MdlChannelSplit.GetSplitControllerFieldName(self.Parent.ChannelNum, self.SplitNum, MdlChannelSplit.ControllerFieldNameType.MaterialPCTarget)
-            if self.Parent.Machine.GetParam(ControllerFieldName, tParam) == True:
+            tParam = self.Parent.Machine.GetParam(ControllerFieldName)
+            if tParam:
                 tMaterialPCTarget.ControllerField = tParam
+
+            print(Fore.GREEN + 'Getting Channel Split Material PC Target.')
             MdlChannelSplit.GetChannelSplitMaterialPCTarget(self.Parent.Job.ID, tMaterialPCTarget, self.Parent.ChannelNum, self.SplitNum)
             self.MaterialPCTarget = tMaterialPCTarget
 
@@ -356,12 +376,15 @@ class ChannelSplit:
             tTotalWeight = TotalWeight()
             tTotalWeight.Parent = self
             ControllerFieldName = MdlChannelSplit.GetSplitControllerFieldName(self.Parent.ChannelNum, self.SplitNum, MdlChannelSplit.ControllerFieldNameType.TotalWeight)
-            if self.Parent.Machine.GetParam(ControllerFieldName, tParam) == True:
+            tParam = self.Parent.Machine.GetParam(ControllerFieldName)
+            if tParam:
                 tTotalWeight.ControllerField = tParam
             if not self.MaterialBatch is None:
                 tMaterialBatch = self.MaterialBatch.CurrentValue
             else:
                 tMaterialBatch = ''
+
+            print(Fore.GREEN + 'Getting Channel Split Total Weight.')
             MdlChannelSplit.GetChannelSplitTotalWeight(self.Parent.Job.ID, pJoshID, tTotalWeight, self.Parent.ChannelNum, self.SplitNum, self.MaterialID.CurrentValue, tMaterialBatch)
             self.TotalWeight = tTotalWeight
 
@@ -375,12 +398,15 @@ class ChannelSplit:
         tMaterialBatch = None
 
         try:
+            print(Fore.GREEN + 'Getting Channel Split Material Batch.')
             MdlChannelSplit.GetChannelSplitMaterialBatch(self.Parent.Job.ID, tMaterialBatch, self.Parent.ChannelNum, self.SplitNum)
             if not tMaterialBatch is None:
                 tMaterialBatch.Parent = self
                 if tMaterialBatch.CurrentValue != '':
                     self.MaterialBatch = tMaterialBatch
                     self.ActiveInventoryID = tMaterialBatch.ID
+
+                    print(Fore.GREEN + 'Adding Inventory Item to Global Collection.')
                     MdlRTInventory.AddInventoryItemToGlobalCollection(tMaterialBatch)
 
         except BaseException as error:
@@ -394,6 +420,8 @@ class ChannelSplit:
         try:
             tForecastWeight = ForecastWeight()
             tForecastWeight.Parent = self
+
+            print(Fore.GREEN + 'Getting Channel Split Forecast Weight.')
             MdlChannelSplit.GetChannelSplitForecastWeight(self.Parent.Job.ID, tForecastWeight, self.Parent.ChannelNum, self.SplitNum)
             self.ForecastWeight = tForecastWeight
 
@@ -838,7 +866,7 @@ class ChannelSplit:
         self.__mTotalWeight = None
         self.__mMaterialBatch = None
         self.__mForecastWeight = None
-        Debug.Print('Split Destroy' + self.__mSplitNum)
+        print(Fore.RED + 'Split Destroy' + str(self.__mSplitNum))
 
 
     def setParent(self, value):

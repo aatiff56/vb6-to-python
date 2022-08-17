@@ -1,4 +1,5 @@
 from datetime import datetime
+from time import time
 
 import enum
 import winreg
@@ -58,13 +59,13 @@ GMTAdd = 0
 # ERROR_ACCESS_DENIED = 8
 # ERROR_INVALID_PARAMETERS = 87
 # ERROR_NO_MORE_ITEMS = 259
-# QCBooleanTrue = '1'
-# MaxLabUsers = 75
-# CnstConnectionTimeOut = 600
-# strUserLoginUrl = 'QuallaEng.ASP?WCI=UserLogin&WCU=a'
-# CntDefaultDisplayWidth = 800
-# CntDefaultDisplayHeight = 600
-# CntDefaultReportColWidth = 75
+QCBooleanTrue = '1'
+MaxLabUsers = 75
+CnstConnectionTimeOut = 600
+strUserLoginUrl = 'QuallaEng.ASP?WCI=UserLogin&WCU=a'
+CntDefaultDisplayWidth = 800
+CntDefaultDisplayHeight = 600
+CntDefaultReportColWidth = 75
 
 class QCType(enum.Enum):
     QCDate = 1
@@ -700,34 +701,34 @@ def NowGMT():
     return returnVal
 
 
-# def TimeGMT():
-#     returnVal = None
+def TimeGMT():
+    returnVal = None
     
-#     try:
-#         if GMTAdd == 0:
-#             returnVal = datetime.time()
-#         else:
-#             returnVal = TimeValue(NowGMT())
+    try:
+        if GMTAdd == 0:
+            returnVal = time()
+        else:
+            returnVal = NowGMT().time()
 
-#     except BaseException as error:
-#         returnVal = datetime.time()
+    except BaseException as error:
+        returnVal = time()
 
-#     return returnVal
+    return returnVal
 
 
-# def DateGMT():
-#     returnVal = None
+def DateGMT():
+    returnVal = None
     
-#     try:
-#         if GMTAdd == 0:
-#             returnVal = datetime.date()
-#         else:
-#             returnVal = DateValue(NowGMT())
+    try:
+        if GMTAdd == 0:
+            returnVal = datetime.now().date()
+        else:
+            returnVal = NowGMT().date()
 
-#     except BaseException as error:
-#         returnVal = datetime.date()
+    except BaseException as error:
+        returnVal = datetime.now().date()
 
-#     return returnVal
+    return returnVal
 
 
 # def SetRegVal(Rst, NameKey):

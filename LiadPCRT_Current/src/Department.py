@@ -67,7 +67,7 @@ class Department:
     
     def AddMachine(self, pMachine):
         try:
-            self.Machines.Add(pMachine, str(pMachine.ID))
+            self.Machines[str(pMachine.ID)] = pMachine
         
         except BaseException as error:
             MdlGlobal.RecordError(type(self) + '.AddMachine:', str(0), error.args[0], 'DepartmentID:' + str(self.ID) + '. MachineID: ' + str(pMachine.ID))

@@ -25,9 +25,8 @@ def fInitMachineTriggers(pMachine, JobID=0, FromINITMachine=False):
         if JobID == 0:
             TriggerCount = pMachine.mTaskTriggers.Count
             if TriggerCount > 0:
-                for Counter in range(1, TriggerCount):
-                    pMachine.mTaskTriggers = None
-                    pMachine.mTaskTriggers.Remove(( Counter ))
+                for Counter in range(0, TriggerCount):
+                    del pMachine.mTaskTriggers[Counter]
         
         if not FromINITMachine:
             strSQL = 'Delete TblTaskTrigger Where MachineID = ' + str(pMachine.ID) + ' AND ResetOnNewJob <> 0'
@@ -66,7 +65,7 @@ def fInitMachineTriggers(pMachine, JobID=0, FromINITMachine=False):
 
         for RstData in RstValues:
             TriggerFound = False
-            for tmpTaskTrigger in pMachine.mTaskTriggers:
+            for tmpTaskTrigger in pMachine.mTaskTriggers.values():
                 if tmpTaskTrigger.PTriggerDefID == RstData.ID:
                     TriggerFound = True
             if TriggerFound == False:
@@ -106,7 +105,7 @@ def fResetMachineTriggers(pMachine):
     Counter = 0
     
     try:
-        for tmpTrigger in pMachine.mTaskTriggers:
+        for tmpTrigger in pMachine.mTaskTriggers.values():
             tmpIndex = tmpIndex + 1
             if tmpTrigger.ResetOnNewJob == True or tmpTrigger.ResetOnNewJob == False:
                 removeCount = removeCount + 1
@@ -129,7 +128,7 @@ def fCheckMachineTriggers(pMachine):
     tmpTrigger = TaskTrigger()
     
     returnVal = False
-    for tmpTrigger in pMachine.mTaskTriggers:
+    for tmpTrigger in pMachine.mTaskTriggers.values():
         if pMachine.ActiveJobID != 0:
             if ( tmpTrigger.PFireTriggerWhileSetup == True )  or  ( tmpTrigger.PFireTriggerWhileSetup == False and pMachine.NewJob == False and tmpTrigger.PIntervalType != 0 ) :
                 if tmpTrigger.CheckInterval == True:

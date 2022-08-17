@@ -1,3 +1,5 @@
+from colorama import Fore
+
 import MdlADOFunctions
 import MdlConnection
 import MdlGlobal

@@ -1,3 +1,4 @@
+from colorama import Fore
 from Shift import Shift
 
 import MdlADOFunctions
@@ -139,6 +140,8 @@ class Josh:
                 self.ID = pJoshID
                 self.Job = pJob
                 self.Status = MdlADOFunctions.fGetRstValLong(RstData.Status)
+
+                print(Fore.GREEN + 'Initializing Shift.')
                 if MdlADOFunctions.fGetRstValLong(RstData.ShiftID) == self.Job.Machine.Server.CurrentShiftID:
                     if not self.Job.Machine.Server.CurrentShift is None:
                         self.Shift = self.Job.Machine.Server.CurrentShift
@@ -161,10 +164,14 @@ class Josh:
                 self.ControllerID = MdlADOFunctions.fGetRstValLong(RstData.ControllerID)
                 self.UnitsTargetJob = self.Job.UnitsTarget
                 self.Machine = self.Job.Machine
+                print(Fore.GREEN + 'Getting or Creating Machine Type.')
                 self.MachineType = MdlServer.GetOrCreateMachineType(self.Machine.Server, MdlADOFunctions.fGetRstValLong(RstData.MachineType))
+                print(Fore.GREEN + 'Getting or Creating Product.')
                 self.Product = MdlServer.GetOrCreateProduct(self.Machine.Server, MdlADOFunctions.fGetRstValLong(RstData.ProductID))
+                print(Fore.GREEN + 'Getting or Creating Mold.')
                 self.Mold = MdlServer.GetOrCreateMold(self.Machine.Server, MdlADOFunctions.fGetRstValLong(RstData.MoldID))
-                
+
+                print(Fore.GREEN + 'Getting Units In Cycle.')
                 self.GetUnitsInCycle(RstData)
                 if RstData.UnitsProducedJob is None:
                     self.UnitsProducedJob = self.Job.UnitsProduced

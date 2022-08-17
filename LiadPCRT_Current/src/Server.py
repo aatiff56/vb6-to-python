@@ -1,6 +1,7 @@
 from datetime import datetime
 from colorama import Fore
 from Machine import Machine
+from Josh import Josh
 
 import os
 import MdlADOFunctions
@@ -10,6 +11,7 @@ import MdlConnection
 import MdlServer
 import MdlGlobal
 import SystemVariables
+import MdlRTShift
 
 class Server:
     
@@ -113,7 +115,7 @@ class Server:
             # tDuplicateRTFound = MdlServer.fCheckForDuplicateRealTimes(self)
             tDuplicateRTFound = False
             if tDuplicateRTFound == True:
-                MdlGlobal.RecordError('StartServer', '9999', 'Duplicate Realtimes Found', '')
+                MdlGlobal.RecordError('StartServer', str(0), 'Duplicate error.args[0]', '')
                 print(Fore.GREEN + 'Duplicated RealTimes Found for this ShiftCalendar!!!')
                 AllowClose = True
                             
@@ -198,7 +200,7 @@ class Server:
                             tOPCServer = self.mOPCServer
                         if tMachine.INITMachine(RstValue.ID, tOPCServer) == False:
                             pass
-                        self.mMachines.Add(tMachine, str(RstValue.ID))
+                        self.mMachines[str(RstValue.ID)] = tMachine
                         MdlServer.GetOrCreateDepartment(self, MdlADOFunctions.fGetRstValLong(DepRstValue.ID)).AddMachine(tMachine)
 
                     RstCursor.close()
@@ -212,28 +214,27 @@ class Server:
 
                 for RstValue in RstData:
                     tMachine = Machine()
-                    
                     tMachine.Server = self
                     if tMachine.INITMachine(RstValue.ID, self.mOPCServer) == False:
-                        
                         pass
                     self.mMachines.Add(tMachine, str(RstValue.ID))
 
                 RstCursor.close()
-            self.GetCurrentShift
-            self.ClosePreviousShifts
             
-            self.CompleteMissingShiftsObject
+            self.GetCurrentShift()
+            self.ClosePreviousShifts()
             
-            self.ClosePreviousJoshs
-            self.ClosePreviousEvents
-            self.ClosePreviousWorkingEvents
-            self.ClosePreviousEngineEvents
+            self.CompleteMissingShiftsObject()
+            
+            self.ClosePreviousJoshs()
+            self.ClosePreviousEvents()
+            self.ClosePreviousWorkingEvents()
+            self.ClosePreviousEngineEvents()
             
             # self.mMediaPlayer = MediaPlayer.MediaPlayer()
-            self.mMediaPlayer.AutoStart = True
+            # self.mMediaPlayer.AutoStart = True
             
-            self.LoadRefControllerFields
+            self.LoadRefControllerFields()
             
             return True
 
@@ -247,21 +248,22 @@ class Server:
                     MdlConnection.Close(MdlConnection.MetaCn)
                 MdlConnection.MetaCn = MdlConnection.Open(MdlConnection.strMetaCon)
 
-            if RstCursor:
-                RstCursor.close() 
-                RstCursor = None
+            # if RstCursor:
+            #     RstCursor.close() 
+            RstCursor = None
 
-            if DepRstCursor:
-                DepRstCursor.close() 
-                DepRstCursor = None
+            # if DepRstCursor:
+            #     DepRstCursor.close() 
+            DepRstCursor = None
 
             return False
 
-#     def GetCurrentShift(self):
-#         try:
-#             self.fShiftTimer_Tick()
-#         except BaseException as error:
-#             self.logger.Error(error)
+    def GetCurrentShift(self):
+        try:
+            self.fShiftTimer_Tick()
+
+        except BaseException as error:
+            pass
 
 #     def CloseEvents(self, pCurrentShiftID):
 #         try:
@@ -311,7 +313,7 @@ class Server:
 #                     if eRstData.RecordCount == 1:
 #                         tIsInActiveTime = MdlADOFunctions.fGetRstValBool(eRstData["IsInactiveTime"], False)
 #                         tIsDownTime = MdlADOFunctions.fGetRstValBool(eRstData["IsDownTime"], False)
-#                     eRstData.Close()
+#                     eRstCursor.close()
 #                     eRstData = None
 #                     if tIsInActiveTime == True:
 #                         RstData.InActiveTime = tDuration
@@ -334,7 +336,7 @@ class Server:
 #                 RstData.EffectiveDuration = tEffectiveDuration
 #                 RstData.Update()
 #                 RstData.MoveNext()
-#             RstData.Close()
+#             RstCursor.close()
 #             RstData = None
 #         except BaseException as error:
 #             self.sqlCntr.CloseConnection()
@@ -380,10 +382,12 @@ class Server:
 #     def WMPlayStop(self):        
 #         self.mMediaPlayer.Stop()
 
-#     def fShiftTimer_Tick(self):
-#         fCalcShiftChange(self)
-#         fn_return_value = 'Shift ' + mdl_Common.NowGMT + '; Error: ' + Err.Number + ':' + Err.Description
-#         return fn_return_value
+    def fShiftTimer_Tick(self):
+        try:
+            MdlRTShift.fCalcShiftChange(self)
+
+        except BaseException as error:
+            return 'Shift ' + str(mdl_Common.NowGMT()) + '; Error: ' + str(0) + ':' + error.args[0]
 
 #     def XMLMain(self, McID):
 #         strXML = ''
@@ -430,12 +434,12 @@ class Server:
 #                 RstData = Rst.SelectAllData(strSQL)
 #                 RstData.MachinesMainXML = strDepartmentXML
 #                 RstData.Update()
-#                 RstData.Close()
+#                 RstCursor.close()
 #             strDepartmentXML = ''
 #             strXML = ''
                 
 #             if RstData.State != 0:
-#                 RstData.Close()
+#                 RstCursor.close()
 #             RstData = None
 #         except BaseException as error:
 #             self.sqlCntr.CloseConnection()
@@ -675,7 +679,7 @@ class Server:
             
 #         fn_return_value = 'Read: ' + mdl_Common.NowGMT + '; Machine:' + self.ReadMachine + ' (' + tMachineName + '); Wait: ' + self.mReadWaitCount + '; Error: ' + Err.Number + ':' + Err.Description
 #         strSQL = 'UPDATE STblShiftCalendar SET Descr = \'' + strFixBadChars(self.fReadTimer_Tick()) + '\', RTLastUpdate = \'' + ShortDate(mdl_Common.NowGMT, True, True, True) + '\' Where ID = ' + self.SCID
-#         CN.Execute(( strSQL ))
+#         MdlConnection.CN.execute(( strSQL ))
 #         return fn_return_value
 
 #     def fWriteTimer_Tick(self):
@@ -848,27 +852,27 @@ class Server:
 #         strSQL = 'Select * From STblWebParams ORDER BY ID'
 #         RstData = Rst.SelectAllData(strSQL)
 #         while not Rst.EOF:
-#             FuncName = '' + Rst["FuncName"]
+#             FuncName = '' + RstData.FuncName
 #             select_variable_2 = FuncName
 #             if (select_variable_2 == 'ShiftChange'):
                 
-#                 Arg1 = CDate('' + Rst["Arg1"])
-#                 Arg2 = MdlADOFunctions.fGetRstValLong(Rst["Arg2"])
-#                 Arg3 = MdlADOFunctions.fGetRstValLong(Rst["Arg3"])
-#                 Arg4 = MdlADOFunctions.fGetRstValLong(Rst["Arg4"])
+#                 Arg1 = CDate('' + RstData.Arg1)
+#                 Arg2 = MdlADOFunctions.fGetRstValLong(RstData.Arg2)
+#                 Arg3 = MdlADOFunctions.fGetRstValLong(RstData.Arg3)
+#                 Arg4 = MdlADOFunctions.fGetRstValLong(RstData.Arg4)
 #                 ActionOK = self.ShiftChange(Arg1, CLng(Arg2), CLng(Arg3), CLng(Arg4))
 #             elif (select_variable_2 == 'ChangeMoldCavities'):
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
-#                 Arg2 = '' + Rst["Arg2"]
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
+#                 Arg2 = '' + RstData.Arg2
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
                     
 #                     GoTo(line1)
 #                 ActionOK = self.SetMachineFieldValue(CLng(Arg1), 'MoldActiveCavities', str(Arg2))
 #             elif (select_variable_2 == 'SetMachineFieldValue'):
                 
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
-#                 Arg2 = '' + Rst["Arg2"]
-#                 Arg3 = '' + Rst["Arg3"]
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
+#                 Arg2 = '' + RstData.Arg2
+#                 Arg3 = '' + RstData.Arg3
                 
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
                     
@@ -878,7 +882,7 @@ class Server:
 #                 RecalcMachine = True
 #                 MachineID = CLng(Arg1)
 #             elif (select_variable_2 == 'DownloadMachineQueue'):
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
                     
 #                     GoTo(line1)
@@ -886,10 +890,10 @@ class Server:
 #                 MachineID = CLng(Arg1)
 #             elif (select_variable_2 == 'MachineSetupEnd'):
                 
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
-#                 Arg2 = MdlADOFunctions.fGetRstValLong(Rst["Arg2"])
-#                 Arg3 = MdlADOFunctions.fGetRstValLong(Rst["Arg3"])
-#                 Arg4 = MdlADOFunctions.fGetRstValLong(Rst["Arg4"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
+#                 Arg2 = MdlADOFunctions.fGetRstValLong(RstData.Arg2)
+#                 Arg3 = MdlADOFunctions.fGetRstValLong(RstData.Arg3)
+#                 Arg4 = MdlADOFunctions.fGetRstValLong(RstData.Arg4)
                 
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
                     
@@ -901,7 +905,7 @@ class Server:
 #                 tmpIngnoreCycleTimeFilter = True
 #             elif (select_variable_2 == 'ManualEntryCalc'):
                 
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
                 
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
                     
@@ -911,15 +915,15 @@ class Server:
 #                 tmpIngnoreCycleTimeFilter = True
 #             elif (select_variable_2 == 'MachineLoadJob'):
                 
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
                 
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
                     
 #                     GoTo(line1)
                 
-#                 Arg2 = MdlADOFunctions.fGetRstValLong(Rst["Arg2"])
-#                 Arg3 = MdlADOFunctions.fGetRstValBool(Rst["Arg3"], False)
-#                 Arg4 = MdlADOFunctions.fGetRstValBool(Rst["Arg4"], False)
+#                 Arg2 = MdlADOFunctions.fGetRstValLong(RstData.Arg2)
+#                 Arg3 = MdlADOFunctions.fGetRstValBool(RstData.Arg3, False)
+#                 Arg4 = MdlADOFunctions.fGetRstValBool(RstData.Arg4, False)
 #                 Debug.Print('WEB: MachineLoadJob: MachineID=' + Arg1 + ' JobID=' + Arg2 + ' ResetTotals=' + Arg3 + ' FromActivateJob=' + Arg4 + ' | ' + mdl_Common.NowGMT)
 #                 ActionOK = self.MachineLoadJob(CLng(Arg1), CLng(Arg2), CBool(Arg3), CBool(Arg4))
 #                 if CLng(Arg2) > 0:
@@ -931,7 +935,7 @@ class Server:
 #                     tmpIngnoreCycleTimeFilter = False
 #             elif (select_variable_2 == 'AlarmsAcknowledge'):
                 
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
                 
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
                     
@@ -940,8 +944,8 @@ class Server:
 #                 ActionOK = self.AlarmsAcknowledge(CLng(Arg1))
 #             elif (select_variable_2 == 'fUpdateMachineAlarm'):
                 
-#                 Arg2 = MdlADOFunctions.fGetRstValBool(Rst["Arg1"], True)
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg2"])
+#                 Arg2 = MdlADOFunctions.fGetRstValBool(RstData.Arg1, True)
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg2)
                 
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
                     
@@ -950,16 +954,16 @@ class Server:
 #                 ActionOK = self.fUpdateMachineAlarm(CBool(Arg2), CLng(Arg1))
 #             elif (select_variable_2 == 'MachineManualReadSet'):
                 
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
                 
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
                     
 #                     GoTo(line1)
-#                 Arg2 = MdlADOFunctions.fGetRstValBool(Rst["Arg2"], False)
+#                 Arg2 = MdlADOFunctions.fGetRstValBool(RstData.Arg2, False)
 #                 ActionOK = self.fUpdateMachineAlarm(CLng(Arg1), CBool(Arg2))
 #             elif (select_variable_2 == 'CalcJobData'):
                 
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
                 
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
                     
@@ -968,19 +972,19 @@ class Server:
 #                 ActionOK = self.CalcJobData(CLng(Arg1))
 #             elif (select_variable_2 == 'UpdateMachineParamLimits'):
                 
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
                 
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
                     
 #                     GoTo(line1)
                 
-#                 Arg2 = '' + Rst["Arg2"]
-#                 Arg3 = '' + Rst["Arg3"]
-#                 Arg4 = '' + Rst["Arg4"]
-#                 Arg5 = '' + Rst["Arg5"]
-#                 Arg6 = '' + Rst["Arg6"]
-#                 Arg7 = '' + Rst["Arg7"]
-#                 Arg8 = '' + Rst["Arg8"]
+#                 Arg2 = '' + RstData.Arg2
+#                 Arg3 = '' + RstData.Arg3
+#                 Arg4 = '' + RstData.Arg4
+#                 Arg5 = '' + RstData.Arg5
+#                 Arg6 = '' + RstData.Arg6
+#                 Arg7 = '' + RstData.Arg7
+#                 Arg8 = '' + RstData.Arg8
 #                 if Arg8 == 'true' or Arg8 == 'True' or Arg8 == 'TRUE' or Arg8 == '1' or Arg8 == '-1':
 #                     Arg8 = True
 #                 else:
@@ -990,55 +994,55 @@ class Server:
 #                 MachineID = CLng(Arg1)
 #             elif (select_variable_2 == 'MachineControllerDel'):
                 
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
                 
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
                     
 #                     GoTo(line1)
                 
-#                 Arg2 = MdlADOFunctions.fGetRstValLong(Rst["Arg2"])
+#                 Arg2 = MdlADOFunctions.fGetRstValLong(RstData.Arg2)
 #                 ActionOK = self.MachineControllerDel(CLng(Arg1), CLng(Arg2))
 #             elif (select_variable_2 == 'MachineControllerAdd'):
                 
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
                 
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
                     
 #                     GoTo(line1)
                 
-#                 Arg2 = MdlADOFunctions.fGetRstValLong(Rst["Arg2"])
-#                 Arg3 = MdlADOFunctions.fGetRstValLong(Rst["Arg3"])
+#                 Arg2 = MdlADOFunctions.fGetRstValLong(RstData.Arg2)
+#                 Arg3 = MdlADOFunctions.fGetRstValLong(RstData.Arg3)
 #                 self.MachineControllerAdd(CLng(Arg1), CLng(Arg2), CLng(Arg3))
 #             elif (select_variable_2 == 'MachineJobDetailsCalc'):
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
                 
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
                     
 #                     GoTo(line1)
                 
-#                 Arg2 = MdlADOFunctions.fGetRstValLong(Rst["Arg2"])
-#                 Arg3 = MdlADOFunctions.fGetRstValLong(Rst["Arg3"])
+#                 Arg2 = MdlADOFunctions.fGetRstValLong(RstData.Arg2)
+#                 Arg3 = MdlADOFunctions.fGetRstValLong(RstData.Arg3)
                 
-#                 Arg4 = MdlADOFunctions.fGetRstValLong(Abs(MdlADOFunctions.fGetRstValBool(Rst["Arg4"], False)))
-#                 Arg5 = MdlADOFunctions.fGetRstValLong(Rst["Arg5"])
+#                 Arg4 = MdlADOFunctions.fGetRstValLong(Abs(MdlADOFunctions.fGetRstValBool(RstData.Arg4, False)))
+#                 Arg5 = MdlADOFunctions.fGetRstValLong(RstData.Arg5)
                 
 #                 ActionOK = self.MachineJobDetailsCalc(CLng(Arg1), CLng(Arg2), CLng(Arg3), CLng(Arg4), CLng(Arg5))
 #             elif (select_variable_2 == 'MachineJoshDetailsCalc'):
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
                 
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
                     
 #                     GoTo(line1)
                 
-#                 Arg2 = MdlADOFunctions.fGetRstValLong(Rst["Arg2"])
-#                 Arg3 = MdlADOFunctions.fGetRstValLong(Rst["Arg3"])
+#                 Arg2 = MdlADOFunctions.fGetRstValLong(RstData.Arg2)
+#                 Arg3 = MdlADOFunctions.fGetRstValLong(RstData.Arg3)
                 
-#                 Arg4 = MdlADOFunctions.fGetRstValLong(Abs(MdlADOFunctions.fGetRstValBool(Rst["Arg4"], False)))
-#                 Arg5 = MdlADOFunctions.fGetRstValLong(Rst["Arg5"])
+#                 Arg4 = MdlADOFunctions.fGetRstValLong(Abs(MdlADOFunctions.fGetRstValBool(RstData.Arg4, False)))
+#                 Arg5 = MdlADOFunctions.fGetRstValLong(RstData.Arg5)
 #                 ActionOK = self.MachineJoshDetailsCalc(CLng(Arg1), CLng(Arg2), CLng(Arg3), CLng(Arg4), CLng(Arg5))
 #             elif (select_variable_2 == 'UpdateControllerFieldsParam'):
-#                 Arg2 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg2"])
+#                 Arg2 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg2)
                 
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
                     
@@ -1047,80 +1051,80 @@ class Server:
                 
 #                 ActionOK = self.fUpdateControllerFieldsParam(CLng(Arg1), CLng(Arg2))
 #             elif (select_variable_2 == 'UpdateJobUnitsReportedOK'):
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
 #                     GoTo(line1)
-#                 Arg2 = MdlADOFunctions.fGetRstValLong(Rst["Arg2"])
-#                 Arg3 = MdlADOFunctions.fGetRstValDouble(Rst["Arg3"])
+#                 Arg2 = MdlADOFunctions.fGetRstValLong(RstData.Arg2)
+#                 Arg3 = MdlADOFunctions.fGetRstValDouble(RstData.Arg3)
 #                 self.UpdateJobUnitsReportedOK(CLng(Arg1), CLng(Arg2), CDbl(Arg3))
 #             elif (select_variable_2 == 'UpdateJoshUnitsReportedOK'):
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
 #                     GoTo(line1)
-#                 Arg2 = MdlADOFunctions.fGetRstValLong(Rst["Arg2"])
-#                 Arg3 = MdlADOFunctions.fGetRstValDouble(Rst["Arg3"])
+#                 Arg2 = MdlADOFunctions.fGetRstValLong(RstData.Arg2)
+#                 Arg3 = MdlADOFunctions.fGetRstValDouble(RstData.Arg3)
 #                 self.UpdateJoshUnitsReportedOK(CLng(Arg1), CLng(Arg2), CDbl(Arg3))
 #             elif (select_variable_2 == 'UpdateMoldEndTime'):
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
 #                     GoTo(line1)
 #                 self.UpdateMoldEndTime(CLng(Arg1))
 #             elif (select_variable_2 == 'UpdateUnitsTarget'):
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
 #                     GoTo(line1)
-#                 Arg2 = MdlADOFunctions.fGetRstValLong(Rst["Arg2"])
-#                 Arg3 = MdlADOFunctions.fGetRstValDouble(Rst["Arg3"])
+#                 Arg2 = MdlADOFunctions.fGetRstValLong(RstData.Arg2)
+#                 Arg3 = MdlADOFunctions.fGetRstValDouble(RstData.Arg3)
 #                 self.UpdateMachineUnitsTarget(CLng(Arg1), CLng(Arg2), CDbl(Arg3))
 #             elif (select_variable_2 == 'UpdateOpenEvent'):
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
 #                     GoTo(line1)
-#                 Arg2 = MdlADOFunctions.fGetRstValLong(Rst["Arg2"])
-#                 Arg3 = MdlADOFunctions.fGetRstValLong(Rst["Arg3"])
-#                 Arg4 = MdlADOFunctions.fGetRstValLong(Rst["Arg4"])
-#                 Arg5 = MdlADOFunctions.fGetRstValLong(Rst["Arg5"])
+#                 Arg2 = MdlADOFunctions.fGetRstValLong(RstData.Arg2)
+#                 Arg3 = MdlADOFunctions.fGetRstValLong(RstData.Arg3)
+#                 Arg4 = MdlADOFunctions.fGetRstValLong(RstData.Arg4)
+#                 Arg5 = MdlADOFunctions.fGetRstValLong(RstData.Arg5)
 #                 self.UpdateMachineOpenEvent(CLng(Arg1), CLng(Arg2), CLng(Arg3), CLng(Arg4), CLng(Arg5))
 #             elif (select_variable_2 == 'StartMaterialFlow'):
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
 #                     GoTo(line1)
-#                 Arg2 = MdlADOFunctions.fGetRstValLong(Rst["Arg2"])
+#                 Arg2 = MdlADOFunctions.fGetRstValLong(RstData.Arg2)
 #                 self.StartMachineMaterialFlow(CLng(Arg1), CLng(Arg2))
 #             elif (select_variable_2 == 'AddMaterialFlowFromLastJob'):
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
 #                     GoTo(line1)
-#                 Arg2 = MdlADOFunctions.fGetRstValLong(Rst["Arg2"])
+#                 Arg2 = MdlADOFunctions.fGetRstValLong(RstData.Arg2)
 #                 self.AddMaterialFlowFromLastJob(CLng(Arg1), CLng(Arg2))
 #             elif (select_variable_2 == 'ReduceConsumptionByRejects'):
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
 #                     GoTo(line1)
-#                 Arg2 = MdlADOFunctions.fGetRstValLong(Rst["Arg2"])
-#                 Arg3 = MdlADOFunctions.fGetRstValLong(Rst["Arg3"])
-#                 Arg4 = MdlADOFunctions.fGetRstValDouble(Rst["Arg4"])
+#                 Arg2 = MdlADOFunctions.fGetRstValLong(RstData.Arg2)
+#                 Arg3 = MdlADOFunctions.fGetRstValLong(RstData.Arg3)
+#                 Arg4 = MdlADOFunctions.fGetRstValDouble(RstData.Arg4)
 #                 self.ReduceConsumptionByRejects(CLng(Arg1), CLng(Arg2), CLng(Arg3), CDbl(Arg4))
 #             elif (select_variable_2 == 'ActivateLocationOnChannelSplit'):
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
 #                     GoTo(line1)
-#                 Arg2 = MdlADOFunctions.fGetRstValLong(Rst["Arg2"])
-#                 Arg3 = MdlADOFunctions.fGetRstValLong(Rst["Arg3"])
-#                 Arg4 = MdlADOFunctions.fGetRstValLong(Rst["Arg4"])
+#                 Arg2 = MdlADOFunctions.fGetRstValLong(RstData.Arg2)
+#                 Arg3 = MdlADOFunctions.fGetRstValLong(RstData.Arg3)
+#                 Arg4 = MdlADOFunctions.fGetRstValLong(RstData.Arg4)
 #                 self.ActivateLocationOnChannelSplit(MdlADOFunctions.fGetRstValLong(Arg1), MdlADOFunctions.fGetRstValLong(Arg2), MdlADOFunctions.fGetRstValLong(Arg3), MdlADOFunctions.fGetRstValLong(Arg4))
 #             elif (select_variable_2 == 'LinkLocationToChannelSplit'):
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
 #                     GoTo(line1)
-#                 Arg2 = MdlADOFunctions.fGetRstValLong(Rst["Arg2"])
-#                 Arg3 = MdlADOFunctions.fGetRstValLong(Rst["Arg3"])
-#                 Arg4 = MdlADOFunctions.fGetRstValLong(Rst["Arg4"])
+#                 Arg2 = MdlADOFunctions.fGetRstValLong(RstData.Arg2)
+#                 Arg3 = MdlADOFunctions.fGetRstValLong(RstData.Arg3)
+#                 Arg4 = MdlADOFunctions.fGetRstValLong(RstData.Arg4)
 #                 self.LinkLocationToChannelSplit(MdlADOFunctions.fGetRstValLong(Arg1), MdlADOFunctions.fGetRstValLong(Arg2), MdlADOFunctions.fGetRstValLong(Arg3), MdlADOFunctions.fGetRstValLong(Arg4))
 #             elif (select_variable_2 == 'SetMachineFieldLValue'):
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
-#                 Arg2 = '' + Rst["Arg2"]
-#                 Arg3 = '' + Rst["Arg3"]
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
+#                 Arg2 = '' + RstData.Arg2
+#                 Arg3 = '' + RstData.Arg3
                 
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
                     
@@ -1130,9 +1134,9 @@ class Server:
 #                 RecalcMachine = False
 #                 MachineID = CLng(Arg1)
 #             elif (select_variable_2 == 'SetMachineFieldHValue'):
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
-#                 Arg2 = '' + Rst["Arg2"]
-#                 Arg3 = '' + Rst["Arg3"]
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
+#                 Arg2 = '' + RstData.Arg2
+#                 Arg3 = '' + RstData.Arg3
                 
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
                     
@@ -1142,8 +1146,8 @@ class Server:
 #                 RecalcMachine = False
 #                 MachineID = CLng(Arg1)
 #             elif (select_variable_2 == 'WareHouseLocationActiveBatchRemove'):
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
-#                 Arg2 = MdlADOFunctions.fGetRstValLong(Rst["Arg2"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
+#                 Arg2 = MdlADOFunctions.fGetRstValLong(RstData.Arg2)
                 
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
                     
@@ -1151,8 +1155,8 @@ class Server:
                 
 #                 ActionOK = self.WareHouseLocationActiveBatchRemove(CLng(Arg1), str(Arg2))
 #             elif (select_variable_2 == 'CreateActivePallet'):
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
-#                 Arg2 = MdlADOFunctions.fGetRstValLong(Rst["Arg2"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
+#                 Arg2 = MdlADOFunctions.fGetRstValLong(RstData.Arg2)
                 
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
                     
@@ -1160,7 +1164,7 @@ class Server:
                 
 #                 ActionOK = self.CreateActivePallet(CLng(Arg1), str(Arg2))
 #             elif (select_variable_2 == 'CloseActivePallet'):
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
                 
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
                     
@@ -1168,13 +1172,13 @@ class Server:
                 
 #                 ActionOK = self.CloseActivePallet(CLng(Arg1))
 #             elif (select_variable_2 == 'UpdateInventoryItemParams'):
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
 #                 ActionOK = self.UpdateInventoryItemParams(CLng(Arg1))
 #             elif (select_variable_2 == 'RunSPCAnalysisOnQCReport'):
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
-#                 Arg2 = MdlADOFunctions.fGetRstValLong(Rst["Arg2"])
-#                 Arg3 = MdlADOFunctions.fGetRstValLong(Rst["Arg3"])
-#                 Arg4 = MdlADOFunctions.fGetRstValDouble(Rst["Arg4"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
+#                 Arg2 = MdlADOFunctions.fGetRstValLong(RstData.Arg2)
+#                 Arg3 = MdlADOFunctions.fGetRstValLong(RstData.Arg3)
+#                 Arg4 = MdlADOFunctions.fGetRstValDouble(RstData.Arg4)
                 
                 
                 
@@ -1188,29 +1192,29 @@ class Server:
 #                 Rst.Delete(adAffectCurrent)
 #                 ActionOK = self.RunSPCAnalysisOnQCReport(CLng(Arg2), CLng(Arg3), fGetRstValString(Arg4))
 #             elif (select_variable_2 == 'UpdateMachineProductionMode'):
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
-#                 Arg2 = MdlADOFunctions.fGetRstValLong(Rst["Arg2"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
+#                 Arg2 = MdlADOFunctions.fGetRstValLong(RstData.Arg2)
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
                     
 #                     GoTo(line1)
 #                 ActionOK = self.UpdateMachineProductionMode(CLng(Arg1), CLng(Arg2))
 #             elif (select_variable_2 == 'SplitActiveEvent'):
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
-#                 Arg2 = MdlADOFunctions.fGetRstValLong(Rst["Arg2"])
-#                 Arg3 = MdlADOFunctions.fGetRstValLong(Rst["Arg3"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
+#                 Arg2 = MdlADOFunctions.fGetRstValLong(RstData.Arg2)
+#                 Arg3 = MdlADOFunctions.fGetRstValLong(RstData.Arg3)
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
                     
 #                     GoTo(line1)
 #                 ActionOK = self.SplitActiveEvent(CLng(Arg1), CLng(Arg2), CLng(Arg3))
 #             elif (select_variable_2 == 'UpdateMachineActiveCalendarEvent'):
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
-#                 Arg2 = MdlADOFunctions.fGetRstValBool(Rst["Arg2"], False)
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
+#                 Arg2 = MdlADOFunctions.fGetRstValBool(RstData.Arg2, False)
 #                 if not ( self.SCID == fGetShiftCalendarIDByMachine(CLng(Arg1)) and self.SCID != 0 ) :
                     
 #                     GoTo(line1)
 #                 ActionOK = self.UpdateMachineActiveCalendarEvent(CLng(Arg1), CBool(Arg2))
 #             elif (select_variable_2 == 'CloseRealTime'):
-#                 Arg1 = MdlADOFunctions.fGetRstValLong(Rst["Arg1"])
+#                 Arg1 = MdlADOFunctions.fGetRstValLong(RstData.Arg1)
                 
 #                 if not ( self.SCID == CLng(Arg1) and self.SCID != 0 ) :
                     
@@ -1231,7 +1235,7 @@ class Server:
 #             Rst.Delete(adAffectCurrent)
             
 #             Rst.MoveNext()
-#         Rst.Close()
+#         RstCursor.close()
 #         if RecalcMachine == True:
 #             tMachine = self.mMachines.Item(str(MachineID))
 #             tMachine.fReadMainData(VBGetMissingArgument(tMachine.fReadMainData, 0), True, tmpIngnoreCycleTimeFilter)
@@ -1245,11 +1249,11 @@ class Server:
 #                 MetaCn.Open()
 #                 Err.Clear()
                 
-#             RecordError('Server:RunWebAction', str(Err.Number), Err.Description, 'FuncName: ' + FuncName)
+#             MdlGlobal.RecordError('Server:RunWebActionstr(0)(Eerror.args[0]), Err.Description, 'str(FuncName: ') + FuncName)
 #             Err.Clear()
             
 #         if Rst.State != 0:
-#             Rst.Close()
+#             RstCursor.close()
 #         Rst = None
 #         return fn_return_value
 
@@ -1315,11 +1319,11 @@ class Server:
 #         strSQL = strSQL + 'SELECT EventID FROM TblAlarms WHERE EventID <> 0 AND ShiftID IN '
 #         strSQL = strSQL + '(SELECT ID From TblShift Where ShiftCalendarID = ' + ShiftCalendarID + ')'
 #         strSQL = strSQL + ')'
-#         CN.Execute(strSQL)
+#         MdlConnection.CN.execute(strSQL)
 #         strSQL = 'DELETE From TblAlarms'
 #         strSQL = strSQL + ' WHERE ShiftID IN '
 #         strSQL = strSQL + '(SELECT ID From TblShift Where ShiftCalendarID = ' + ShiftCalendarID + ')'
-#         CN.Execute(strSQL)
+#         MdlConnection.CN.execute(strSQL)
         
 #         for tVariant in self.mMachines:
 #             tMachine = tVariant
@@ -1347,7 +1351,7 @@ class Server:
 #                 MetaCn.Open()
 #                 Err.Clear()
                 
-#             RecordError('SERVER:fClearAlarms', str(Err.Number), Err.Description, 'ShiftCalendarID = ' + ShiftCalendarID)
+#             MdlGlobal.RecordError('SERVER:fClearAlarmsstr(0)(Eerror.args[0]), Err.Description, 'ShiftCalendarID str(= ') + ShiftCalendarID)
 #             Err.Clear()
 #         tVariant = None
 #         tMachine = None
@@ -1500,19 +1504,21 @@ class Server:
         
 #         return fn_return_value
 
-#     def ResetMachineByID(self, pMachineID):
-#         tMachine = Machine()
+    def ResetMachineByID(self, pMachineID):
+        fn_return_value = False
+        tMachine = Machine()
         
-#         fn_return_value = False
-#         for tMachine in self.mMachines:
-#             if tMachine.ID == pMachineID:
-#                 if tMachine.ResetMachineTotalFields == False:
-#                     raise(1)
-#                 fn_return_value = True
-#                 break
-#         if Err.Number != 0:
-#             RecordError('ResetMachineByID', Err.Number, Err.Description, 'MachineID = ' + pMachineID)
-#         return fn_return_value
+        try:
+            for tMachine in self.mMachines.values():
+                if tMachine.ID == pMachineID:
+                    if tMachine.ResetMachineTotalFields == False:
+                        raise Exception('Error in ResetMachineByID()')
+                    fn_return_value = True
+                    break
+
+        except BaseException as error:
+            MdlGlobal.RecordError('ResetMachineByID', str(0), error.args[0], 'MachineID = ' + str(pMachineID))
+        return fn_return_value
 
 #     def DownloadMachineQueue(self, MachineID):
 #         tMachine = Machine()
@@ -1562,19 +1568,19 @@ class Server:
 #             tMachine = Machine()
             
 #             tMachine.Server = self
-#             ServerName = '' + Rst["OPCServerName"]
+#             ServerName = '' + RstData.OPCServerName
 #             if ServerName != '':
 #                 tOPCServer = OPCServer()
-#                 self.mOPCServers.Add(tOPCServer, str(Rst["ID"]))
-#                 tOPCServer.Connect(ServerName, '' + Rst["OPCServerIP"])
+#                 self.mOPCServers.Add(tOPCServer, str(RstData.ID))
+#                 tOPCServer.Connect(ServerName, '' + RstData.OPCServerIP)
 #                 self.mOPCServerGroups = self.mOPCServer.OPCGroups
 #             else:
 #                 tOPCServer = self.mOPCServer
-#             if tMachine.INITMachine(Rst["ID"], tOPCServer) == False:
+#             if tMachine.INITMachine(RstData.ID, tOPCServer) == False:
                 
 #                 pass
-#             self.mMachines.Add(tMachine, str(Rst["ID"]))
-#         Rst.Close()
+#             self.mMachines.Add(tMachine, str(RstData.ID))
+#         RstCursor.close()
 #         fn_return_value = True
 #         if Err.Number != 0:
 #             if InStr(Err.Description, 'nnection') > 0:
@@ -1652,7 +1658,7 @@ class Server:
 #                 self.Molds.Remove(str(tMold.ID))
         
 #         strSQL = 'DELETE STblUtilizationLogs WHERE (LogTime <= mdl_Common.DateAdd(DD, -180, GETDATE()))'
-#         CN.Execute(strSQL)
+#         MdlConnection.CN.execute(strSQL)
 #         fn_return_value = True
 #         if Err.Number != 0:
 #             if InStr(Err.Description, 'nnection') > 0:
@@ -1762,39 +1768,38 @@ class Server:
 #             Err.Clear()
 #         return fn_return_value
 
-#     def ClosePreviousShifts(self):
-#         strSQL = ''
-
-#         Rst = None
-
-#         tStartTime = Date()
-
-#         tEndTime = Date()
+    def ClosePreviousShifts(self):
+        strSQL = ''
+        RstCursor = None
+        tStartTime = None
+        tEndTime = None
         
-        
-#         if self.CurrentShiftID != 0:
-#             strSQL = 'SELECT ID,EndTime FROM TblShift WHERE EndTime IS NULL AND ID < ' + self.CurrentShiftID + ' AND ShiftCalendarID = ' + self.SCID
-#             RstData = Rst.SelectAllData(strSQL)
-#             while not RstData.EOF:
-#                 tStartTime = MdlADOFunctions.GetSingleValue('TOP 1 StartTime', 'TblShift', 'ShiftCalendarID = ' + self.SCID + ' AND ID > ' + RstData.ID + ' ORDER BY ID')
-#                 if tStartTime != 0:
-#                     RstData.EndTime = tStartTime
-#                     RstData.Update()
-#                 RstData.MoveNext()
-#             RstData.Close()
-#         if Err.Number != 0:
-#             if InStr(Err.Description, 'nnection') > 0:
-#                 if CN.State == 1:
-#                     CN.Close()
-#                 CN.Open()
-#                 if MetaCn.State == 1:
-#                     MetaCn.Close()
-#                 MetaCn.Open()
-#                 Err.Clear()
+        try:
+            if self.CurrentShiftID != 0:
+                strSQL = 'SELECT ID,EndTime FROM TblShift WHERE EndTime IS NULL AND ID < ' + str(self.CurrentShiftID) + ' AND ShiftCalendarID = ' + str(self.SCID)
+                RstCursor = MdlConnection.CN.cursor()
+                RstCursor.execute(strSQL)
+                RstValues = RstCursor.fetchall()
                 
-#             Err.Clear()
-#         RstData = None
-#         return fn_return_value
+                for RstData in RstValues:
+                    tStartTime = MdlADOFunctions.GetSingleValue('TOP 1 StartTime', 'TblShift', 'ShiftCalendarID = ' + str(self.SCID) + ' AND ID > ' + str(RstData.ID) + ' ORDER BY ID')
+                    if tStartTime != 0:
+                        RstData.EndTime = tStartTime
+                        # RstData.Update()
+
+                RstCursor.close()
+
+        except BaseException as error:
+            if 'nnection' in error.args[0]:
+                if MdlConnection.CN:
+                    MdlConnection.Close(MdlConnection.CN)
+                MdlConnection.Open(MdlConnection.CN, MdlConnection.strCon)
+
+                if MdlConnection.MetaCn:
+                    MdlConnection.Close(MdlConnection.MetaCn)
+                MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
+
+        RstData = None
 
 #     def StartMachineMaterialFlow(self, pMachineID, pJobID):
 #         tMachine = Machine()
@@ -1854,92 +1859,86 @@ class Server:
 #         tVariant2 = None
 #         return fn_return_value
 
-#     def LoadRefControllerFields(self):
-#         strSQL = ''
+    def LoadRefControllerFields(self):
+        strSQL = ''
+        RstCursor = None
+        tMachine = None
+        tRefMachine = None
+        tRefMachineID = 0
+        tControlParam = None
+        tRefControlParam = None
+        tRefFieldName = ''
+        tFieldName = ''
 
-#         Rst = None
+        try:
+            strSQL = strSQL + 'SELECT TblControllerFields.MachineID AS MachineID,' + '\r\n'
+            strSQL = strSQL + '    TblControllerFields.FieldName AS FieldName,' + '\r\n'
+            strSQL = strSQL + '    TblControllerFields.RefReadControllerField AS RefReadControllerField,' + '\r\n'
+            strSQL = strSQL + '    TblControllerFields.RefWriteControllerField AS RefWriteControllerField' + '\r\n'
+            strSQL = strSQL + 'FROM TblControllerFields' + '\r\n'
+            strSQL = strSQL + '     INNER JOIN TblMachines ON TblControllerFields.MachineID = TblMachines.ID' + '\r\n'
+            strSQL = strSQL + '     INNER JOIN STblDepartments ON TblMachines.Department = STblDepartments.ID' + '\r\n'
+            strSQL = strSQL + '     INNER JOIN STblShiftCalendar ON STblDepartments.ShiftCalendarID = STblShiftCalendar.ID' + '\r\n'
+            strSQL = strSQL + 'WHERE (TblMachines.IsActive <> 0)' + '\r\n'
+            strSQL = strSQL + '    AND (TblControllerFields.ControllerFieldTypeID = 2)' + '\r\n'
+            strSQL = strSQL + '    AND (' + '\r\n'
+            strSQL = strSQL + '        NOT TblControllerFields.RefReadControllerField IS NULL' + '\r\n'
+            strSQL = strSQL + '        OR NOT TblControllerFields.RefWriteControllerField IS NULL' + '\r\n'
+            strSQL = strSQL + '        )' + '\r\n'
+            strSQL = strSQL + '    AND STblShiftCalendar.ID = ' + str(self.SCID) + '\r\n'
+            strSQL = strSQL + 'ORDER BY MachineID' + '\r\n'
 
-#         tMachine = Machine()
+            RstCursor = MdlConnection.CN.cursor()
+            RstCursor.execute(strSQL)
+            RstValues = RstCursor.fetchall()
 
-#         tRefMachine = Machine()
+            for RstData in RstValues:
+                tMachine = self.Machines[str(RstData.MachineID)]
+                tFieldName = MdlADOFunctions.fGetRstValString(RstData.FieldName)
+                if MdlADOFunctions.fGetRstValString(RstData.RefReadControllerField) != '':
+                    tRefMachineID = MdlServer.GetRefMachineIDForRefControllerField(MdlADOFunctions.fGetRstValString(RstData.RefReadControllerField))
+                    if tRefMachineID != 0:
+                        tRefMachine = self.Machines[str(tRefMachineID)]
+                        if not tRefMachine is None:
+                            tRefFieldName = MdlServer.GetRefFieldNameForRefControllerField(RstData.RefReadControllerField)
+                            if tRefFieldName != '':
+                                if tRefMachine.GetParam(tRefFieldName, tRefControlParam) == True:
+                                    if tMachine.GetParam(tFieldName, tControlParam) == True:
+                                        tControlParam.RefReadControllerField = tRefControlParam
+                                else:
+                                    MdlGlobal.RecordError("Server.LoadRefControllerFields", str(1), "ControllerField not found!", "RefMachineID: " + str(tRefMachineID) + ". RefFieldName: " + str(tRefFieldName))
+                        else:
+                            MdlGlobal.RecordError("Server.LoadRefControllerFields", str(1), "Machine not found!", "RefMachineID: " + str(tRefMachineID))
+                if MdlADOFunctions.fGetRstValString(RstData.RefWriteControllerField) != '':
+                    tRefMachineID = MdlServer.GetRefMachineIDForRefControllerField(MdlADOFunctions.fGetRstValString(RstData.RefWriteControllerField))
+                    if tRefMachineID != 0:
+                        tRefMachine = self.Machines[str(tRefMachineID)]
+                        if not tRefMachine is None:
+                            tRefFieldName = MdlServer.GetRefFieldNameForRefControllerField(RstData.RefWriteControllerField)
+                            if tRefFieldName != '':
+                                if tRefMachine.GetParam(tRefFieldName, tRefControlParam) == True:
+                                    if tMachine.GetParam(tFieldName, tControlParam) == True:
+                                        tControlParam.RefWriteControllerField = tRefControlParam
+                                else:
+                                    MdlGlobal.RecordError("Server.LoadRefControllerFields", str(1), "ControllerField not found!", "RefMachineID: " + str(tRefMachineID) + ". RefFieldName: " + str(tRefFieldName))
+                        else:
+                            MdlGlobal.RecordError("Server.LoadRefControllerFields", str(1), "Machine not found!", "RefMachineID: " + str(tRefMachineID))
+            RstCursor.close()
 
-#         tRefMachineID = 0
+        except BaseException as error:
+            if 'nnection' in error.args[0]:
+                if MdlConnection.CN:
+                    MdlConnection.Close(MdlConnection.CN)
+                MdlConnection.Open(MdlConnection.CN, MdlConnection.strCon)
 
-#         tControlParam = ControlParam()
-
-#         tRefControlParam = ControlParam()
-
-#         tRefFieldName = ''
-
-#         tFieldName = ''
-        
-#         strSQL = ''
-#         strSQL = strSQL + 'SELECT TblControllerFields.MachineID AS MachineID,' + '\r\n'
-#         strSQL = strSQL + '    TblControllerFields.FieldName AS FieldName,' + '\r\n'
-#         strSQL = strSQL + '    TblControllerFields.RefReadControllerField AS RefReadControllerField,' + '\r\n'
-#         strSQL = strSQL + '    TblControllerFields.RefWriteControllerField AS RefWriteControllerField' + '\r\n'
-#         strSQL = strSQL + 'FROM TblControllerFields' + '\r\n'
-#         strSQL = strSQL + '     INNER JOIN TblMachines ON TblControllerFields.MachineID = TblMachines.ID' + '\r\n'
-#         strSQL = strSQL + '     INNER JOIN STblDepartments ON TblMachines.Department = STblDepartments.ID' + '\r\n'
-#         strSQL = strSQL + '     INNER JOIN STblShiftCalendar ON STblDepartments.ShiftCalendarID = STblShiftCalendar.ID' + '\r\n'
-#         strSQL = strSQL + 'WHERE (TblMachines.IsActive <> 0)' + '\r\n'
-#         strSQL = strSQL + '    AND (TblControllerFields.ControllerFieldTypeID = 2)' + '\r\n'
-#         strSQL = strSQL + '    AND (' + '\r\n'
-#         strSQL = strSQL + '        NOT TblControllerFields.RefReadControllerField IS NULL' + '\r\n'
-#         strSQL = strSQL + '        OR NOT TblControllerFields.RefWriteControllerField IS NULL' + '\r\n'
-#         strSQL = strSQL + '        )' + '\r\n'
-#         strSQL = strSQL + '    AND STblShiftCalendar.ID = ' + self.SCID + '\r\n'
-#         strSQL = strSQL + 'ORDER BY MachineID' + '\r\n'
-#         RstData = Rst.SelectAllData(strSQL)
-#         Rst.ActiveConnection = None
-#         while not Rst.EOF:
-#             tMachine = self.Machines.Item(str(Rst["MachineID"]))
-#             tFieldName = fGetRstValString(Rst["FieldName"])
-#             if fGetRstValString(Rst["RefReadControllerField"]) != '':
-#                 tRefMachineID = GetRefMachineIDForRefControllerField(fGetRstValString(Rst["RefReadControllerField"]))
-#                 if tRefMachineID != 0:
-#                     tRefMachine = self.Machines.Item(str(tRefMachineID))
-#                     if not tRefMachine is None:
-#                         tRefFieldName = GetRefFieldNameForRefControllerField(Rst["RefReadControllerField"])
-#                         if tRefFieldName != '':
-#                             if tRefMachine.GetParam(tRefFieldName, tRefControlParam) == True:
-#                                 if tMachine.GetParam(tFieldName, tControlParam) == True:
-#                                     tControlParam.RefReadControllerField = tRefControlParam
-#                             else:
-#                                 RecordError('Server.LoadRefControllerFields', 1, 'ControllerField not found!', 'RefMachineID: ' + tRefMachineID + '. RefFieldName: ' + tRefFieldName)
-#                     else:
-#                         RecordError('Server.LoadRefControllerFields', 1, 'Machine not found!', 'RefMachineID: ' + tRefMachineID)
-#             if fGetRstValString(Rst["RefWriteControllerField"]) != '':
-#                 tRefMachineID = GetRefMachineIDForRefControllerField(fGetRstValString(Rst["RefWriteControllerField"]))
-#                 if tRefMachineID != 0:
-#                     tRefMachine = self.Machines.Item(str(tRefMachineID))
-#                     if not tRefMachine is None:
-#                         tRefFieldName = GetRefFieldNameForRefControllerField(Rst["RefWriteControllerField"])
-#                         if tRefFieldName != '':
-#                             if tRefMachine.GetParam(tRefFieldName, tRefControlParam) == True:
-#                                 if tMachine.GetParam(tFieldName, tControlParam) == True:
-#                                     tControlParam.RefWriteControllerField = tRefControlParam
-#                             else:
-#                                 RecordError('Server.LoadRefControllerFields', 1, 'ControllerField not found!', 'RefMachineID: ' + tRefMachineID + '. RefFieldName: ' + tRefFieldName)
-#                     else:
-#                         RecordError('Server.LoadRefControllerFields', 1, 'Machine not found!', 'RefMachineID: ' + tRefMachineID)
-#             Rst.MoveNext()
-#         Rst.Close()
-#         if Err.Number != 0:
-#             if InStr(Err.Description, 'nnection') > 0:
-#                 if CN.State == 1:
-#                     CN.Close()
-#                 CN.Open()
-#                 if MetaCn.State == 1:
-#                     MetaCn.Close()
-#                 MetaCn.Open()
-#                 Err.Clear()
+                if MdlConnection.MetaCn:
+                    MdlConnection.Close(MdlConnection.MetaCn)
+                MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
                 
-#             RecordError('Server.LoadRefControllerFields', Err.Number, Err.Description, '')
-#             Err.Clear()
+            MdlGlobal.RecordError('Server.LoadRefControllerFields', str(0), error.args[0], '')
             
-#         tMachine = None
-#         Rst = None
+        tMachine = None
+        RstCursor = None
 
 #     def ActivateLocationOnChannelSplit(self, pMachineID, pChannelNum, pSplitNum, pLocationID):
 #         tMachine = Machine()
@@ -1987,32 +1986,35 @@ class Server:
 #         tSplit = None
 #         return fn_return_value
 
-#     def ClearUserMessages(self):
-#         strSQL = ''
+    def ClearUserMessages(self):
+        strSQL = ''
+        RstCursor = None
+        RID = 0
 
-#         Rst = None
+        try:
+            strSQL = 'SELECT TOP 1 ID FROM App_UserMessages ORDER BY ID DESC'
+            RstCursor = MdlConnection.CN.cursor()
+            RstCursor.execute(strSQL)
+            RstData = RstCursor.fetchone()
 
-#         RID = 0
-        
-#         strSQL = 'SELECT TOP 1 ID FROM App_UserMessages ORDER BY ID DESC'
-#         Rst.Open(strSQL, MetaCn, adOpenStatic, adLockReadOnly)
-#         Rst.ActiveConnection = None
-#         RID = Rst["ID"]
-#         Rst.Close()
-#         if RID > 10000:
-#             strSQL = 'DELETE App_UserMessages Where ID < ' +  ( RID - 10000 )
-#             MetaCn.Execute(strSQL)
-#         if Err.Number != 0:
-#             if InStr(Err.Description, 'nnection') > 0:
-#                 if CN.State == 1:
-#                     CN.Close()
-#                 CN.Open()
-#                 if MetaCn.State == 1:
-#                     MetaCn.Close()
-#                 MetaCn.Open()
-#                 Err.Clear()
-                
-#             Err.Clear()
+            if RstData:
+                RID = RstData.ID
+
+            RstCursor.close()
+
+            if RID > 10000:
+                strSQL = 'DELETE App_UserMessages Where ID < ' +  ( RID - 10000 )
+                MdlConnection.MetaCn.execute(strSQL)
+
+        except BaseException as error:
+            if 'nnection' in error.args[0]:
+                if MdlConnection.CN:
+                    MdlConnection.Close(MdlConnection.CN)
+                MdlConnection.Open(MdlConnection.CN, MdlConnection.strCon)
+
+                if MdlConnection.MetaCn:
+                    MdlConnection.Close(MdlConnection.MetaCn)
+                MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
 
 #     def WareHouseLocationActiveBatchRemove(self, pMachineID, pWareHouseLocationID):
 #         tMachine = Machine()
@@ -2129,7 +2131,7 @@ class Server:
 #             tMachine.ProductionModeDisableProductionTime = MdlADOFunctions.fGetRstValBool(PRst["DisableProductionTime"], False)
 #             tMachine.ProductionModeCalcEfficiencies = MdlADOFunctions.fGetRstValBool(PRst["CalcEfficiencies"], False)
 #             tMachine.ProductionModeOverCalendarEvent = MdlADOFunctions.fGetRstValBool(PRst["OverCalendarEvent"], True)
-#         PRst.Close()
+#         PRstCursor.close()
 #         fn_return_value = True
 #         if Err.Number != 0:
 #             if InStr(Err.Description, 'nnection') > 0:
@@ -2143,7 +2145,7 @@ class Server:
                 
 #             Err.Clear()
 #         if PRst.State != 0:
-#             PRst.Close()
+#             PRstCursor.close()
 #         PRst = None
 #         return fn_return_value
 
@@ -2177,9 +2179,9 @@ class Server:
                         
 #                         if tMachine.ActiveJob.OpenEvent.ID != pEventID and FromSplit:
 #                             strSQL = 'UPDATE TblEvent SET OriginalEVID = ' + pEventID + ' WHERE ID = ' + tMachine.ActiveJob.OpenEvent.ID
-#                             CN.Execute(( strSQL ))
+#                             MdlConnection.CN.execute(( strSQL ))
 #                             strSQL = 'UPDATE TblEvent SET IsParent = 1 WHERE ID = ' + pEventID
-#                             CN.Execute(( strSQL ))
+#                             MdlConnection.CN.execute(( strSQL ))
 #                         if tMachine.ActiveJob.PConfigID != 0 and tMachine.ActiveJob.IsPConfigMain == True:
 #                             for tVariant in tMachine.ActiveJob.PConfigJobs:
 #                                 tChildJob = tVariant
@@ -2189,9 +2191,9 @@ class Server:
                                     
 #                                     if tChildJob.OpenEvent.ID != tOldEventID and FromSplit:
 #                                         strSQL = 'UPDATE TblEvent SET OriginalEVID = ' + tOldEventID + ' WHERE ID = ' + tChildJob.OpenEvent.ID
-#                                         CN.Execute(( strSQL ))
+#                                         MdlConnection.CN.execute(( strSQL ))
 #                                         strSQL = 'UPDATE TblEvent SET IsParent = 1 WHERE ID = ' + tOldEventID
-#                                         CN.Execute(( strSQL ))
+#                                         MdlConnection.CN.execute(( strSQL ))
 #                 else:
 #                     if not tMachine.ActiveJob.OpenEvent is None:
 #                         if pEventID != 0 and tMachine.ActiveJob.OpenEvent.ID != pEventID:
@@ -2200,9 +2202,9 @@ class Server:
                         
 #                         if tMachine.ActiveJob.OpenEvent.ID != pEventID and FromSplit:
 #                             strSQL = 'UPDATE TblEvent SET OriginalEVID = ' + pEventID + ' WHERE ID = ' + tMachine.ActiveJob.OpenEvent.ID
-#                             CN.Execute(( strSQL ))
+#                             MdlConnection.CN.execute(( strSQL ))
 #                             strSQL = 'UPDATE TblEvent SET IsParent = 1 WHERE ID = ' + pEventID
-#                             CN.Execute(( strSQL ))
+#                             MdlConnection.CN.execute(( strSQL ))
 #                         if tMachine.ActiveJob.PConfigID != 0 and tMachine.ActiveJob.IsPConfigMain == True:
 #                             for tVariant in tMachine.ActiveJob.PConfigJobs:
 #                                 tChildJob = tVariant
@@ -2212,9 +2214,9 @@ class Server:
                                     
 #                                     if tChildJob.OpenEvent.ID != tOldEventID and FromSplit:
 #                                         strSQL = 'UPDATE TblEvent SET OriginalEVID = ' + tOldEventID + ' WHERE ID = ' + tChildJob.OpenEvent.ID
-#                                         CN.Execute(( strSQL ))
+#                                         MdlConnection.CN.execute(( strSQL ))
 #                                         strSQL = 'UPDATE TblEvent SET IsParent = 1 WHERE ID = ' + tOldEventID
-#                                         CN.Execute(( strSQL ))
+#                                         MdlConnection.CN.execute(( strSQL ))
 #             else:
 #                 if not tMachine.ActiveJob.OpenEvent is None:
 #                     if pEventID != 0 and tMachine.ActiveJob.OpenEvent.ID != pEventID:
@@ -2223,9 +2225,9 @@ class Server:
                     
 #                     if tMachine.ActiveJob.OpenEvent.ID != pEventID and FromSplit:
 #                         strSQL = 'UPDATE TblEvent SET OriginalEVID = ' + pEventID + ' WHERE ID = ' + tMachine.ActiveJob.OpenEvent.ID
-#                         CN.Execute(( strSQL ))
+#                         MdlConnection.CN.execute(( strSQL ))
 #                         strSQL = 'UPDATE TblEvent SET IsParent = 1 WHERE ID = ' + pEventID
-#                         CN.Execute(( strSQL ))
+#                         MdlConnection.CN.execute(( strSQL ))
 #                     if tMachine.ActiveJob.PConfigID != 0 and tMachine.ActiveJob.IsPConfigMain == True:
 #                         for tVariant in tMachine.ActiveJob.PConfigJobs:
 #                             tChildJob = tVariant
@@ -2235,9 +2237,9 @@ class Server:
                                 
 #                                 if tChildJob.OpenEvent.ID != tOldEventID and FromSplit:
 #                                     strSQL = 'UPDATE TblEvent SET OriginalEVID = ' + tOldEventID + ' WHERE ID = ' + tChildJob.OpenEvent.ID
-#                                     CN.Execute(( strSQL ))
+#                                     MdlConnection.CN.execute(( strSQL ))
 #                                     strSQL = 'UPDATE TblEvent SET IsParent = 1 WHERE ID = ' + tOldEventID
-#                                     CN.Execute(( strSQL ))
+#                                     MdlConnection.CN.execute(( strSQL ))
 #         fn_return_value = True
 #         if Err.Number != 0:
 #             if InStr(Err.Description, 'nnection') > 0:
@@ -2252,120 +2254,116 @@ class Server:
 #             Err.Clear()
 #         return fn_return_value
 
-#     def ClosePreviousJoshs(self):
-#         strSQL = ''
+    def ClosePreviousJoshs(self):
+        strSQL = ''
+        fn_return_value = False
         
-#         fn_return_value = False
-        
-#         strSQL = ''
-#         strSQL = strSQL + 'UPDATE TblJosh SET EndTime = (SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblJosh.ShiftID), Status = 20,' + '\r\n'
-#         strSQL = strSQL + 'DurationMin = DATEDIFF(n,StartTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblJosh.ShiftID))' + '\r\n'
-#         strSQL = strSQL + 'WHERE (EndTime IS NULL OR Status = 10) AND ShiftID IN(SELECT ID FROM TblShift WHERE EndTime IS NOT NULL) AND JobID NOT IN(SELECT ID FROM TblJob WHERE Status > 10)'
-#         CN.Execute(strSQL)
-        
-#         strSQL = ''
-#         strSQL = strSQL + 'UPDATE TblJosh SET EndTime = (CASE WHEN (SELECT TblJob.EndTime FROM TblJob WHERE TblJob.ID = TblJosh.JobID) <= (SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblJosh.ShiftID)' + '\r\n'
-#         strSQL = strSQL + 'THEN (SELECT TblJob.EndTime FROM TblJob WHERE TblJob.ID = TblJosh.JobID) ELSE (SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblJosh.ShiftID) END), Status = 20,' + '\r\n'
-#         strSQL = strSQL + 'DurationMin = DATEDIFF(n,StartTime,(CASE WHEN (SELECT TblJob.EndTime FROM TblJob WHERE TblJob.ID = TblJosh.JobID) <= (SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblJosh.ShiftID)' + '\r\n'
-#         strSQL = strSQL + 'THEN (SELECT TblJob.EndTime FROM TblJob WHERE TblJob.ID = TblJosh.JobID) ELSE (SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblJosh.ShiftID) END))' + '\r\n'
-#         strSQL = strSQL + 'WHERE (EndTime IS NULL OR Status = 10) AND ShiftID IN(SELECT ID FROM TblShift WHERE EndTime IS NOT NULL) AND JobID IN(SELECT ID FROM TblJob WHERE Status > 10)'
-#         CN.Execute(strSQL)
-#         strSQL = ''
-#         strSQL = 'UPDATE TblJosh SET EndTime = DATEADD(n,DurationMin,StartTime) WHERE DurationMin IS NOT NULL AND EndTime IS NULL AND SHiftID NOT IN(SELECT ID FROM TblShift WHERE EndTime IS NULL)'
-#         CN.Execute(strSQL)
-        
-#         strSQL = ''
-#         strSQL = 'DELETE FROM TblJoshCurrent WHERE ID IN(SELECT ID FROM TblJosh WHERE EndTime IS NOT NULL)'
-#         CN.Execute(strSQL)
-#         fn_return_value = True
-#         if Err.Number != 0:
-#             if InStr(Err.Description, 'nnection') > 0:
-#                 if CN.State == 1:
-#                     CN.Close()
-#                 CN.Open()
-#                 if MetaCn.State == 1:
-#                     MetaCn.Close()
-#                 MetaCn.Open()
-#                 Err.Clear()
-                
-#             Err.Clear()
-#         return fn_return_value
+        try:
+            strSQL = ''
+            strSQL = strSQL + 'UPDATE TblJosh SET EndTime = (SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblJosh.ShiftID), Status = 20,' + '\r\n'
+            strSQL = strSQL + 'DurationMin = DATEDIFF(n,StartTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblJosh.ShiftID))' + '\r\n'
+            strSQL = strSQL + 'WHERE (EndTime IS NULL OR Status = 10) AND ShiftID IN(SELECT ID FROM TblShift WHERE EndTime IS NOT NULL) AND JobID NOT IN(SELECT ID FROM TblJob WHERE Status > 10)'
+            MdlConnection.CN.execute(strSQL)
+            
+            strSQL = ''
+            strSQL = strSQL + 'UPDATE TblJosh SET EndTime = (CASE WHEN (SELECT TblJob.EndTime FROM TblJob WHERE TblJob.ID = TblJosh.JobID) <= (SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblJosh.ShiftID)' + '\r\n'
+            strSQL = strSQL + 'THEN (SELECT TblJob.EndTime FROM TblJob WHERE TblJob.ID = TblJosh.JobID) ELSE (SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblJosh.ShiftID) END), Status = 20,' + '\r\n'
+            strSQL = strSQL + 'DurationMin = DATEDIFF(n,StartTime,(CASE WHEN (SELECT TblJob.EndTime FROM TblJob WHERE TblJob.ID = TblJosh.JobID) <= (SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblJosh.ShiftID)' + '\r\n'
+            strSQL = strSQL + 'THEN (SELECT TblJob.EndTime FROM TblJob WHERE TblJob.ID = TblJosh.JobID) ELSE (SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblJosh.ShiftID) END))' + '\r\n'
+            strSQL = strSQL + 'WHERE (EndTime IS NULL OR Status = 10) AND ShiftID IN(SELECT ID FROM TblShift WHERE EndTime IS NOT NULL) AND JobID IN(SELECT ID FROM TblJob WHERE Status > 10)'
+            MdlConnection.CN.execute(strSQL)
+            strSQL = ''
+            strSQL = 'UPDATE TblJosh SET EndTime = DATEADD(n,DurationMin,StartTime) WHERE DurationMin IS NOT NULL AND EndTime IS NULL AND SHiftID NOT IN(SELECT ID FROM TblShift WHERE EndTime IS NULL)'
+            MdlConnection.CN.execute(strSQL)
+            
+            strSQL = ''
+            strSQL = 'DELETE FROM TblJoshCurrent WHERE ID IN(SELECT ID FROM TblJosh WHERE EndTime IS NOT NULL)'
+            MdlConnection.CN.execute(strSQL)
+            fn_return_value = True
 
-#     def ClosePreviousEvents(self):
-#         strSQL = ''
-        
-#         fn_return_value = False
-        
-#         strSQL = ''
-#         strSQL = strSQL + 'UPDATE TblEvent SET JoshID = (SELECT TOP 1 ID FROM TblJosh WHERE ShiftID = TblEvent.ShiftID AND JobID = TblEvent.JobID)' + '\r\n'
-#         strSQL = strSQL + 'WHERE JoshID = 0 AND JobID <> 0 AND ShiftID <> 0'
-#         CN.Execute(strSQL)
-        
-#         strSQL = ''
-#         strSQL = strSQL + 'UPDATE TblEvent SET ' + '\r\n'
-#         strSQL = strSQL + 'EndTime = CASE WHEN DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblEvent.JoshID)) < 0 THEN EventTime ELSE (SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblEvent.JoshID) END,' + '\r\n'
-#         strSQL = strSQL + 'Duration = CASE WHEN DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblEvent.JoshID)) < 0 THEN 0 ELSE DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblEvent.JoshID)) END,' + '\r\n'
-#         strSQL = strSQL + 'DownTime = CASE WHEN (SELECT IsDownTime FROM STblEventDesr WHERE ID = TblEvent.Event) <> 0 THEN CASE WHEN DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblEvent.JoshID)) < 0 THEN 0 ELSE DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblEvent.JoshID)) END ELSE 0 END,' + '\r\n'
-#         strSQL = strSQL + 'InactiveTime = CASE WHEN (SELECT IsInactiveTime FROM STblEventDesr WHERE ID = TblEvent.Event) <> 0 THEN CASE WHEN DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblEvent.JoshID)) < 0 THEN 0 ELSE DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblEvent.JoshID)) END ELSE 0 END' + '\r\n'
-#         strSQL = strSQL + 'WHERE EndTime IS NULL AND JoshID IN(SELECT ID FROM TblJosh WHERE EndTime IS NOT NULL)'
-#         CN.Execute(strSQL)
-#         strSQL = ''
-#         strSQL = strSQL + 'UPDATE TblEvent SET ' + '\r\n'
-#         strSQL = strSQL + 'EndTime = CASE WHEN DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblEvent.ShiftID)) < 0 THEN EventTime ELSE (SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblEvent.ShiftID) END,' + '\r\n'
-#         strSQL = strSQL + 'Duration = CASE WHEN DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblEvent.ShiftID)) < 0 THEN 0 ELSE DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblEvent.ShiftID)) END,' + '\r\n'
-#         strSQL = strSQL + 'DownTime = CASE WHEN (SELECT IsDownTime FROM STblEventDesr WHERE ID = TblEvent.Event) <> 0 THEN CASE WHEN DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblEvent.ShiftID)) < 0 THEN 0 ELSE DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblEvent.ShiftID)) END ELSE 0 END,' + '\r\n'
-#         strSQL = strSQL + 'InactiveTime = CASE WHEN (SELECT IsInactiveTime FROM STblEventDesr WHERE ID = TblEvent.Event) <> 0 THEN CASE WHEN DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblEvent.ShiftID)) < 0 THEN 0 ELSE DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblEvent.ShiftID)) END ELSE 0 END' + '\r\n'
-#         strSQL = strSQL + 'WHERE EndTime IS NULL AND JoshID = 0'
-#         CN.Execute(strSQL)
-#         fn_return_value = True
-#         if Err.Number != 0:
-#             if InStr(Err.Description, 'nnection') > 0:
-#                 if CN.State == 1:
-#                     CN.Close()
-#                 CN.Open()
-#                 if MetaCn.State == 1:
-#                     MetaCn.Close()
-#                 MetaCn.Open()
-#                 Err.Clear()
-                
-#             Err.Clear()
-#         return fn_return_value
+        except BaseException as error:
+            if 'nnection' in error.args[0]:
+                if MdlConnection.CN:
+                    MdlConnection.Close(MdlConnection.CN)
+                MdlConnection.Open(MdlConnection.CN, MdlConnection.strCon)
 
-#     def ClosePreviousWorkingEvents(self):
-#         strSQL = ''
+                if MdlConnection.MetaCn:
+                    MdlConnection.Close(MdlConnection.MetaCn)
+                MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
+        return fn_return_value
+
+    def ClosePreviousEvents(self):
+        strSQL = ''        
+        fn_return_value = False
+
+        try:
+            strSQL = strSQL + 'UPDATE TblEvent SET JoshID = (SELECT TOP 1 ID FROM TblJosh WHERE ShiftID = TblEvent.ShiftID AND JobID = TblEvent.JobID)' + '\r\n'
+            strSQL = strSQL + 'WHERE JoshID = 0 AND JobID <> 0 AND ShiftID <> 0'
+            MdlConnection.CN.execute(strSQL)
+            
+            strSQL = ''
+            strSQL = strSQL + 'UPDATE TblEvent SET ' + '\r\n'
+            strSQL = strSQL + 'EndTime = CASE WHEN DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblEvent.JoshID)) < 0 THEN EventTime ELSE (SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblEvent.JoshID) END,' + '\r\n'
+            strSQL = strSQL + 'Duration = CASE WHEN DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblEvent.JoshID)) < 0 THEN 0 ELSE DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblEvent.JoshID)) END,' + '\r\n'
+            strSQL = strSQL + 'DownTime = CASE WHEN (SELECT IsDownTime FROM STblEventDesr WHERE ID = TblEvent.Event) <> 0 THEN CASE WHEN DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblEvent.JoshID)) < 0 THEN 0 ELSE DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblEvent.JoshID)) END ELSE 0 END,' + '\r\n'
+            strSQL = strSQL + 'InactiveTime = CASE WHEN (SELECT IsInactiveTime FROM STblEventDesr WHERE ID = TblEvent.Event) <> 0 THEN CASE WHEN DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblEvent.JoshID)) < 0 THEN 0 ELSE DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblEvent.JoshID)) END ELSE 0 END' + '\r\n'
+            strSQL = strSQL + 'WHERE EndTime IS NULL AND JoshID IN(SELECT ID FROM TblJosh WHERE EndTime IS NOT NULL)'
+            MdlConnection.CN.execute(strSQL)
+            strSQL = ''
+            strSQL = strSQL + 'UPDATE TblEvent SET ' + '\r\n'
+            strSQL = strSQL + 'EndTime = CASE WHEN DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblEvent.ShiftID)) < 0 THEN EventTime ELSE (SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblEvent.ShiftID) END,' + '\r\n'
+            strSQL = strSQL + 'Duration = CASE WHEN DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblEvent.ShiftID)) < 0 THEN 0 ELSE DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblEvent.ShiftID)) END,' + '\r\n'
+            strSQL = strSQL + 'DownTime = CASE WHEN (SELECT IsDownTime FROM STblEventDesr WHERE ID = TblEvent.Event) <> 0 THEN CASE WHEN DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblEvent.ShiftID)) < 0 THEN 0 ELSE DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblEvent.ShiftID)) END ELSE 0 END,' + '\r\n'
+            strSQL = strSQL + 'InactiveTime = CASE WHEN (SELECT IsInactiveTime FROM STblEventDesr WHERE ID = TblEvent.Event) <> 0 THEN CASE WHEN DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblEvent.ShiftID)) < 0 THEN 0 ELSE DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblEvent.ShiftID)) END ELSE 0 END' + '\r\n'
+            strSQL = strSQL + 'WHERE EndTime IS NULL AND JoshID = 0'
+            MdlConnection.CN.execute(strSQL)
+            fn_return_value = True
+
+        except BaseException as error:
+            if 'nnection' in error.args[0]:
+                if MdlConnection.CN:
+                    MdlConnection.Close(MdlConnection.CN)
+                MdlConnection.Open(MdlConnection.CN, MdlConnection.strCon)
+
+                if MdlConnection.MetaCn:
+                    MdlConnection.Close(MdlConnection.MetaCn)
+                MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
+        return fn_return_value
+
+    def ClosePreviousWorkingEvents(self):
+        strSQL = ''
+        fn_return_value = False
         
-#         fn_return_value = False
-        
-#         strSQL = ''
-#         strSQL = strSQL + 'UPDATE TblWorkingEvents SET JoshID = (SELECT TOP 1 ID FROM TblJosh WHERE ShiftID = TblWorkingEvents.ShiftID AND JobID = TblWorkingEvents.JobID)' + '\r\n'
-#         strSQL = strSQL + 'WHERE JoshID = 0 AND JobID <> 0 AND ShiftID <> 0'
-#         CN.Execute(strSQL)
-        
-#         strSQL = ''
-#         strSQL = strSQL + 'UPDATE TblWorkingEvents SET ' + '\r\n'
-#         strSQL = strSQL + 'EndTime = CASE WHEN DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblWorkingEvents.JoshID)) < 0 THEN EventTime ELSE (SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblWorkingEvents.JoshID) END,' + '\r\n'
-#         strSQL = strSQL + 'Duration = CASE WHEN DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblWorkingEvents.JoshID)) < 0 THEN 0 ELSE DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblWorkingEvents.JoshID)) END' + '\r\n'
-#         strSQL = strSQL + 'WHERE EndTime IS NULL AND JoshID IN(SELECT ID FROM TblJosh WHERE EndTime IS NOT NULL)'
-#         CN.Execute(strSQL)
-#         strSQL = ''
-#         strSQL = strSQL + 'UPDATE TblWorkingEvents SET ' + '\r\n'
-#         strSQL = strSQL + 'EndTime = CASE WHEN DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblWorkingEvents.ShiftID)) < 0 THEN EventTime ELSE (SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblWorkingEvents.ShiftID) END,' + '\r\n'
-#         strSQL = strSQL + 'Duration = CASE WHEN DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblWorkingEvents.ShiftID)) < 0 THEN 0 ELSE DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblWorkingEvents.ShiftID)) END' + '\r\n'
-#         strSQL = strSQL + 'WHERE EndTime IS NULL AND JoshID = 0'
-#         CN.Execute(strSQL)
-#         fn_return_value = True
-#         if Err.Number != 0:
-#             if InStr(Err.Description, 'nnection') > 0:
-#                 if CN.State == 1:
-#                     CN.Close()
-#                 CN.Open()
-#                 if MetaCn.State == 1:
-#                     MetaCn.Close()
-#                 MetaCn.Open()
-#                 Err.Clear()
-                
-#             Err.Clear()
-#         return fn_return_value
+        try:
+            strSQL = strSQL + 'UPDATE TblWorkingEvents SET JoshID = (SELECT TOP 1 ID FROM TblJosh WHERE ShiftID = TblWorkingEvents.ShiftID AND JobID = TblWorkingEvents.JobID)' + '\r\n'
+            strSQL = strSQL + 'WHERE JoshID = 0 AND JobID <> 0 AND ShiftID <> 0'
+            MdlConnection.CN.execute(strSQL)
+            
+            strSQL = ''
+            strSQL = strSQL + 'UPDATE TblWorkingEvents SET ' + '\r\n'
+            strSQL = strSQL + 'EndTime = CASE WHEN DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblWorkingEvents.JoshID)) < 0 THEN EventTime ELSE (SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblWorkingEvents.JoshID) END,' + '\r\n'
+            strSQL = strSQL + 'Duration = CASE WHEN DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblWorkingEvents.JoshID)) < 0 THEN 0 ELSE DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblWorkingEvents.JoshID)) END' + '\r\n'
+            strSQL = strSQL + 'WHERE EndTime IS NULL AND JoshID IN(SELECT ID FROM TblJosh WHERE EndTime IS NOT NULL)'
+            MdlConnection.CN.execute(strSQL)
+            strSQL = ''
+            strSQL = strSQL + 'UPDATE TblWorkingEvents SET ' + '\r\n'
+            strSQL = strSQL + 'EndTime = CASE WHEN DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblWorkingEvents.ShiftID)) < 0 THEN EventTime ELSE (SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblWorkingEvents.ShiftID) END,' + '\r\n'
+            strSQL = strSQL + 'Duration = CASE WHEN DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblWorkingEvents.ShiftID)) < 0 THEN 0 ELSE DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblWorkingEvents.ShiftID)) END' + '\r\n'
+            strSQL = strSQL + 'WHERE EndTime IS NULL AND JoshID = 0'
+            MdlConnection.CN.execute(strSQL)
+            fn_return_value = True
+
+        except BaseException as error:
+            if 'nnection' in error.args[0]:
+                if MdlConnection.CN:
+                    MdlConnection.Close(MdlConnection.CN)
+                MdlConnection.Open(MdlConnection.CN, MdlConnection.strCon)
+
+                if MdlConnection.MetaCn:
+                    MdlConnection.Close(MdlConnection.MetaCn)
+                MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
+
+        return fn_return_value
 
 
     def CleanActivateJobWebParams(self):
@@ -2387,108 +2385,91 @@ class Server:
                 MdlConnection.MetaCn = MdlConnection.Open(MdlConnection.strMetaCon)
 
 
-#     def CompleteMissingShiftsObject(self):
-#         strSQL = ''
-
-#         situation = 0
-
-#         NewShiftID = 0
-
-#         OldJoshID = 0
-
-#         JoshID = 0
-
-#         SetupDuration = 0
-
-#         NewJoshID = 0
-
-#         JobID = 0
-
-#         ShiftDefID = 0
-
-#         Counter = 0
-
-#         tMachine = Machine()
-
-#         DepForSC = ''
-
-#         tVariant = Variant()
-
-#         tVariant2 = Variant()
-
-#         tChildJob = Job()
-
-#         tJosh = Josh()
+    def CompleteMissingShiftsObject(self):
+        fn_return_value = False
+        strSQL = ''
+        situation = 0
+        NewShiftID = 0
+        OldJoshID = 0
+        JoshID = 0
+        SetupDuration = 0
+        NewJoshID = 0
+        JobID = 0
+        ShiftDefID = 0
+        Counter = 0
+        tMachine = None
+        DepForSC = ''
+        tVariant = None
+        tVariant2 = None
+        tChildJob = None
+        tJosh = None
         
-#         fn_return_value = False
-#         for tVariant in self.Machines:
-#             tMachine = tVariant
-#             if not tMachine.ActiveJob is None:
-                
-                
-#                 if tMachine.ActiveJob.ActiveJosh.ID == 0:
-#                     tMachine.ActiveJoshID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ID', 'TblJoshCurrent', 'JobID = ' + tMachine.ActiveJob.ID + ' AND ShiftID <> ' + self.CurrentShiftID + ' ORDER BY StartTime DESC', 'CN'))
-#                     tJosh = Josh()
-#                     tJosh.Init(tMachine.ActiveJob, tMachine.ActiveJoshID)
-#                     tMachine.ActiveJob.ActiveJosh = tJosh
-#                     tMachine.ActiveJobID = tMachine.ActiveJob.ID
-#                     tMachine.ActiveJosh = tJosh
-#                     tMachine.ActiveJoshID = tMachine.ActiveJosh.ID
-#                     if tMachine.ActiveJob.OpenEvent is None:
-#                         tMachine.ActiveJob.GetOpenEvent
-#                     if not tMachine.ActiveJob.OpenEvent is None:
-#                         tMachine.ActiveJob.OpenEvent.Josh = tJosh
-#                         tMachine.ActiveJob.OpenEvent.Update
+        try:
+            for tVariant in self.Machines.values():
+                tMachine = tVariant
+                if not tMachine.ActiveJob is None:
+                    if tMachine.ActiveJob.ActiveJosh.ID == 0:
+                        tMachine.ActiveJoshID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ID', 'TblJoshCurrent', 'JobID = ' + str(tMachine.ActiveJob.ID) + ' AND ShiftID <> ' + str(self.CurrentShiftID) + ' ORDER BY StartTime DESC', 'CN'))
+                        tJosh = Josh()
+                        tJosh.Init(tMachine.ActiveJob, tMachine.ActiveJoshID)
+                        tMachine.ActiveJob.ActiveJosh = tJosh
+                        tMachine.ActiveJobID = tMachine.ActiveJob.ID
+                        tMachine.ActiveJosh = tJosh
+                        tMachine.ActiveJoshID = tMachine.ActiveJosh.ID
+                        if tMachine.ActiveJob.OpenEvent is None:
+                            tMachine.ActiveJob.GetOpenEvent()
+                        if not tMachine.ActiveJob.OpenEvent is None:
+                            tMachine.ActiveJob.OpenEvent.Josh = tJosh
+                            tMachine.ActiveJob.OpenEvent.Update()
+                        
+                        if tMachine.ActiveJob.OpenWorkingEvent is None:
+                            tMachine.ActiveJob.GetOpenWorkingEvent()
+                        if not tMachine.ActiveJob.OpenWorkingEvent is None:
+                            tMachine.ActiveJob.OpenWorkingEvent.Josh = tJosh
+                            tMachine.ActiveJob.OpenWorkingEvent.Update()
+                        
+                        if tMachine.ActiveJob.OpenEngineEvent is None:
+                            tMachine.ActiveJob.GetOpenEngineEvent()
+                        if not tMachine.ActiveJob.OpenEngineEvent is None:
+                            tMachine.ActiveJob.OpenEngineEvent.Josh = tJosh
+                            tMachine.ActiveJob.OpenEngineEvent.Update()
+                        tMachine.ActiveJob.CreateJoshForNewShift()
                     
-#                     if tMachine.ActiveJob.OpenWorkingEvent is None:
-#                         tMachine.ActiveJob.GetOpenWorkingEvent
-#                     if not tMachine.ActiveJob.OpenWorkingEvent is None:
-#                         tMachine.ActiveJob.OpenWorkingEvent.Josh = tJosh
-#                         tMachine.ActiveJob.OpenWorkingEvent.Update
-                    
-#                     if tMachine.ActiveJob.OpenEngineEvent is None:
-#                         tMachine.ActiveJob.GetOpenEngineEvent
-#                     if not tMachine.ActiveJob.OpenEngineEvent is None:
-#                         tMachine.ActiveJob.OpenEngineEvent.Josh = tJosh
-#                         tMachine.ActiveJob.OpenEngineEvent.Update
-#                     tMachine.ActiveJob.CreateJoshForNewShift
-#                 if tMachine.ActiveJob.PConfigID != 0 and tMachine.ActiveJob.IsPConfigMain == True:
-#                     for tVariant2 in tMachine.ActiveJob.PConfigJobs:
-#                         tChildJob = tVariant2
-#                         if tChildJob.ActiveJosh is None:
-#                             JoshID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ID', 'TblJoshCurrent', 'JobID = ' + tChildJob.ID + ' AND ShiftID <> ' + self.CurrentShiftID + ' ORDER BY StartTime DESC', 'CN'))
-#                             if JoshID != 0:
-#                                 tJosh = Josh()
-#                                 tJosh.Init(tChildJob, JoshID)
-#                                 tChildJob.ActiveJosh = tJosh
-                                
-                                
-                                
-#                                 if tChildJob.OpenEvent is None:
-#                                     tChildJob.GetOpenEvent
-#                                 if not tChildJob.OpenEvent is None:
-#                                     tChildJob.OpenEvent.Josh = tJosh
-#                                     tChildJob.OpenEvent.Update
-                                
-#                                 if tChildJob.OpenWorkingEvent is None:
-#                                     tChildJob.GetOpenWorkingEvent
-#                                 if not tChildJob.OpenWorkingEvent is None:
-#                                     tChildJob.OpenWorkingEvent.Josh = tJosh
-#                                     tChildJob.OpenWorkingEvent.Update
-                                
-#                                 if tChildJob.OpenEngineEvent is None:
-#                                     tChildJob.GetOpenEngineEvent
-#                                 if not tChildJob.OpenEngineEvent is None:
-#                                     tChildJob.OpenEngineEvent.Josh = tJosh
-#                                     tChildJob.OpenEngineEvent.Update
-#                             tChildJob.CreateJoshForNewShift
-#         fn_return_value = True
-#         if Err.Number != 0:
-#             RecordError('LeaderRT:CompleteMissingShiftsObject', str(Err.Number), Err.Description, strSQL)
-#             Err.Clear()
+                    if tMachine.ActiveJob.PConfigID != 0 and tMachine.ActiveJob.IsPConfigMain == True:
+                        for tVariant2 in tMachine.ActiveJob.PConfigJobs:
+                            tChildJob = tVariant2
+                            if tChildJob.ActiveJosh is None:
+                                JoshID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ID', 'TblJoshCurrent', 'JobID = ' + tChildJob.ID + ' AND ShiftID <> ' + str(self.CurrentShiftID) + ' ORDER BY StartTime DESC', 'CN'))
+                                if JoshID != 0:
+                                    tJosh = Josh()
+                                    tJosh.Init(tChildJob, JoshID)
+                                    tChildJob.ActiveJosh = tJosh
+                                    
+                                    if tChildJob.OpenEvent is None:
+                                        tChildJob.GetOpenEvent()
+                                    if not tChildJob.OpenEvent is None:
+                                        tChildJob.OpenEvent.Josh = tJosh
+                                        tChildJob.OpenEvent.Update()
+                                    
+                                    if tChildJob.OpenWorkingEvent is None:
+                                        tChildJob.GetOpenWorkingEvent()
+                                    if not tChildJob.OpenWorkingEvent is None:
+                                        tChildJob.OpenWorkingEvent.Josh = tJosh
+                                        tChildJob.OpenWorkingEvent.Update()
+                                    
+                                    if tChildJob.OpenEngineEvent is None:
+                                        tChildJob.GetOpenEngineEvent()
+                                    if not tChildJob.OpenEngineEvent is None:
+                                        tChildJob.OpenEngineEvent.Josh = tJosh
+                                        tChildJob.OpenEngineEvent.Update()
+                                tChildJob.CreateJoshForNewShift()
+            fn_return_value = True
+
+        except BaseException as error:
+            MdlGlobal.RecordError('LeaderRT:CompleteMissingShiftsObject', str(0), error.args[0], str(strSQL))
             
             
-#         return fn_return_value
+        return fn_return_value
 
 #     def UpdateMachineActiveCalendarEvent(self, pMachineID, pActiveCalendarEvent):
 #         tMachine = Machine()
@@ -2503,41 +2484,40 @@ class Server:
 #             Err.Clear()
 #         return fn_return_value
 
-#     def ClosePreviousEngineEvents(self):
-#         strSQL = ''
+    def ClosePreviousEngineEvents(self):
+        strSQL = ''
+        fn_return_value = False
         
-#         fn_return_value = False
-        
-#         strSQL = ''
-#         strSQL = strSQL + 'UPDATE TblEngineEvents SET JoshID = (SELECT TOP 1 ID FROM TblJosh WHERE ShiftID = TblEngineEvents.ShiftID AND JobID = TblEngineEvents.JobID)' + '\r\n'
-#         strSQL = strSQL + 'WHERE JoshID = 0 AND JobID <> 0 AND ShiftID <> 0'
-#         CN.Execute(strSQL)
-        
-#         strSQL = ''
-#         strSQL = strSQL + 'UPDATE TblEngineEvents SET ' + '\r\n'
-#         strSQL = strSQL + 'EndTime = CASE WHEN DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblEngineEvents.JoshID)) < 0 THEN EventTime ELSE (SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblEngineEvents.JoshID) END,' + '\r\n'
-#         strSQL = strSQL + 'Duration = CASE WHEN DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblEngineEvents.JoshID)) < 0 THEN 0 ELSE DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblEngineEvents.JoshID)) END' + '\r\n'
-#         strSQL = strSQL + 'WHERE EndTime IS NULL AND JoshID IN(SELECT ID FROM TblJosh WHERE EndTime IS NOT NULL)'
-#         CN.Execute(strSQL)
-#         strSQL = ''
-#         strSQL = strSQL + 'UPDATE TblEngineEvents SET ' + '\r\n'
-#         strSQL = strSQL + 'EndTime = CASE WHEN DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblEngineEvents.ShiftID)) < 0 THEN EventTime ELSE (SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblEngineEvents.ShiftID) END,' + '\r\n'
-#         strSQL = strSQL + 'Duration = CASE WHEN DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblEngineEvents.ShiftID)) < 0 THEN 0 ELSE DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblEngineEvents.ShiftID)) END' + '\r\n'
-#         strSQL = strSQL + 'WHERE EndTime IS NULL AND JoshID = 0'
-#         CN.Execute(strSQL)
-#         fn_return_value = True
-#         if Err.Number != 0:
-#             if InStr(Err.Description, 'nnection') > 0:
-#                 if CN.State == 1:
-#                     CN.Close()
-#                 CN.Open()
-#                 if MetaCn.State == 1:
-#                     MetaCn.Close()
-#                 MetaCn.Open()
-#                 Err.Clear()
-                
-#             Err.Clear()
-#         return fn_return_value
+        try:
+            strSQL = strSQL + 'UPDATE TblEngineEvents SET JoshID = (SELECT TOP 1 ID FROM TblJosh WHERE ShiftID = TblEngineEvents.ShiftID AND JobID = TblEngineEvents.JobID)' + '\r\n'
+            strSQL = strSQL + 'WHERE JoshID = 0 AND JobID <> 0 AND ShiftID <> 0'
+            MdlConnection.CN.execute(strSQL)
+            
+            strSQL = ''
+            strSQL = strSQL + 'UPDATE TblEngineEvents SET ' + '\r\n'
+            strSQL = strSQL + 'EndTime = CASE WHEN DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblEngineEvents.JoshID)) < 0 THEN EventTime ELSE (SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblEngineEvents.JoshID) END,' + '\r\n'
+            strSQL = strSQL + 'Duration = CASE WHEN DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblEngineEvents.JoshID)) < 0 THEN 0 ELSE DATEDIFF(n,EventTime,(SELECT TblJosh.EndTime FROM TblJosh WHERE TblJosh.ID = TblEngineEvents.JoshID)) END' + '\r\n'
+            strSQL = strSQL + 'WHERE EndTime IS NULL AND JoshID IN(SELECT ID FROM TblJosh WHERE EndTime IS NOT NULL)'
+            MdlConnection.CN.execute(strSQL)
+            strSQL = ''
+            strSQL = strSQL + 'UPDATE TblEngineEvents SET ' + '\r\n'
+            strSQL = strSQL + 'EndTime = CASE WHEN DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblEngineEvents.ShiftID)) < 0 THEN EventTime ELSE (SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblEngineEvents.ShiftID) END,' + '\r\n'
+            strSQL = strSQL + 'Duration = CASE WHEN DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblEngineEvents.ShiftID)) < 0 THEN 0 ELSE DATEDIFF(n,EventTime,(SELECT TblShift.EndTime FROM TblShift WHERE TblShift.ID = TblEngineEvents.ShiftID)) END' + '\r\n'
+            strSQL = strSQL + 'WHERE EndTime IS NULL AND JoshID = 0'
+            MdlConnection.CN.execute(strSQL)
+            fn_return_value = True
+
+        except BaseException as error:
+            if 'nnection' in error.args[0]:
+                if MdlConnection.CN:
+                    MdlConnection.Close(MdlConnection.CN)
+                MdlConnection.Open(MdlConnection.CN, MdlConnection.strCon)
+
+                if MdlConnection.MetaCn:
+                    MdlConnection.Close(MdlConnection.MetaCn)
+                MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
+
+        return fn_return_value
 
 
     def setStartTime(self, value):

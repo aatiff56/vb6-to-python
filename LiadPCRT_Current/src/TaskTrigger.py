@@ -226,7 +226,7 @@ class TaskTrigger:
             if self.__ProductID != 0:
                 if self.__ProductID != self.__pMachine.ActiveJob.ProductID:
                     ErrCount = ErrCount + 1
-            strSQL = 'Select * From TblTaskTrigger Where TaskDef = ' + self.__TaskDefID + ' AND MachineID = ' + self.__pMachine.ID + ' AND TaskTriggerDefID = ' + self.__TriggerDefID
+            strSQL = 'Select * From TblTaskTrigger Where TaskDef = ' + self.__TaskDefID + ' AND MachineID = ' + str(self.__pMachine.ID) + ' AND TaskTriggerDefID = ' + self.__TriggerDefID
             
             TriggerRstCursor = MdlConnection.CN.cursor()
             TriggerRstCursor.execute(strSQL)
@@ -290,72 +290,83 @@ class TaskTrigger:
         TaskDefID = 0
         tOpenNewTask = False
         
-        tOpenNewTask = MdlADOFunctions.fGetRstValBool(MdlADOFunctions.GetSingleValue('CValue', 'STblSystemVariableFields', 'FieldName = \'OpenNewTriggerTask\'', 'CN'), False)
-        
-        strSQL = 'Select ID, Descr, BasicPriority, StandardDuration, TaskType From TblTaskDef Where ID = ' + str(self.PTaskDefID)
-
-        RstCursor = MdlConnection.CN.cursor()
-        RstCursor.execute(strSQL)
-        RstData = RstCursor.fetchone()
-
-        if not RstCursor.rowCount > 0:
-            Err.Raise(1)
-
-        TaskDefID = MdlADOFunctions.fGetRstValLong(RstCursor.ID)
-        Descr = '' + RstCursor.Descr
-        BasicPriority = MdlADOFunctions.fGetRstValDouble(RstCursor.BasicPriority)
-        StandardDuration = MdlADOFunctions.fGetRstValDouble(RstCursor.StandardDuration)
-        TaskType = MdlADOFunctions.fGetRstValLong(RstCursor.TaskType)
-        RstCursor.close()
-        tmpMachineID = self.__pMachine.ID
-        tmpProductID = self.__pMachine.ActiveJob.Product.ID
-        CurrentShiftID = self.__pMachine.Server.CurrentShiftID
-        ShiftDefID = self.__pMachine.Server.ShiftCalendar.CurrentShiftDefID
-        
-        if Me.ResetOnNewJob:
-            strSQL = 'Select ID From TblUserTasks Where (JobID = ' + self.__pMachine.ActiveJobID + ') AND (MachineID = ' + self.__pMachine.ID + ' OR ProductID = ' + self.__pMachine.ActiveProductID + ') AND TaskDefID = ' + TaskDefID + ' AND Status < 3'
-        else:
-            strSQL = 'Select ID From TblUserTasks Where (MachineID = ' + self.__pMachine.ID + ' OR ProductID = ' + self.__pMachine.ActiveProductID + ') AND TaskDefID = ' + TaskDefID + ' AND Status < 3'
-        RstCursor.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-        RstCursor.ActiveConnection = None
-        if RstCursor.rowCount == 0 or tOpenNewTask == True:
+        try:
+            tOpenNewTask = MdlADOFunctions.fGetRstValBool(MdlADOFunctions.GetSingleValue('CValue', 'STblSystemVariableFields', 'FieldName = \'OpenNewTriggerTask\'', 'CN'), False)
             
-            strSQL = 'Insert TblUserTasks (TaskDefID, PriorityLevel, StandardDuration, ShiftID, ShiftDef, Status, TaskType, Descr, MachineID, ProductID, InvokeTime, JobID, JoshID) '
-            strSQL = strSQL + ' VALUES(' + TaskDefID + ', ' + BasicPriority + ', ' + StandardDuration + ', ' + CurrentShiftID + ', ' + ShiftDefID + ', 1, ' + TaskType + ', \'' + Descr + '\', ' + tmpMachineID + ', ' + tmpProductID + ', \'' + MdlUtilsH.ShortDate(mdl_Common.NowGMT(), True, True) + '\', ' + self.__pMachine.ActiveJobID + ', ' + self.__pMachine.ActiveJoshID + ')'
-            CN.Execute(strSQL)
+            strSQL = 'Select ID, Descr, BasicPriority, StandardDuration, TaskType From TblTaskDef Where ID = ' + str(self.PTaskDefID)
+
+            RstCursor = MdlConnection.CN.cursor()
+            RstCursor.execute(strSQL)
+            RstData = RstCursor.fetchone()
+
+            if not RstData:
+                raise Exception('No data found, while firing trigger.')
+
+            TaskDefID = MdlADOFunctions.fGetRstValLong(RstData.ID)
+            Descr = '' + RstData.Descr
+            BasicPriority = MdlADOFunctions.fGetRstValDouble(RstData.BasicPriority)
+            StandardDuration = MdlADOFunctions.fGetRstValDouble(RstData.StandardDuration)
+            TaskType = MdlADOFunctions.fGetRstValLong(RstData.TaskType)
+            RstCursor.close()
+
+            tmpMachineID = self.__pMachine.ID
+            tmpProductID = self.__pMachine.ActiveJob.Product.ID
+            CurrentShiftID = self.__pMachine.Server.CurrentShiftID
+            ShiftDefID = self.__pMachine.Server.ShiftCalendar.CurrentShiftDefID
             
-            UserTaskID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ID', 'TblUserTasks', 'TaskDefID=' + TaskDefID + ' ORDER BY ID DESC', 'CN'))
-            strSQL = 'Select QualificationID, BasicSkillLevel From TblTaskDefQualifications Where TaskDefID = ' + TaskDefID
-            SkillRst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-            SkillRst.ActiveConnection = None
-            while not SkillRst.EOF:
-                strSQL = 'Insert TblUserTasksQualifications(UserTaskID, TaskDefID, QualificationID, BasicSkillLevel) VALUES(' + UserTaskID + ', ' + TaskDefID + ', ' + SkillRst.Fields("QualificationID").Value + ', ' + SkillRst.Fields("BasicSkillLevel").Value + ')'
-                CN.Execute(strSQL)
-                SkillRst.MoveNext()
-            SkillRst.Close()
-        RstCursor.close()
-        strSQL = 'Update TblTaskTrigger Set LastFireTime = \'' + MdlUtilsH.ShortDate(mdl_Common.NowGMT(), True, True) + '\', LastFireValue=\'' + self.__LastFireValue + '\''
-        strSQL = strSQL + ' Where (MachineID = ' + self.__pMachine.ID + ' OR ProductID = ' + self.__pMachine.ActiveProductID + ') AND TaskDef = ' + TaskDefID + ' AND TaskTriggerDefID=' + self.__TriggerDefID
-        
-        CN.Execute(strSQL)
-        self.__LastFireTime = MdlUtilsH.ShortDate(mdl_Common.NowGMT(), False, True)
-        returnVal = True
-        if Err.Number != 0:
-            if InStr(Err.Description, 'nnection') > 0:
-                if CN.State == 1:
-                    CN.Close()
-                CN.Open()
-                if MetaCn.State == 1:
-                    MetaCn.Close()
-                MetaCn.Open()
-                Err.Clear()
+            if self.ResetOnNewJob:
+                strSQL = 'Select ID From TblUserTasks Where (JobID = ' + str(self.__pMachine.ActiveJobID) + ') AND (MachineID = ' + str(self.__pMachine.ID) + ' OR ProductID = ' + str(self.__pMachine.ActiveProductID) + ') AND TaskDefID = ' + str(TaskDefID) + ' AND Status < 3'
+            else:
+                strSQL = 'Select ID From TblUserTasks Where (MachineID = ' + str(self.__pMachine.ID) + ' OR ProductID = ' + str(self.__pMachine.ActiveProductID) + ') AND TaskDefID = ' + TaskDefID + ' AND Status < 3'
+
+            RstCursor = MdlConnection.CN.cursor()
+            RstCursor.execute(strSQL)
+            RstData = RstCursor.fetchone()
+
+            if RstCursor.rowCount == 0 or tOpenNewTask == True:
+                
+                strSQL = 'Insert TblUserTasks (TaskDefID, PriorityLevel, StandardDuration, ShiftID, ShiftDef, Status, TaskType, Descr, MachineID, ProductID, InvokeTime, JobID, JoshID) '
+                strSQL = strSQL + ' VALUES(' + TaskDefID + ', ' + BasicPriority + ', ' + StandardDuration + ', ' + CurrentShiftID + ', ' + ShiftDefID + ', 1, ' + TaskType + ', \'' + Descr + '\', ' + tmpMachineID + ', ' + tmpProductID + ', \'' + MdlUtilsH.ShortDate(mdl_Common.NowGMT(), True, True) + '\', ' + self.__pMachine.ActiveJobID + ', ' + self.__pMachine.ActiveJoshID + ')'
+                MdlConnection.CN.execute(strSQL)
+                
+                UserTaskID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ID', 'TblUserTasks', 'TaskDefID=' + TaskDefID + ' ORDER BY ID DESC', 'CN'))
+                strSQL = 'Select QualificationID, BasicSkillLevel From TblTaskDefQualifications Where TaskDefID = ' + TaskDefID
+
+                SkillRstCursor = MdlConnection.CN.cursor()
+                SkillRstCursor.execute(strSQL)
+                SkillRstValues = SkillRstCursor.fetchall()
+
+                for SkillRstData in SkillRstValues:
+                    strSQL = 'Insert TblUserTasksQualifications(UserTaskID, TaskDefID, QualificationID, BasicSkillLevel) VALUES(' + UserTaskID + ', ' + TaskDefID + ', ' + str(SkillRstData.QualificationID) + ', ' + str(SkillRstData.BasicSkillLevel) + ')'
+                    MdlConnection.CN.execute(strSQL)
+
+                SkillRst.close()
+            RstCursor.close()
+            strSQL = 'Update TblTaskTrigger Set LastFireTime = \'' + MdlUtilsH.ShortDate(mdl_Common.NowGMT(), True, True) + '\', LastFireValue=\'' + str(self.__LastFireValue) + '\''
+            strSQL = strSQL + ' Where (MachineID = ' + str(self.__pMachine.ID) + ' OR ProductID = ' + str(self.__pMachine.ActiveProductID) + ') AND TaskDef = ' + TaskDefID + ' AND TaskTriggerDefID=' + self.__TriggerDefID
+            
+            MdlConnection.CN.execute(strSQL)
+            self.__LastFireTime = MdlUtilsH.ShortDate(mdl_Common.NowGMT(), False, True)
+            returnVal = True
+
+        except BaseException as error:
+            if 'nnection' in error.args[0]:
+                if MdlConnection.CN:
+                    MdlConnection.Close(MdlConnection.CN)
+                MdlConnection.Open(MdlConnection.CN, MdlConnection.strCon)
+
+                if MdlConnection.MetaCn:
+                    MdlConnection.Close(MdlConnection.MetaCn)
+                MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
                 
             MdlGlobal.RecordError('TaskTriggerFireTrigger', str(0), error.args[0], 'Cant fire trigger ' + str(self.__ID))
-        if RstCursor.State != 0:
+
+        if RstCursor:
             RstCursor.close()
-        if SkillRst.State != 0:
-            SkillRst.Close()
+        if SkillRst:
+            SkillRst.close()
         RstCursor = None
+
         return returnVal
 
 

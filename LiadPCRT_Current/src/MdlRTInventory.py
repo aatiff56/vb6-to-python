@@ -1,6 +1,10 @@
+from datetime import datetime
+
 import MdlADOFunctions
 import MdlConnection
 import MdlGlobal
+import mdl_Common
+import MdlRTLabels
 
 def CheckBatchAutoSubtract(pBatchAutoSubtractModeOption, pBatchAutoSubtractValue, pMaterialBatch):
     returnVal = None
@@ -32,7 +36,7 @@ def SubtractInventoryItem(pMaterialBatch):
         strSQL = strSQL + ',WareHouseID = 2000' + '\n'
         strSQL = strSQL + ',Status = 2' + '\n'
         strSQL = strSQL + 'WHERE ID = ' + str(pMaterialBatch.ID)
-        CN.Execute(strSQL)
+        MdlConnection.CN.execute(strSQL)
 
     if Err.Number != 0:
         if InStr(Err.Description, 'nnection') > 0:
@@ -89,7 +93,7 @@ def UpdateJobRecipeFromBatchChange(pJob, pChannelNum, pSplitNum, pMaterialBatch)
     tMaterialBatchPropertyID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue("ID", "STblMachineTypeProperties", "MachineType = " + pJob.MachineType.ID + " AND PropertyName = N'MaterialBatch'", "CN"))
     strSQL = strSQL + 'SET FValue = \'' + pMaterialBatch.CurrentValue + '\'' + '\n'
     strSQL = strSQL + 'WHERE JobID = ' + pJob.ID + ' AND ChannelNum = ' + pChannelNum + ' AND SplitNum = ' + pSplitNum + ' AND PropertyID = ' + tMaterialBatchPropertyID
-    CN.Execute(strSQL)
+    MdlConnection.CN.execute(strSQL)
     if Err.Number != 0:
         if InStr(Err.Description, 'nnection') > 0:
             if CN.State == 1:
@@ -109,9 +113,9 @@ def RemoveBatchFromLocationQueue(pLocationID, pInventoryID):
     strSQL = ''
     
     strSQL = 'DELETE FROM TblWareHouseLocationQueue WHERE LocationID = ' + pLocationID + ' AND InventoryID = ' + pInventoryID
-    CN.Execute(strSQL)
+    MdlConnection.CN.execute(strSQL)
     strSQL = 'UPDATE TblWareHouseLocationQueue SET Sequence = Sequence - 1 WHERE LocationID = ' + pLocationID
-    CN.Execute(strSQL)
+    MdlConnection.CN.execute(strSQL)
     if Err.Number != 0:
         if InStr(Err.Description, 'nnection') > 0:
             if CN.State == 1:
@@ -127,126 +131,129 @@ def RemoveBatchFromLocationQueue(pLocationID, pInventoryID):
     return returnVal
 
 def AddInventoryHistoryRecord(InventoryID, ActionID, SourceWareHouseID=0, SourceWareHouseLocation='', SourceLocationID=0, pLocationQueueSequence=0, SyncComplete=False):
-    returnVal = None
-    strSQL = ''
-
-    Rst = None
-
-    AlreadyExist = False
-    
     returnVal = False
-    strSQL = 'SELECT * FROM TblInventory WHERE ID = ' + InventoryID
-    Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-    Rst.ActiveConnection = None
-    if Rst.RecordCount == 1:
-        strSQL = 'INSERT INTO TblInventoryHistory'
-        strSQL = strSQL + ' ('
-        strSQL = strSQL + 'InventoryID,'
-        strSQL = strSQL + 'JobID,'
-        strSQL = strSQL + 'ShiftID,'
-        strSQL = strSQL + 'JoshID,'
-        strSQL = strSQL + 'Batch,'
-        strSQL = strSQL + 'CatalogID,'
-        strSQL = strSQL + 'ProductID,'
-        strSQL = strSQL + 'MaterialID,'
-        strSQL = strSQL + 'ActionID,'
-        if MdlADOFunctions.fGetRstValLong(MdlADOFunctions.SourceWareHouseID) != 0:
-            strSQL = strSQL + 'FromWareHouse,'
-            strSQL = strSQL + 'FromWareHouseLocation,'
-            strSQL = strSQL + 'ToWareHouse,'
-            strSQL = strSQL + 'ToWareHouseLocation,'
-        strSQL = strSQL + 'Amount,'
-        strSQL = strSQL + 'EffectiveAmount,'
-        strSQL = strSQL + 'ExecTime,'
-        strSQL = strSQL + 'UserID,'
-        strSQL = strSQL + 'Status,'
-        strSQL = strSQL + 'LocationQueueSequence,'
-        strSQL = strSQL + 'ParentInventoryID,'
-        strSQL = strSQL + 'SyncComplete'
-        strSQL = strSQL + ') '
-        strSQL = strSQL + '\n'
-        strSQL = strSQL + 'VALUES '
-        strSQL = strSQL + '('
-        strSQL = strSQL + InventoryID + ','
-        if IsNull(Rst.Fields("JobID").Value):
-            strSQL = strSQL + 'NULL,'
-        else:
-            strSQL = strSQL + Rst.Fields("JobID").Value + ','
-        if IsNull(Rst.Fields("ShiftID").Value):
-            strSQL = strSQL + 'NULL,'
-        else:
-            strSQL = strSQL + Rst.Fields("ShiftID").Value + ','
-        if IsNull(Rst.Fields("JoshID").Value):
-            strSQL = strSQL + 'NULL,'
-        else:
-            strSQL = strSQL + Rst.Fields("JoshID").Value + ','
-        if IsNull(Rst.Fields("Batch").Value):
-            strSQL = strSQL + 'NULL,'
-        else:
-            strSQL = strSQL + '\'' + Rst.Fields("Batch").Value + '\','
-        if IsNull(Rst.Fields("CatalogID").Value):
-            strSQL = strSQL + 'NULL,'
-        else:
-            strSQL = strSQL + '\'' + Rst.Fields("CatalogID").Value + '\','
-        if IsNull(Rst.Fields("ProductID").Value):
-            strSQL = strSQL + 'NULL,'
-        else:
-            strSQL = strSQL + Rst.Fields("ProductID").Value + ','
-        if IsNull(Rst.Fields("MaterialID").Value):
-            strSQL = strSQL + 'NULL,'
-        else:
-            strSQL = strSQL + Rst.Fields("MaterialID").Value + ','
-        strSQL = strSQL + ActionID + ','
-        if MdlADOFunctions.fGetRstValLong(MdlADOFunctions.SourceWareHouseID) != 0:
-            strSQL = strSQL + SourceWareHouseID + ','
-            strSQL = strSQL + '\'' + SourceWareHouseLocation + '\','
-            strSQL = strSQL + Rst.Fields("WareHouseID").Value + ','
-            strSQL = strSQL + '\'' + Rst.Fields("WareHouseLocation").Value + '\','
-        if IsNull(Rst.Fields("Amount").Value):
-            strSQL = strSQL + 'NULL,'
-        else:
-            strSQL = strSQL + Rst.Fields("Amount").Value + ','
-        if IsNull(Rst.Fields("EffectiveAmount").Value):
-            strSQL = strSQL + 'NULL,'
-        else:
-            strSQL = strSQL + Rst.Fields("EffectiveAmount").Value + ','
-        strSQL = strSQL + '\'' + Format(Now, 'yyyy-mm-dd HH:nn:ss') + '\','
-        strSQL = strSQL + - 1 + ','
-        if IsNull(Rst.Fields("Status").Value):
-            strSQL = strSQL + 'NULL,'
-        else:
-            strSQL = strSQL + Rst.Fields("Status").Value + ','
-        if pLocationQueueSequence == 0:
-            strSQL = strSQL + 'NULL,'
-        else:
-            strSQL = strSQL + pLocationQueueSequence + ','
-        if IsNull(Rst.Fields("ParentInventoryID").Value):
-            strSQL = strSQL + 'NULL,'
-        else:
-            strSQL = strSQL + Rst.Fields("ParentInventoryID").Value + ','
-        if SyncComplete:
-            strSQL = strSQL + '1'
-        else:
-            strSQL = strSQL + '0'
-        strSQL = strSQL + ' )'
-        CN.Execute(strSQL)
-    Rst.Close()
-    returnVal = True
-    if Err.Number != 0:
-        if InStr(Err.Description, 'nnection') > 0:
-            if CN.State == 1:
-                CN.Close()
-            CN.Open()
-            if MetaCn.State == 1:
-                MetaCn.Close()
-            MetaCn.Open()
-            Err.Clear()
+    strSQL = ''
+    Rst = None
+    AlreadyExist = False
+
+    try:
+        strSQL = 'SELECT * FROM TblInventory WHERE ID = ' + InventoryID
+
+        RstCursor = MdlConnection.CN.cursor()
+        RstCursor.execute(strSQL)
+        RstData = RstCursor.fetchone()
+
+        if RstData:
+            strSQL = 'INSERT INTO TblInventoryHistory'
+            strSQL = strSQL + ' ('
+            strSQL = strSQL + 'InventoryID,'
+            strSQL = strSQL + 'JobID,'
+            strSQL = strSQL + 'ShiftID,'
+            strSQL = strSQL + 'JoshID,'
+            strSQL = strSQL + 'Batch,'
+            strSQL = strSQL + 'CatalogID,'
+            strSQL = strSQL + 'ProductID,'
+            strSQL = strSQL + 'MaterialID,'
+            strSQL = strSQL + 'ActionID,'
+            if MdlADOFunctions.fGetRstValLong(MdlADOFunctions.SourceWareHouseID) != 0:
+                strSQL = strSQL + 'FromWareHouse,'
+                strSQL = strSQL + 'FromWareHouseLocation,'
+                strSQL = strSQL + 'ToWareHouse,'
+                strSQL = strSQL + 'ToWareHouseLocation,'
+            strSQL = strSQL + 'Amount,'
+            strSQL = strSQL + 'EffectiveAmount,'
+            strSQL = strSQL + 'ExecTime,'
+            strSQL = strSQL + 'UserID,'
+            strSQL = strSQL + 'Status,'
+            strSQL = strSQL + 'LocationQueueSequence,'
+            strSQL = strSQL + 'ParentInventoryID,'
+            strSQL = strSQL + 'SyncComplete'
+            strSQL = strSQL + ') '
+            strSQL = strSQL + '\n'
+            strSQL = strSQL + 'VALUES '
+            strSQL = strSQL + '('
+            strSQL = strSQL + InventoryID + ','
+            if RstData.JobID is None:
+                strSQL = strSQL + 'NULL,'
+            else:
+                strSQL = strSQL + RstData.JobID + ','
+            if RstData.ShiftID is None:
+                strSQL = strSQL + 'NULL,'
+            else:
+                strSQL = strSQL + RstData.ShiftID + ','
+            if RstData.JoshID is None:
+                strSQL = strSQL + 'NULL,'
+            else:
+                strSQL = strSQL + RstData.JoshID + ','
+            if RstData.Batch is None:
+                strSQL = strSQL + 'NULL,'
+            else:
+                strSQL = strSQL + '\'' + RstData.Batch + '\','
+            if RstData.CatalogID is None:
+                strSQL = strSQL + 'NULL,'
+            else:
+                strSQL = strSQL + '\'' + RstData.CatalogID + '\','
+            if RstData.ProductID is None:
+                strSQL = strSQL + 'NULL,'
+            else:
+                strSQL = strSQL + RstData.ProductID + ','
+            if RstData.MaterialID is None:
+                strSQL = strSQL + 'NULL,'
+            else:
+                strSQL = strSQL + RstData.MaterialID + ','
+            strSQL = strSQL + ActionID + ','
+            if MdlADOFunctions.fGetRstValLong(MdlADOFunctions.SourceWareHouseID) != 0:
+                strSQL = strSQL + SourceWareHouseID + ','
+                strSQL = strSQL + '\'' + SourceWareHouseLocation + '\','
+                strSQL = strSQL + RstData.WareHouseID + ','
+                strSQL = strSQL + '\'' + RstData.WareHouseLocation + '\','
+            if RstData.Amount is None:
+                strSQL = strSQL + 'NULL,'
+            else:
+                strSQL = strSQL + RstData.Amount + ','
+            if RstData.EffectiveAmount is None:
+                strSQL = strSQL + 'NULL,'
+            else:
+                strSQL = strSQL + RstData.EffectiveAmount + ','
+            strSQL = strSQL + '\'' + datetime.strptime(datetime.now(), 'yyyy-mm-dd HH:nn:ss') + '\','
+            strSQL = strSQL + - 1 + ','
+            if RstData.Status is None:
+                strSQL = strSQL + 'NULL,'
+            else:
+                strSQL = strSQL + RstData.Status + ','
+            if pLocationQueueSequence == 0:
+                strSQL = strSQL + 'NULL,'
+            else:
+                strSQL = strSQL + pLocationQueueSequence + ','
+            if RstData.ParentInventoryID is None:
+                strSQL = strSQL + 'NULL,'
+            else:
+                strSQL = strSQL + str(RstData.ParentInventoryID) + ','
+            if SyncComplete:
+                strSQL = strSQL + '1'
+            else:
+                strSQL = strSQL + '0'
+            strSQL = strSQL + ' )'
+            MdlConnection.CN.execute(strSQL)
+        RstCursor.close()
+        returnVal = True
+
+    except BaseException as error:
+        if 'nnection' in error.args[0]:
+            if MdlConnection.CN:
+                MdlConnection.Close(MdlConnection.CN)
+            MdlConnection.Open(MdlConnection.CN, MdlConnection.strCon)
+
+            if MdlConnection.MetaCn:
+                MdlConnection.Close(MdlConnection.MetaCn)
+            MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
             
         MdlGlobal.RecordError('AddInventoryHistoryRecord', str(0), error.args[0], 'InventoryID: ' + InventoryID + '. ActionID: ' + ActionID)
-        Err.Clear()
-    if Rst.State != 0:
-        Rst.Close()
+
+    if RstCursor:
+        RstCursor.close()
     Rst = None
+
     return returnVal
 
 def CreateInventoryTrace(InventoryID, JoshID=0):
@@ -261,14 +268,14 @@ def CreateInventoryTrace(InventoryID, JoshID=0):
         if JoshID != 0:
             
             strSQL = 'DELETE FROM TblInventoryTrace WHERE InventoryID = ' + InventoryID
-            CN.Execute(strSQL)
+            MdlConnection.CN.execute(strSQL)
             
             strSQL = ''
             strSQL = 'SELECT DISTINCT InventoryID FROM TblJoshMaterial WHERE InventoryID IS NOT NULL AND JoshEnd IS NOT NULL AND JoshID = ' + JoshID
             Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
             Rst.ActiveConnection = None
             while not Rst.EOF:
-                if MdlADOFunctions.fGetRstValLong(MdlADOFunctions.Rst.Fields("InventoryID").Value) != 0:
+                if MdlADOFunctions.fGetRstValLong(RstData.InventoryID) != 0:
                     strSQL = ''
                     strSQL = 'INSERT INTO TblInventoryTrace'
                     strSQL = strSQL + ' ('
@@ -276,11 +283,11 @@ def CreateInventoryTrace(InventoryID, JoshID=0):
                     strSQL = strSQL + ', SourceInventoryID'
                     strSQL = strSQL + ') VALUES ('
                     strSQL = strSQL + InventoryID
-                    strSQL = strSQL + ', ' + MdlADOFunctions.fGetRstValLong(MdlADOFunctions.Rst.Fields("InventoryID").Value)
+                    strSQL = strSQL + ', ' + MdlADOFunctions.fGetRstValLong(RstData.InventoryID)
                     strSQL = strSQL + ')'
-                    CN.Execute(strSQL)
+                    MdlConnection.CN.execute(strSQL)
                 Rst.MoveNext()
-            Rst.Close()
+            RstCursor.close()
         else:
             Err.Raise(1)
     else:
@@ -304,7 +311,7 @@ def CreateInventoryTrace(InventoryID, JoshID=0):
             MdlGlobal.RecordError('CreateInventoryTrace', str(0), error.args[0], '')
         Err.Clear()
     if Rst.State != 0:
-        Rst.Close()
+        RstCursor.close()
     Rst = None
     return returnVal
 
@@ -331,17 +338,17 @@ def AddInventoryItemToActivePallet(pInventoryID, pMachine):
         if tActivePalletInventoryID != 0:
             strSQL = 'UPDATE TblInventory SET ParentInventoryID = ' + tActivePalletInventoryID + ' WHERE ID = ' + pInventoryID
             if tIsHomogeneous == False:
-                CN.Execute(strSQL)
+                MdlConnection.CN.execute(strSQL)
                 
-                SyncComplete = MdlADOFunctions.fGetRstValBool(GetSingleValue('ReportSyncComplete', 'STblInventoryActions', 'ID = 11', 'CN'), False)
+                SyncComplete = MdlADOFunctions.fGetRstValBool(MdlADOFunctions.GetSingleValue('ReportSyncComplete', 'STblInventoryActions', 'ID = 11', 'CN'), False)
                 AddInventoryHistoryRecord(pInventoryID, 11, VBGetMissingArgument(AddInventoryHistoryRecord, 2), VBGetMissingArgument(AddInventoryHistoryRecord, 3), VBGetMissingArgument(AddInventoryHistoryRecord, 4), VBGetMissingArgument(AddInventoryHistoryRecord, 5), SyncComplete)
             else:
-                OriginCatalogID = MdlADOFunctions.fGetRstValString(GetSingleValue('CatalogID', 'TblInventory', 'ID=' + pInventoryID, 'CN'))
-                TargetCatalogID = MdlADOFunctions.fGetRstValString(GetSingleValue('CatalogID', 'TblInventory', 'ID=' + tActivePalletInventoryID, 'CN'))
+                OriginCatalogID = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('CatalogID', 'TblInventory', 'ID=' + pInventoryID, 'CN'))
+                TargetCatalogID = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('CatalogID', 'TblInventory', 'ID=' + tActivePalletInventoryID, 'CN'))
                 if OriginCatalogID == TargetCatalogID:
-                    CN.Execute(strSQL)
+                    MdlConnection.CN.execute(strSQL)
                     
-                    SyncComplete = MdlADOFunctions.fGetRstValBool(GetSingleValue('ReportSyncComplete', 'STblInventoryActions', 'ID = 11', 'CN'), False)
+                    SyncComplete = MdlADOFunctions.fGetRstValBool(MdlADOFunctions.GetSingleValue('ReportSyncComplete', 'STblInventoryActions', 'ID = 11', 'CN'), False)
                     AddInventoryHistoryRecord(pInventoryID, 11, VBGetMissingArgument(AddInventoryHistoryRecord, 2), VBGetMissingArgument(AddInventoryHistoryRecord, 3), VBGetMissingArgument(AddInventoryHistoryRecord, 4), VBGetMissingArgument(AddInventoryHistoryRecord, 5), SyncComplete)
             
             
@@ -365,214 +372,202 @@ def AddInventoryItemToActivePallet(pInventoryID, pMachine):
 
 
 def CreateActivePalletInventortyItem(pMachine):
-    returnVal = None
+    returnVal = False
     strSQL = ''
-
     Rst = None
-
     tNumerator = False
-
     tNumeratorTypeID = 0
-
     tActiveJobID = 0
-
     tBatch = ''
-
     tInventoryBatchOption = None
-
     tActiveJoshID = False
-
     tUserID = 0
-
     tShiftID = 0
-
     tWareHouseID = 0
-
     tWareHouseLocation = ''
-
     tWareHouseLocationID = None
-
     tActivePalletInventoryID = False
-
     tCatalogID = ''
-
     tProductID = None
-
     tMaterialID = False
-
     tIsHomogeneous = False
     
-    returnVal = False
-    
-    strSQL = 'SELECT DefaultWareHouse, DefaultWareHouseLocation, DefaultWareHouseLocationID, ActivePalletNumeratorTypeID FROM TblMachines WHERE ID = ' + pMachine.ID
-    Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-    Rst.ActiveConnection = None
-    if Rst.RecordCount == 1:
-        tWareHouseID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.Rst.Fields("DefaultWareHouse").Value)
-        tWareHouseLocation = MdlADOFunctions.fGetRstValString(Rst.Fields("DefaultWareHouseLocation").Value)
-        tWareHouseLocationID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.Rst.Fields("DefaultWareHouseLocationID").Value)
-        tNumeratorTypeID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.Rst.Fields("ActivePalletNumeratorTypeID").Value)
-    Rst.Close()
-    
-    tUserID = 0
-    if not pMachine.ActiveJob is None:
-        tActiveJobID = pMachine.ActiveJob.ID
-        tActiveJoshID = pMachine.ActiveJob.ActiveJosh.ID
-        tShiftID = pMachine.Server.CurrentShiftID
-    else:
+    try:
+        strSQL = 'SELECT DefaultWareHouse, DefaultWareHouseLocation, DefaultWareHouseLocationID, ActivePalletNumeratorTypeID FROM TblMachines WHERE ID = ' + str(pMachine.ID)
+        RstCursor = MdlConnection.CN.cursor()
+        RstCursor.execute(strSQL)
+        RstData = RstCursor.fetchone()
+
+        if RstData:
+            tWareHouseID = MdlADOFunctions.fGetRstValLong(RstData.DefaultWareHouse)
+            tWareHouseLocation = MdlADOFunctions.fGetRstValString(RstData.DefaultWareHouseLocation)
+            tWareHouseLocationID = MdlADOFunctions.fGetRstValLong(RstData.DefaultWareHouseLocationID)
+            tNumeratorTypeID = MdlADOFunctions.fGetRstValLong(RstData.ActivePalletNumeratorTypeID)
+        RstCursor.close()
         
-        pass
-    
-    tNumerator = RaiseLabelNumerator(0, tActiveJobID, VBGetMissingArgument(RaiseLabelNumerator, 2), tNumeratorTypeID)
-    
-    tInventoryBatchOption = pMachine.Server.SystemVariables.InventoryBatchOption
-    tBatch = CreateBatchFormat(tInventoryBatchOption, tActiveJobID, tActiveJoshID, tNumerator, True, 3)
-    
-    
-    tIsHomogeneous = MdlADOFunctions.fGetRstValBool(GetSingleValue('IsHomogeneous', 'TblPackageType', 'ID = 3', 'CN'), True)
-    if tIsHomogeneous == True and tActiveJobID != 0:
-        strSQL = ''
-        strSQL = strSQL + ' SELECT TblJob.ProductID, TblProduct.CatalogID' + '\n'
-        strSQL = strSQL + ' FROM TblJob INNER JOIN' + '\n'
-        strSQL = strSQL + ' TblProduct ON TblJob.ProductID = TblProduct.ID' + '\n'
-        strSQL = strSQL + ' WHERE TblJob.ID = ' + tActiveJobID
-        Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-        if Rst.RecordCount == 1:
-            tProductID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.Rst.Fields("ProductID").Value)
-            tCatalogID = MdlADOFunctions.fGetRstValString(Rst.Fields("CatalogID").Value)
-        Rst.Close()
+        tUserID = 0
+        if not pMachine.ActiveJob is None:
+            tActiveJobID = pMachine.ActiveJob.ID
+            tActiveJoshID = pMachine.ActiveJob.ActiveJosh.ID
+            tShiftID = pMachine.Server.CurrentShiftID
+        else:
+            pass
+        
+        tNumerator = MdlRTLabels.RaiseLabelNumerator(0, tActiveJobID, 1, tNumeratorTypeID)
+        tInventoryBatchOption = pMachine.Server.SystemVariables.InventoryBatchOption
+        tBatch = MdlRTLabels.CreateBatchFormat(tInventoryBatchOption, tActiveJobID, tActiveJoshID, tNumerator, True, 3)
+        
+        tIsHomogeneous = MdlADOFunctions.fGetRstValBool(MdlADOFunctions.GetSingleValue('IsHomogeneous', 'TblPackageType', 'ID = 3', 'CN'), True)
+        if tIsHomogeneous == True and tActiveJobID != 0:
+            strSQL = ''
+            strSQL = strSQL + ' SELECT TblJob.ProductID, TblProduct.CatalogID' + '\n'
+            strSQL = strSQL + ' FROM TblJob INNER JOIN' + '\n'
+            strSQL = strSQL + ' TblProduct ON TblJob.ProductID = TblProduct.ID' + '\n'
+            strSQL = strSQL + ' WHERE TblJob.ID = ' + str(tActiveJobID)
+
+            RstCursor = MdlConnection.CN.cursor()
+            RstCursor.execute(strSQL)
+            RstData = RstCursor.fetchone()
+
+            if RstData:
+                tProductID = MdlADOFunctions.fGetRstValLong(RstData.ProductID)
+                tCatalogID = MdlADOFunctions.fGetRstValString(RstData.CatalogID)
+
+            RstCursor.close()
+            if tCatalogID != '':
+                tMaterialID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ID', 'TblMaterial', 'CatalogID = \'' + str(tCatalogID) + '\'', 'CN'))
+        
+        strSQL = 'INSERT INTO TblInventory'
+        strSQL = strSQL + '('
+        strSQL = strSQL + 'PackageTypeID'
+        strSQL = strSQL + ',PackageBatchNum'
+        strSQL = strSQL + ',Batch'
+        strSQL = strSQL + ',UserID'
+        strSQL = strSQL + ',ShiftID'
+        strSQL = strSQL + ',Amount'
+        strSQL = strSQL + ',OriginalAmount'
+        strSQL = strSQL + ',EffectiveAmount'
+        strSQL = strSQL + ',EffectiveOriginalAmount'
+        strSQL = strSQL + ',LastEffectiveAmount'
+        strSQL = strSQL + ',Date'
+        strSQL = strSQL + ',LastUpdate'
+        strSQL = strSQL + ',Status'
+        strSQL = strSQL + ',WareHouseID'
+        strSQL = strSQL + ',WareHouseLocation'
+        strSQL = strSQL + ',WareHouseLocationID'
+        strSQL = strSQL + ',JobID'
+        strSQL = strSQL + ',JoshID'
+        if tProductID != 0:
+            strSQL = strSQL + ',ProductID'
+        if tMaterialID != 0:
+            strSQL = strSQL + ',MaterialID'
         if tCatalogID != '':
-            tMaterialID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ID', 'TblMaterial', 'CatalogID = \'' + tCatalogID + '\'', 'CN'))
-    
-    strSQL = 'INSERT INTO TblInventory'
-    strSQL = strSQL + '('
-    strSQL = strSQL + 'PackageTypeID'
-    strSQL = strSQL + ',PackageBatchNum'
-    strSQL = strSQL + ',Batch'
-    strSQL = strSQL + ',UserID'
-    strSQL = strSQL + ',ShiftID'
-    strSQL = strSQL + ',Amount'
-    strSQL = strSQL + ',OriginalAmount'
-    strSQL = strSQL + ',EffectiveAmount'
-    strSQL = strSQL + ',EffectiveOriginalAmount'
-    strSQL = strSQL + ',LastEffectiveAmount'
-    strSQL = strSQL + ',Date'
-    strSQL = strSQL + ',LastUpdate'
-    strSQL = strSQL + ',Status'
-    strSQL = strSQL + ',WareHouseID'
-    strSQL = strSQL + ',WareHouseLocation'
-    strSQL = strSQL + ',WareHouseLocationID'
-    strSQL = strSQL + ',JobID'
-    strSQL = strSQL + ',JoshID'
-    if tProductID != 0:
-        strSQL = strSQL + ',ProductID'
-    if tMaterialID != 0:
-        strSQL = strSQL + ',MaterialID'
-    if tCatalogID != '':
-        strSQL = strSQL + ',CatalogID'
-    strSQL = strSQL + ')'
-    strSQL = strSQL + ' VALUES ' + '\n'
-    strSQL = strSQL + '('
-    strSQL = strSQL + '3'
-    strSQL = strSQL + ', ' + tNumerator
-    strSQL = strSQL + ', \'' + tBatch + '\''
-    strSQL = strSQL + ', ' + tUserID
-    strSQL = strSQL + ', ' + tShiftID
-    strSQL = strSQL + ',1'
-    strSQL = strSQL + ',1'
-    strSQL = strSQL + ',0'
-    strSQL = strSQL + ',0'
-    strSQL = strSQL + ',0'
-    strSQL = strSQL + ', \'' + Format(NowGMT(), 'yyyy-mm-dd HH:nn:ss') + '\''
-    strSQL = strSQL + ', \'' + Format(NowGMT(), 'yyyy-mm-dd HH:nn:ss') + '\''
-    strSQL = strSQL + ',1'
-    strSQL = strSQL + ',' + tWareHouseID
-    strSQL = strSQL + ', \'' + tWareHouseLocation + '\''
-    strSQL = strSQL + ',' + tWareHouseLocationID
-    strSQL = strSQL + ',' + tActiveJobID
-    strSQL = strSQL + ',' + tActiveJoshID
-    if tProductID != 0:
-        strSQL = strSQL + ',' + tProductID
-    if tMaterialID != 0:
-        strSQL = strSQL + ',' + tMaterialID
-    if tCatalogID != '':
-        strSQL = strSQL + ', \'' + tCatalogID + '\''
-    strSQL = strSQL + ')'
-    CN.Execute(strSQL)
-    tActivePalletInventoryID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ID', 'TblInventory', 'PackageTypeID = 3 AND UserID = ' + tUserID + ' ORDER BY ID DESC', 'CN'))
-    strSQL = 'UPDATE TblMachines SET ActivePalletInventoryID = ' + tActivePalletInventoryID + ' WHERE ID = ' + pMachine.ID
-    CN.Execute(strSQL)
-    pMachine.ActivePalletInventoryID = tActivePalletInventoryID
-    
-    AddInventoryHistoryRecord(tActivePalletInventoryID, 12)
-    returnVal = True
-    if Err.Number != 0:
-        if InStr(Err.Description, 'nnection') > 0:
-            if CN.State == 1:
-                CN.Close()
-            CN.Open()
-            if MetaCn.State == 1:
-                MetaCn.Close()
-            MetaCn.Open()
-            Err.Clear()
+            strSQL = strSQL + ',CatalogID'
+        strSQL = strSQL + ')'
+        strSQL = strSQL + ' VALUES ' + '\n'
+        strSQL = strSQL + '('
+        strSQL = strSQL + '3'
+        strSQL = strSQL + ', ' + str(tNumerator)
+        strSQL = strSQL + ', \'' + str(tBatch) + '\''
+        strSQL = strSQL + ', ' + str(tUserID)
+        strSQL = strSQL + ', ' + str(tShiftID)
+        strSQL = strSQL + ',1'
+        strSQL = strSQL + ',1'
+        strSQL = strSQL + ',0'
+        strSQL = strSQL + ',0'
+        strSQL = strSQL + ',0'
+        strSQL = strSQL + ', \'' + datetime.strptime(mdl_Common.NowGMT(), 'yyyy-mm-dd HH:nn:ss') + '\''
+        strSQL = strSQL + ', \'' + datetime.strptime(mdl_Common.NowGMT(), 'yyyy-mm-dd HH:nn:ss') + '\''
+        strSQL = strSQL + ',1'
+        strSQL = strSQL + ',' + str(tWareHouseID)
+        strSQL = strSQL + ', \'' + str(tWareHouseLocation) + '\''
+        strSQL = strSQL + ',' + str(tWareHouseLocationID)
+        strSQL = strSQL + ',' + str(tActiveJobID)
+        strSQL = strSQL + ',' + str(tActiveJoshID)
+        if tProductID != 0:
+            strSQL = strSQL + ',' + str(tProductID)
+        if tMaterialID != 0:
+            strSQL = strSQL + ',' + str(tMaterialID)
+        if tCatalogID != '':
+            strSQL = strSQL + ', \'' + str(tCatalogID) + '\''
+        strSQL = strSQL + ')'
+
+        MdlConnection.CN.execute(strSQL)
+        tActivePalletInventoryID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ID', 'TblInventory', 'PackageTypeID = 3 AND UserID = ' + str(tUserID) + ' ORDER BY ID DESC', 'CN'))
+        strSQL = 'UPDATE TblMachines SET ActivePalletInventoryID = ' + str(tActivePalletInventoryID) + ' WHERE ID = ' + str(pMachine.ID)
+        MdlConnection.CN.execute(strSQL)
+        pMachine.ActivePalletInventoryID = tActivePalletInventoryID
+        
+        AddInventoryHistoryRecord(tActivePalletInventoryID, 12)
+        returnVal = True
+
+    except BaseException as error:
+        if 'nnection' in error.args[0]:
+            if MdlConnection.CN:
+                MdlConnection.Close(MdlConnection.CN)
+            MdlConnection.Open(MdlConnection.CN, MdlConnection.strCon)
+
+            if MdlConnection.MetaCn:
+                MdlConnection.Close(MdlConnection.MetaCn)
+            MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
             
-        MdlGlobal.RecordError('CreateActivePalletInventortyItem', str(0), error.args[0], 'MachineID = ' + pMachine.ID)
-        Err.Clear()
+        MdlGlobal.RecordError('CreateActivePalletInventortyItem', str(0), error.args[0], 'MachineID = ' + str(pMachine.ID))
+
     Rst = None
     return returnVal
 
 
 def CloseActivePalletInventoryItem(pMachine):
-    returnVal = None
-    tActivePalletInventoryID = 0
-
-    strSQL = ''
-
-    Rst = None
-
-    tTotalWeight = False
-
-    tTotalEffectiveAmount = Double()
-    
     returnVal = False
-    tActivePalletInventoryID = pMachine.ActivePalletInventoryID
-    strSQL = 'UPDATE TblInventory SET LastUpdate = \'' + Format(NowGMT, 'yyyy-mm-dd HH:nn:ss') + '\' WHERE ID = ' + tActivePalletInventoryID
-    CN.Execute(strSQL)
-    strSQL = 'UPDATE TblMachines SET ActivePalletInventoryID = 0 WHERE ID = ' + pMachine.ID
-    CN.Execute(strSQL)
-    pMachine.ActivePalletInventoryID = 0
-    
+    tActivePalletInventoryID = 0
     strSQL = ''
-    strSQL = 'SELECT SUM(Weight) as TotalWeight, SUM(EffectiveAmount) as TotalEffectiveAmount FROM TblInventory WHERE ParentInventoryID = ' + tActivePalletInventoryID
-    Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-    Rst.ActiveConnection = None
-    if Rst.RecordCount != 0:
-        tTotalWeight = fGetRstValDouble(Rst.Fields("TotalWeight").Value)
-        tTotalEffectiveAmount = fGetRstValDouble(Rst.Fields("TotalEffectiveAmount").Value)
-    Rst.Close()
-    strSQL = ''
-    strSQL = strSQL + ' UPDATE TblInventory'
-    strSQL = strSQL + ' SET'
-    strSQL = strSQL + ' EffectiveAmount = ' + tTotalEffectiveAmount
-    strSQL = strSQL + ' , EffectiveOriginalAmount = ' + tTotalEffectiveAmount
-    strSQL = strSQL + ' , Weight = ' + tTotalWeight
-    strSQL = strSQL + ' WHERE ID = ' + tActivePalletInventoryID
-    CN.Execute(strSQL)
+    RstCursor = None
+    tTotalWeight = False
+    tTotalEffectiveAmount = 0.0
     
-    AddInventoryHistoryRecord(tActivePalletInventoryID, 13)
-    returnVal = True
-    if Err.Number != 0:
-        if InStr(Err.Description, 'nnection') > 0:
-            if CN.State == 1:
-                CN.Close()
-            CN.Open()
-            if MetaCn.State == 1:
-                MetaCn.Close()
-            MetaCn.Open()
-            Err.Clear()
+    try:
+        tActivePalletInventoryID = pMachine.ActivePalletInventoryID
+        strSQL = 'UPDATE TblInventory SET LastUpdate = \'' + datetime.strptime(mdl_Common.NowGMT(), 'yyyy-mm-dd HH:nn:ss') + '\' WHERE ID = ' + str(tActivePalletInventoryID)
+        MdlConnection.CN.execute(strSQL)
+        strSQL = 'UPDATE TblMachines SET ActivePalletInventoryID = 0 WHERE ID = ' + str(pMachine.ID)
+        MdlConnection.CN.execute(strSQL)
+        pMachine.ActivePalletInventoryID = 0
+        
+        strSQL = ''
+        strSQL = 'SELECT SUM(Weight) as TotalWeight, SUM(EffectiveAmount) as TotalEffectiveAmount FROM TblInventory WHERE ParentInventoryID = ' + str(tActivePalletInventoryID)
+
+        RstCursor = MdlConnection.CN.cursor()
+        RstCursor.execute(strSQL)
+        RstData = RstCursor.fetchone()
+
+        if RstData:
+            tTotalWeight = MdlADOFunctions.fGetRstValDouble(RstData.TotalWeight)
+            tTotalEffectiveAmount = MdlADOFunctions.fGetRstValDouble(RstData.TotalEffectiveAmount)
+
+        RstCursor.close()
+        strSQL = ''
+        strSQL = strSQL + ' UPDATE TblInventory'
+        strSQL = strSQL + ' SET'
+        strSQL = strSQL + ' EffectiveAmount = ' + str(tTotalEffectiveAmount)
+        strSQL = strSQL + ' , EffectiveOriginalAmount = ' + str(tTotalEffectiveAmount)
+        strSQL = strSQL + ' , Weight = ' + str(tTotalWeight)
+        strSQL = strSQL + ' WHERE ID = ' + str(tActivePalletInventoryID)
+        MdlConnection.CN.execute(strSQL)
+        
+        AddInventoryHistoryRecord(tActivePalletInventoryID, 13)
+        returnVal = True
+
+    except BaseException as error:
+        if 'nnection' in error.args[0]:
+            if MdlConnection.CN:
+                MdlConnection.Close(MdlConnection.CN)
+            MdlConnection.Open(MdlConnection.CN, MdlConnection.strCon)
+
+            if MdlConnection.MetaCn:
+                MdlConnection.Close(MdlConnection.MetaCn)
+            MdlConnection.Open(MdlConnection.MetaCn, MdlConnection.strMetaCon)
             
-        MdlGlobal.RecordError('CloseActivePalletInventoryItem', str(0), error.args[0], 'MachineID = ' + pMachine.ID)
-        Err.Clear()
+        MdlGlobal.RecordError('CloseActivePalletInventoryItem', str(0), error.args[0], 'MachineID = ' + str(pMachine.ID))
     return returnVal
 
 def UpdateAmountsByInternalBatchs(pInventoryID):
@@ -583,24 +578,24 @@ def UpdateAmountsByInternalBatchs(pInventoryID):
 
     tTotalWeight = False
 
-    tTotalEffectiveAmount = Double()
+    tTotalEffectiveAmount = 0.0
     
     returnVal = False
     strSQL = ''
     strSQL = 'SELECT SUM(Weight) as TotalWeight, SUM(EffectiveAmount) as TotalEffectiveAmount FROM TblInventory WHERE ParentInventoryID = ' + pInventoryID
     Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
     Rst.ActiveConnection = None
-    if Rst.RecordCount != 0:
-        tTotalWeight = fGetRstValDouble(Rst.Fields("TotalWeight").Value)
-        tTotalEffectiveAmount = fGetRstValDouble(Rst.Fields("TotalEffectiveAmount").Value)
-    Rst.Close()
+    if RstData:
+        tTotalWeight = MdlADOFunctions.fGetRstValDouble(RstData.TotalWeight)
+        tTotalEffectiveAmount = MdlADOFunctions.fGetRstValDouble(RstData.TotalEffectiveAmount)
+    RstCursor.close()
     strSQL = ''
     strSQL = strSQL + ' UPDATE TblInventory'
     strSQL = strSQL + ' SET'
     strSQL = strSQL + ' EffectiveAmount = ' + tTotalEffectiveAmount
     strSQL = strSQL + ' , Weight = ' + tTotalWeight
     strSQL = strSQL + ' WHERE ID = ' + pInventoryID
-    CN.Execute(strSQL)
+    MdlConnection.CN.execute(strSQL)
     returnVal = True
     if Err.Number != 0:
         if InStr(Err.Description, 'nnection') > 0:
@@ -614,7 +609,7 @@ def UpdateAmountsByInternalBatchs(pInventoryID):
             
         Err.Clear()
     if Rst.State != 0:
-        Rst.Close()
+        RstCursor.close()
     Rst = None
     return returnVal
 
@@ -632,14 +627,14 @@ def UpdatePalletForToolInventory(ValueDiff, pMachine):
 
     Rst = None
     
-    Location = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('DefaultWareHouseLocation', 'TblMachines', ' ID = ' + pMachine.ID, 'CN'))
+    Location = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('DefaultWareHouseLocation', 'TblMachines', ' ID = ' + str(pMachine.ID), 'CN'))
     LocationID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ID', 'TblWareHouseLocations', ' LocalID = \'' + Location + '\'', 'CN'))
     while ValueDiff > 0:
         strSQL = 'SELECT InventoryID FROM TblWareHouseLocationQueue WHERE LocationID = ' + LocationID + ' order by Sequence'
         Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
         Rst.ActiveConnection = None
-        InventoryID = Rst.Fields("InventoryID").Value
-        Rst.Close()
+        InventoryID = RstData.InventoryID
+        RstCursor.close()
         UpdatePalletInventoryItem(InventoryID, pMachine)
         RemoveBatchFromLocationQueue(LocationID, InventoryID)
         ValueDiff = ValueDiff - 1
@@ -692,20 +687,20 @@ def UpdatePalletInventoryItem(InventoryID, pMachine):
     
     strSQL = 'SELECT Date,LastUpdate FROM TblInventory WHERE  ID = ' + InventoryID
     Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
-    tDate = Rst.Fields("Date").Value
-    tLastUpdate = Rst.Fields("LastUpdate").Value
-    Rst.Close()
+    tDate = RstData.Date
+    tLastUpdate = RstData.LastUpdate
+    RstCursor.close()
     if tDate == '' or tLastUpdate == '':
         
-        strSQL = 'SELECT DefaultWareHouse, DefaultWareHouseLocation, DefaultWareHouseLocationID, ActivePalletNumeratorTypeID FROM TblMachines WHERE ID = ' + pMachine.ID
+        strSQL = 'SELECT DefaultWareHouse, DefaultWareHouseLocation, DefaultWareHouseLocationID, ActivePalletNumeratorTypeID FROM TblMachines WHERE ID = ' + str(pMachine.ID)
         Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
         Rst.ActiveConnection = None
         if Rst.RecordCount == 1:
-            tWareHouseID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.Rst.Fields("DefaultWareHouse").Value)
-            tWareHouseLocation = MdlADOFunctions.fGetRstValString(Rst.Fields("DefaultWareHouseLocation").Value)
-            tWareHouseLocationID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.Rst.Fields("DefaultWareHouseLocationID").Value)
-            tNumeratorTypeID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.Rst.Fields("ActivePalletNumeratorTypeID").Value)
-        Rst.Close()
+            tWareHouseID = MdlADOFunctions.fGetRstValLong(RstData.DefaultWareHouse)
+            tWareHouseLocation = MdlADOFunctions.fGetRstValString(RstData.DefaultWareHouseLocation)
+            tWareHouseLocationID = MdlADOFunctions.fGetRstValLong(RstData.DefaultWareHouseLocationID)
+            tNumeratorTypeID = MdlADOFunctions.fGetRstValLong(RstData.ActivePalletNumeratorTypeID)
+        RstCursor.close()
         
         tUserID = 0
         if not pMachine.ActiveJob is None:
@@ -716,10 +711,10 @@ def UpdatePalletInventoryItem(InventoryID, pMachine):
             
             pass
         
-        tNumerator = RaiseLabelNumerator(0, tActiveJobID, VBGetMissingArgument(RaiseLabelNumerator, 2), tNumeratorTypeID)
+        tNumerator = MdlRTLabels.RaiseLabelNumerator(0, tActiveJobID, 1, tNumeratorTypeID)
         
         tInventoryBatchOption = pMachine.Server.SystemVariables.InventoryBatchOption
-        tBatch = CreateBatchFormat(tInventoryBatchOption, tActiveJobID, tActiveJoshID, tNumerator, True, 3)
+        tBatch = CreateBatchdatetime.strptime(tInventoryBatchOption, tActiveJobID, tActiveJoshID, tNumerator, True, 3)
         
         strSQL = 'UPDATE TblInventory SET'
         
@@ -732,8 +727,8 @@ def UpdatePalletInventoryItem(InventoryID, pMachine):
         strSQL = strSQL + ',EffectiveAmount = 0'
         strSQL = strSQL + ',EffectiveOriginalAmount = 0'
         strSQL = strSQL + ',LastEffectiveAmount = 0'
-        strSQL = strSQL + ',Date = \'' + Format(NowGMT(), 'yyyy-mm-dd HH:nn:ss') + '\''
-        strSQL = strSQL + ',LastUpdate = \'' + Format(NowGMT(), 'yyyy-mm-dd HH:nn:ss') + '\''
+        strSQL = strSQL + ',Date = \'' + datetime.strptime(mdl_Common.NowGMT(), 'yyyy-mm-dd HH:nn:ss') + '\''
+        strSQL = strSQL + ',LastUpdate = \'' + datetime.strptime(mdl_Common.NowGMT(), 'yyyy-mm-dd HH:nn:ss') + '\''
         strSQL = strSQL + ',Status = 1'
         
         strSQL = strSQL + ',WareHouseLocation = \'' + tWareHouseLocation + '\''
@@ -741,12 +736,12 @@ def UpdatePalletInventoryItem(InventoryID, pMachine):
         strSQL = strSQL + ',JobID = ' + tActiveJobID
         strSQL = strSQL + ',JoshID = ' + tActiveJoshID
         strSQL = strSQL + 'WHERE InventoryID = ' + InventoryID
-        CN.Execute(strSQL)
+        MdlConnection.CN.execute(strSQL)
         tActivePalletInventoryID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('ID', 'TblInventory', 'PackageTypeID = 3 AND UserID = ' + tUserID + ' ORDER BY ID DESC', 'CN'))
     else:
         tActivePalletInventoryID = InventoryID
-    strSQL = 'UPDATE TblMachines SET ActivePalletInventoryID = ' + tActivePalletInventoryID + ' WHERE ID = ' + pMachine.ID
-    CN.Execute(strSQL)
+    strSQL = 'UPDATE TblMachines SET ActivePalletInventoryID = ' + tActivePalletInventoryID + ' WHERE ID = ' + str(pMachine.ID)
+    MdlConnection.CN.execute(strSQL)
     pMachine.ActivePalletInventoryID = tActivePalletInventoryID
     
     AddInventoryHistoryRecord(tActivePalletInventoryID, 12)
@@ -761,10 +756,10 @@ def UpdatePalletInventoryItem(InventoryID, pMachine):
             MetaCn.Open()
             Err.Clear()
             
-        MdlGlobal.RecordError('UpdatePalletInventoryItem', str(0), error.args[0], 'MachineID = ' + pMachine.ID)
+        MdlGlobal.RecordError('UpdatePalletInventoryItem', str(0), error.args[0], 'MachineID = ' + str(pMachine.ID))
         Err.Clear()
     if Rst.State != 0:
-        Rst.Close()
+        RstCursor.close()
     Rst = None
     return returnVal
 
@@ -810,12 +805,12 @@ def AddInventoryItemToLocationQueue(InventoryID, LocationID, pAddAsActiveBatch=F
         Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
         Rst.ActiveConnection = None
         if Rst.RecordCount == 1:
-            if MdlADOFunctions.fGetRstValLong(MdlADOFunctions.Rst.Fields("CountID").Value) == 0:
+            if MdlADOFunctions.fGetRstValLong(RstData.CountID) == 0:
                 ActiveBatch = True
-            MinSequence = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.Rst.Fields("MinSeq").Value)
-            MaxSequence = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.Rst.Fields("MaxSeq").Value)
-            tTotalItemsInQueue = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.Rst.Fields("CountID").Value)
-        Rst.Close()
+            MinSequence = MdlADOFunctions.fGetRstValLong(RstData.MinSeq)
+            MaxSequence = MdlADOFunctions.fGetRstValLong(RstData.MaxSeq)
+            tTotalItemsInQueue = MdlADOFunctions.fGetRstValLong(RstData.CountID)
+        RstCursor.close()
         tMaximumItemsOnQueue = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue('MaximumItemsOnQueue', 'TblWareHouseLocations', 'ID = ' + LocationID))
         if not pAddAsActiveBatch and not pAddAsFirstInQueue and tMaximumItemsOnQueue > 0:
             if tTotalItemsInQueue > tMaximumItemsOnQueue:
@@ -867,7 +862,7 @@ def AddInventoryItemToLocationQueue(InventoryID, LocationID, pAddAsActiveBatch=F
     tRecordsChanged = None
     tRecordsDeleted = None
     if Rst.State != 0:
-        Rst.Close()
+        RstCursor.close()
     Rst = None
     return returnVal
 
@@ -972,9 +967,9 @@ def CheckIfInventoryItemIsOnLocation(pInventoryID, pLocationID, pPerformInventor
     Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
     Rst.ActiveConnection = None
     if Rst.RecordCount == 1:
-        tItemWareHouseID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.Rst.Fields("WareHouseID").Value)
-        tItemLocationID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.Rst.Fields("WareHouseLocationID").Value)
-    Rst.Close()
+        tItemWareHouseID = MdlADOFunctions.fGetRstValLong(RstData.WareHouseID)
+        tItemLocationID = MdlADOFunctions.fGetRstValLong(RstData.WareHouseLocationID)
+    RstCursor.close()
     if not ( tItemWareHouseID == tLocationWareHouseID and tItemLocationID == pLocationID ) :
         if not pPerformInventoryTransfer:
             returnVal = False
@@ -1013,10 +1008,10 @@ def fTransferInventoryItem(InventoryID, TargetWareHouseID, TargetWareHouseLocati
             RstBatchs.MoveNext()
         RstBatchs.Close()
         strSQL = 'UPDATE TblInventory SET WareHouseID = ' + TargetWareHouseID + ' , WareHouseLocation = \'' + TargetWareHouseLocation + '\', WareHouseLocationID = ' + TargetLocationID + ' WHERE ID = ' + InventoryID
-        CN.Execute(strSQL)
+        MdlConnection.CN.execute(strSQL)
         AddInventoryHistoryRecord(InventoryID, 3, SourceWareHouseID, TargetWareHouseLocation, SourceLocationID)
         strSQL = 'DELETE FROM TblWareHouseLocationQueue WHERE LocationID <> ' + TargetLocationID + ' AND InventoryID = ' + InventoryID
-        CN.Execute(strSQL)
+        MdlConnection.CN.execute(strSQL)
     else:
         Err.Raise(1)
     returnVal = True
@@ -1064,12 +1059,12 @@ def fCheckWareHouseValidation(ActionID, WareHouseID=0, IVID=0, LocationID=0):
     vRst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
     vRst.ActiveConnection = None
     while not vRst.EOF:
-        ObjectTableName = MdlADOFunctions.fGetRstValString(GetSingleValue('TableName', 'STblWareHouseValidationObjects', 'ID = ' + vRst.Fields("ObjectTypeID").Value, 'CN'))
-        ComparerTypeChar = MdlADOFunctions.fGetRstValString(GetSingleValue('CompSign', 'STblComparerTypes', 'ID = ' + vRst.Fields("ComparerTypeID").Value, 'CN'))
+        ObjectTableName = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('TableName', 'STblWareHouseValidationObjects', 'ID = ' + vRst.Fields("ObjectTypeID").Value, 'CN'))
+        ComparerTypeChar = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('CompSign', 'STblComparerTypes', 'ID = ' + vRst.Fields("ComparerTypeID").Value, 'CN'))
         FieldName = MdlADOFunctions.fGetRstValString(vRst.Fields("FieldName").Value)
         ConstantValue = MdlADOFunctions.fGetRstValString(vRst.Fields("RefConstantValue").Value)
         if ConstantValue == '':
-            RefObjectTableName = MdlADOFunctions.fGetRstValString(GetSingleValue('TableName', 'STblWareHouseValidationObjects', 'ID = ' + vRst.Fields("RefObjectTypeID").Value, 'CN'))
+            RefObjectTableName = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue('TableName', 'STblWareHouseValidationObjects', 'ID = ' + vRst.Fields("RefObjectTypeID").Value, 'CN'))
             RefFieldName = MdlADOFunctions.fGetRstValString(vRst.Fields("RefFieldName").Value)
             if (RefObjectTableName == 'TblJob'):
                 ObjectField = 'JobID'
@@ -1080,7 +1075,7 @@ def fCheckWareHouseValidation(ActionID, WareHouseID=0, IVID=0, LocationID=0):
             else:
                 ObjectField = 'ID'
             ObjectID = MdlADOFunctions.fGetRstValLong(MdlADOFunctions.GetSingleValue(ObjectField, 'TblInventory', 'ID = ' + IVID, 'CN'))
-            ConstantValue = MdlADOFunctions.fGetRstValString(GetSingleValue(RefFieldName, RefObjectTableName, 'ID = ' + ObjectID, 'CN'))
+            ConstantValue = MdlADOFunctions.fGetRstValString(MdlADOFunctions.GetSingleValue(RefFieldName, RefObjectTableName, 'ID = ' + ObjectID, 'CN'))
         
         if ( FieldName == 'Status' and CheckStatus == True )  or  ( FieldName != 'Status' ) :
             if ( ObjectTableName != '' )  and  ( ComparerTypeChar != '' )  and  ( FieldName != '' ) :
@@ -1127,12 +1122,12 @@ def InsertOrUpdateInventoryItemToLocationQueue(pUserID, pLocationID, pInventoryI
     Rst.ActiveConnection = None
     if Rst.RecordCount == 0:
         tInsertRecord = True
-    Rst.Close()
+    RstCursor.close()
     if tInsertRecord:
         strSQL = 'INSERT INTO TblWareHouseLocationQueue ' + '(LastUpdateUserID, LocationID, InventoryID, Sequence) ' + 'VALUES (' + pUserID + ', ' + pLocationID + ', ' + pInventoryID + ', ' + pSequence + ')'
     else:
         strSQL = 'UPDATE TblWareHouseLocationQueue ' + 'SET Sequence = ' + pSequence + ' ' + 'WHERE LocationID = ' + pLocationID + ' AND InventoryID = ' + pInventoryID
-    CN.Execute(strSQL)
+    MdlConnection.CN.execute(strSQL)
     if Err.Number != 0:
         if InStr(Err.Description, 'nnection') > 0:
             if CN.State == 1:
@@ -1155,21 +1150,21 @@ def ReOrderInventoryItemsOnWareHouseLocation(LocationID):
     strSQL = strSQL + ' WHERE Batch IN (SELECT DISTINCT MaterialBatch FROM TblJoshMaterial WHERE MaterialBatch <> \'\' AND JoshEnd <> \'\') AND LocationID = ' + LocationID
     Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
     Rst.ActiveConnection = None
-    if Rst.RecordCount != 0:
-        strSQL = 'UPDATE TblWareHouseLocationQueue SET Sequence = 1 WHERE ID = ' + Rst.Fields("ID").Value
-        CN.Execute(strSQL)
-        strSQL = 'UPDATE TblWareHouseLocationQueue SET Sequence = 2 WHERE Sequence IN(0,1) AND LocationID = ' + LocationID + ' AND ID <> ' + Rst.Fields("ID").Value
-        CN.Execute(strSQL)
-    Rst.Close()
+    if RstData:
+        strSQL = 'UPDATE TblWareHouseLocationQueue SET Sequence = 1 WHERE ID = ' + RstData.ID
+        MdlConnection.CN.execute(strSQL)
+        strSQL = 'UPDATE TblWareHouseLocationQueue SET Sequence = 2 WHERE Sequence IN(0,1) AND LocationID = ' + LocationID + ' AND ID <> ' + RstData.ID
+        MdlConnection.CN.execute(strSQL)
+    RstCursor.close()
     strSQL = 'SELECT ID FROM TblWareHouseLocationQueue WHERE LocationID = ' + LocationID + ' ORDER BY Sequence, ID DESC'
     Rst.Open(strSQL, CN, adOpenStatic, adLockReadOnly)
     Rst.ActiveConnection = None
     while not Rst.EOF:
         ItemsCount = ItemsCount + 1
-        strSQL = 'UPDATE TblWareHouseLocationQueue SET Sequence = ' + ItemsCount + ' WHERE ID = ' + Rst.Fields("ID").Value
-        CN.Execute(strSQL)
+        strSQL = 'UPDATE TblWareHouseLocationQueue SET Sequence = ' + ItemsCount + ' WHERE ID = ' + RstData.ID
+        MdlConnection.CN.execute(strSQL)
         Rst.MoveNext()
-    Rst.Close()
+    RstCursor.close()
     returnVal = True
     if Err.Number != 0:
         if InStr(Err.Description, 'nnection') > 0:
@@ -1183,7 +1178,7 @@ def ReOrderInventoryItemsOnWareHouseLocation(LocationID):
             
         Err.Clear()
     if Rst.State != 0:
-        Rst.Close()
+        RstCursor.close()
     Rst = None
     return returnVal
 

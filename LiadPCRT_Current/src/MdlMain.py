@@ -1,12 +1,12 @@
 # import sys
-import GlobalVariables
+from ServerConn import ServerConn
+from colorama import Fore
 
+import GlobalVariables
+import MdlGlobal
 import MdlADOFunctions
 import mdl_Common
 import registry
-
-from ServerConn import ServerConn
-from colorama import Fore
 
 gServerConn = None
 # LeaderSVR = None # Kept in GlobalVaraibles.py 
@@ -51,26 +51,27 @@ def Main():
     print(Fore.GREEN + 'Starting server.')
     ServerStarted = gServerConn.StartServerConn(ArrAppParams, strSchCN)
     GlobalVariables.LeaderSVR = gServerConn.Server
-#     strInterval = QueryValue('SOFTWARE\\Emerald', 'UpdateRate')
-#     if strInterval.isnumeric():
-#         tmpInterval = strInterval
-#         if int(strInterval) < 0:
-#             tmpInterval = cntBaseInterval
-#         if int(strInterval) > 600000:
-#             tmpInterval = 600000
-#     else:
-#         tmpInterval = cntBaseInterval
-#     ReadTimerInterval = tmpInterval
-#     SetKeyValue('SOFTWARE\\Emerald', 'UpdateRate', CStr(ReadTimerInterval), REG_SZ)
-#     LastResetTime = NowGMT
-#     ResetTime = QueryValue('SOFTWARE\\Emerald', 'ResetTime')
-#     if IsDate(ResetTime):
-#         globalResetTime = ResetTime
-#     else:
-#         globalResetTime = '05:00'
-#         SetKeyValue('SOFTWARE\\Emerald', 'ResetTime', CStr(globalResetTime), REG_SZ)
-#     LeaderSVR.GeneralUpdateRateSet[0] = ReadTimerInterval
-#     fConStrings(strCon, strMetaCon, strSchCN, ArrAppParams)
+    strInterval = mdl_Common.QueryValue('Emerald', 'UpdateRate')
+    if GlobalVariables.IsNumeric(strInterval):
+        tmpInterval = strInterval
+        if int(strInterval) < 0:
+            tmpInterval = MdlGlobal.cntBaseInterval
+        if int(strInterval) > 600000:
+            tmpInterval = 600000
+    else:
+        tmpInterval = MdlGlobal.cntBaseInterval
+    ReadTimerInterval = tmpInterval
+    # mdl_Common.SetKeyValue('SOFTWARE\\Emerald', 'UpdateRate', str(ReadTimerInterval), REG_SZ)
+    LastResetTime =  mdl_Common.NowGMT()
+    ResetTime = mdl_Common.QueryValue('Emerald', 'ResetTime')
+    if GlobalVariables.IsDate(ResetTime):
+        globalResetTime = ResetTime
+    else:
+        globalResetTime = '05:00'
+        # mdl_Common.SetKeyValue('SOFTWARE\\Emerald', 'ResetTime', str(globalResetTime), REG_SZ)
+    GlobalVariables.LeaderSVR.GeneralUpdateRateSet[0] = ReadTimerInterval
+    fConStrings(strCon, strMetaCon, strSchCN, ArrAppParams)
+
 #     AddIcon
 #     if len(ArrAppParams) >= 0:
 #         frmMain.Caption = 'LeaderRT: ' + ArrAppParams(0) + ' - Shift Calendar: ' + fGetRstValString(GetSingleValue('LName', 'STblShiftCalendar', 'ID = ' + ArrAppParams(5), 'CN'))
@@ -109,13 +110,13 @@ def Main():
 #     fn_return_value = True
 #     return fn_return_value
 
-# def fConStrings(strCon, strMetaCon, strSChCon, Arr):
-    
-#     if not GetConnectionStrings(strCon, strMetaCon, strSChCon, Arr):
-#         Err.Raise(1)
-    
-    
-#     return fn_return_value
+def fConStrings(strCon, strMetaCon, strSChCon, Arr):
+    try:    
+        if not mdl_Common.GetConnectionStrings(strCon, strMetaCon, strSChCon, Arr):
+            raise Exception('Cannot get connection strings in fConStrings()')
+        
+    except BaseException as error:
+        pass
 
 
 Main()
